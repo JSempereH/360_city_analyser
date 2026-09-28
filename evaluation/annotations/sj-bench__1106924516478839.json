@@ -1,0 +1,427 @@
+{
+  "dataset": "sj-bench",
+  "image": "1106924516478839",
+  "views": [
+    {
+      "yaw": 0,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 90,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 180,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 270,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 0,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 90,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 180,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 270,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    }
+  ],
+  "buildings": [
+    {
+      "building": "beige_ornate",
+      "view": 0,
+      "box": [
+        0,
+        0,
+        120,
+        450
+      ]
+    },
+    {
+      "building": "white_tall_far",
+      "view": 0,
+      "box": [
+        85,
+        20,
+        195,
+        440
+      ],
+      "points": [
+        [
+          150,
+          250,
+          1
+        ]
+      ]
+    },
+    {
+      "building": "dark_low_far",
+      "view": 0,
+      "box": [
+        255,
+        380,
+        322,
+        482
+      ]
+    },
+    {
+      "building": "light_grey_mid",
+      "view": 0,
+      "box": [
+        318,
+        360,
+        378,
+        500
+      ]
+    },
+    {
+      "building": "dark_slats",
+      "view": 0,
+      "box": [
+        365,
+        255,
+        768,
+        565
+      ]
+    },
+    {
+      "building": "dark_slats",
+      "view": 1,
+      "box": [
+        0,
+        265,
+        330,
+        560
+      ],
+      "points": [
+        [
+          200,
+          580,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "tower_univ2",
+      "view": 1,
+      "box": [
+        330,
+        5,
+        690,
+        510
+      ]
+    },
+    {
+      "building": "right_low_far",
+      "view": 1,
+      "box": [
+        680,
+        360,
+        768,
+        500
+      ]
+    },
+    {
+      "building": "tower_univ2",
+      "view": 2,
+      "box": [
+        0,
+        0,
+        55,
+        445
+      ]
+    },
+    {
+      "building": "blue_far",
+      "view": 2,
+      "box": [
+        180,
+        215,
+        265,
+        420
+      ]
+    },
+    {
+      "building": "coocique_far",
+      "view": 2,
+      "box": [
+        250,
+        210,
+        455,
+        450
+      ]
+    },
+    {
+      "building": "beige_ornate",
+      "view": 2,
+      "box": [
+        448,
+        0,
+        768,
+        330
+      ],
+      "points": [
+        [
+          620,
+          380,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "beige_ornate",
+      "view": 3,
+      "box": [
+        0,
+        0,
+        730,
+        470
+      ],
+      "points": [
+        [
+          130,
+          330,
+          0
+        ],
+        [
+          300,
+          420,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "white_tall_far",
+      "view": 3,
+      "box": [
+        640,
+        20,
+        768,
+        440
+      ]
+    },
+    {
+      "building": "beige_ornate",
+      "view": 4,
+      "box": [
+        0,
+        0,
+        190,
+        560
+      ]
+    },
+    {
+      "building": "white_tall_far",
+      "view": 4,
+      "box": [
+        150,
+        340,
+        232,
+        600
+      ]
+    },
+    {
+      "building": "dark_slats",
+      "view": 4,
+      "box": [
+        370,
+        490,
+        768,
+        768
+      ]
+    },
+    {
+      "building": "dark_slats",
+      "view": 5,
+      "box": [
+        0,
+        495,
+        317,
+        768
+      ]
+    },
+    {
+      "building": "tower_univ2",
+      "view": 5,
+      "box": [
+        315,
+        330,
+        768,
+        768
+      ],
+      "points": [
+        [
+          500,
+          500,
+          1
+        ]
+      ]
+    },
+    {
+      "building": "tower_univ2",
+      "view": 6,
+      "box": [
+        0,
+        130,
+        180,
+        520
+      ]
+    },
+    {
+      "building": "blue_far",
+      "view": 6,
+      "box": [
+        130,
+        460,
+        245,
+        740
+      ]
+    },
+    {
+      "building": "coocique_far",
+      "view": 6,
+      "box": [
+        240,
+        442,
+        470,
+        768
+      ]
+    },
+    {
+      "building": "beige_ornate",
+      "view": 6,
+      "box": [
+        430,
+        0,
+        768,
+        560
+      ],
+      "points": [
+        [
+          620,
+          650,
+          0
+        ],
+        [
+          600,
+          300,
+          1
+        ]
+      ]
+    },
+    {
+      "building": "beige_ornate",
+      "view": 7,
+      "box": [
+        0,
+        180,
+        768,
+        768
+      ],
+      "points": [
+        [
+          100,
+          550,
+          0
+        ],
+        [
+          250,
+          500,
+          0
+        ],
+        [
+          300,
+          100,
+          0
+        ],
+        [
+          500,
+          450,
+          1
+        ]
+      ]
+    },
+    {
+      "building": "white_tall_far",
+      "view": 7,
+      "box": [
+        542,
+        332,
+        768,
+        562
+      ]
+    }
+  ],
+  "ignore": [
+    {
+      "view": 0,
+      "box": [
+        150,
+        360,
+        260,
+        450
+      ]
+    },
+    {
+      "view": 2,
+      "box": [
+        60,
+        355,
+        190,
+        460
+      ]
+    },
+    {
+      "view": 3,
+      "box": [
+        720,
+        300,
+        768,
+        450
+      ]
+    },
+    {
+      "view": 4,
+      "box": [
+        60,
+        620,
+        380,
+        768
+      ]
+    },
+    {
+      "view": 5,
+      "box": [
+        700,
+        300,
+        768,
+        440
+      ]
+    }
+  ]
+}

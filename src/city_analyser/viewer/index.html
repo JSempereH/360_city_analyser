@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>360 City Analyser</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Dataset navigation">
+        <div class="brand">
+          <p class="eyebrow">LOCAL LIBRARY</p>
+          <h1>360 City Analyser</h1>
+          <label class="dataset-picker" for="dataset-select">
+            <span>Downloaded dataset</span>
+            <select id="dataset-select" disabled>
+              <option>Loading datasets...</option>
+            </select>
+          </label>
+           <p id="dataset-summary" class="muted">Reading local library</p>
+           <button id="delete-dataset-button" class="delete-dataset-button" type="button" disabled>Delete dataset</button>
+        </div>
+
+        <div class="sequence-controls">
+          <button id="previous-button" class="nav-button" type="button" aria-label="Previous panorama">Previous</button>
+          <span id="sequence-position" aria-live="polite">0 / 0</span>
+          <button id="next-button" class="nav-button" type="button" aria-label="Next panorama">Next</button>
+        </div>
+
+        <ol id="image-list" class="image-list" aria-label="Panoramas in chronological order"></ol>
+
+        <div class="sidebar-footer">
+          <p><kbd>←</kbd> <kbd>→</kbd> browse</p>
+          <p><kbd>R</kbd> reset view</p>
+          <p>Drag to look around. Scroll to zoom.</p>
+        </div>
+      </aside>
+
+      <section class="viewer-panel" aria-label="360 degree panorama">
+        <header class="viewer-header">
+          <p id="status" role="status">Preparing viewer...</p>
+          <div class="viewer-actions">
+            <button id="search-mapillary-button" type="button">Search Mapillary</button>
+            <button id="analyze-buildings-button" type="button" disabled>Analyze buildings</button>
+            <details class="advanced-actions">
+              <summary>Advanced</summary>
+              <div class="advanced-actions-menu">
+                <button id="refine-nearby-poses-button" type="button" disabled>Build sparse depth (SfM)</button>
+                <small>Optional depth validation. Map and navigation positions always use Mapillary GPS.</small>
+              </div>
+            </details>
+            <button id="generate-report-button" type="button" disabled>Generate report</button>
+            <button id="mask-toggle-button" type="button" disabled>Hide overlay</button>
+            <button id="map-toggle-button" class="map-toggle-button" type="button" aria-controls="map-panel" aria-expanded="true" aria-label="Hide map" title="Hide map">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 2a10 10 0 1 0 10 10" />
+                <path d="M12 6a6 6 0 1 0 6 6" />
+                <path d="M12 10a2 2 0 1 0 2 2" />
+                <path d="M14 12h8" />
+              </svg>
+            </button>
+            <button id="reset-button" type="button">Reset view</button>
+          </div>
+        </header>
+
+           <div id="canvas-wrap" class="canvas-wrap">
+             <canvas id="panorama-canvas" aria-label="Interactive panorama"></canvas>
+             <nav id="scene-navigation" class="scene-navigation" aria-label="Nearby panoramas" hidden></nav>
+             <section id="map-panel" class="location-map" aria-label="Location mini-map">
+               <header id="map-drag-handle" class="map-panel-header">
+                  <strong>Map and captures</strong>
+                 <div class="map-panel-actions">
+                    <button id="map-detach-button" type="button">Detach</button>
+                    <button id="map-popout-button" type="button">Open window</button>
+                 </div>
+               </header>
+              <p id="map-message" class="map-message">Loading location...</p>
+              <p id="map-direction" class="map-direction" hidden></p>
+              <div id="location-map-canvas" aria-label="OpenStreetMap map of the panorama location"></div>
+                <p class="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a></p>
+            </section>
+            <div id="loading" class="loading">Loading panorama...</div>
+             <div id="building-status" class="building-status" role="status" aria-live="polite" hidden></div>
+           <div id="error" class="error" hidden></div>
+          </div>
+
+         <footer id="metadata" class="metadata" hidden>
+          <div>
+            <span class="label">Capture</span>
+            <strong id="captured-at">-</strong>
+          </div>
+          <div>
+            <span class="label">Camera</span>
+            <strong id="coordinates">-</strong>
+          </div>
+          <div>
+            <span class="label">Recorded heading</span>
+            <strong id="heading">-</strong>
+          </div>
+          <div>
+            <span class="label">Author</span>
+            <strong id="creator">-</strong>
+          </div>
+          <a id="source-link" target="_blank" rel="noreferrer">View source</a>
+        </footer>
+      </section>
+    </main>
+    <dialog id="mapillary-dialog" class="mapillary-dialog" aria-labelledby="mapillary-dialog-title">
+      <header>
+        <div>
+          <p class="eyebrow">COVERAGE EXPLORER</p>
+          <h2 id="mapillary-dialog-title">Search Mapillary panoramas</h2>
+        </div>
+        <button id="close-mapillary-dialog-button" class="dialog-close" type="button" aria-label="Close search">Close</button>
+      </header>
+        <div class="dialog-instructions">
+          <span>Pan and zoom to any location, then draw an urban area to search for 360 panoramas.</span>
+          <div class="aoi-controls">
+            <button id="mapillary-draw-aoi-button" type="button" aria-pressed="false">Draw AOI</button>
+            <button id="mapillary-clear-aoi-button" type="button" disabled>Clear area</button>
+          </div>
+        </div>
+       <div id="mapillary-aoi-map" aria-label="Map for selecting an area of interest"></div>
+       <section id="mapillary-results" class="mapillary-results" hidden>
+         <header>
+            <strong>Panoramas found</strong>
+            <button id="mapillary-select-all-button" type="button" disabled>Select displayed</button>
+         </header>
+         <ol id="mapillary-result-list" class="mapillary-result-list"></ol>
+       </section>
+       <div class="dialog-footer">
+          <p id="mapillary-search-status" role="status">Draw an AOI to begin.</p>
+         <div class="mapillary-actions">
+            <label>Dataset name <input id="mapillary-dataset-name" value="mapillary-sample" maxlength="80" /></label>
+             <label>Resolution <select id="mapillary-image-size"><option value="auto" selected>Best available</option><option value="256">256 px</option><option value="1024">1024 px</option><option value="2048">2048 px</option><option value="original">Original</option></select></label>
+            <button id="mapillary-search-button" type="button" disabled>Search panoramas</button>
+             <button id="mapillary-download-button" type="button" disabled>Download selected</button>
+             <button id="mapillary-download-all-button" type="button" disabled>Download every AOI match</button>
+         </div>
+       </div>
+      <p class="map-attribution">Coverage and images: © <a href="https://www.mapillary.com/" target="_blank" rel="noreferrer">Mapillary</a> contributors.</p>
+    </dialog>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

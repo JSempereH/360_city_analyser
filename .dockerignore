@@ -1,0 +1,9 @@
+.git
+.venv
+.env
+data
+models
+__pycache__
+tests
+src/city_analyser/viewer
+evaluation

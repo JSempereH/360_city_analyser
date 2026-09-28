@@ -1,0 +1,69 @@
+[project]
+name = "360-city-analyser"
+version = "0.1.0"
+description = "Local and remote 360 panorama building analysis"
+readme = "README.md"
+license = "EUPL-1.2"
+license-files = ["LICENSE"]
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "huggingface-hub>=0.23",
+  "numpy>=1.26",
+  "pillow>=10.0",
+  "pyproj>=3.7",
+  "pycolmap>=3.11",
+  # Mask2Former builds its training loss at load time, which imports SciPy.
+  "scipy>=1.11",
+  "shapely>=2.1",
+  "transformers>=4.39",
+]
+
+[project.optional-dependencies]
+# Pick exactly one: `uv sync --extra cpu` or `uv sync --extra cu126`.
+cpu = ["torch>=2.2", "torchvision>=0.17"]
+cu126 = ["torch>=2.2", "torchvision>=0.17"]
+# Optional fast instance detector (YOLOE / YOLO-World). AGPL-3.0: opting in
+# brings its obligations to deployments that use it.
+# YOLOE text prompts tokenize with the CLIP package from the Ultralytics fork.
+yolo = ["ultralytics>=8.4", "clip @ git+https://github.com/ultralytics/CLIP.git"]
+
+[project.scripts]
+city-analyser-viewer = "city_analyser.local_viewer:main"
+city-analyser-download = "city_analyser.mapillary_street_download:main"
+city-analyser-models = "city_analyser.download_models:main"
+city-analyser-worker = "city_analyser.remote_analysis_worker:main"
+city-analyser-benchmark = "city_analyser.benchmark_models:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/city_analyser"]
+
+# The optional `yolo` extra pins CLIP to a Git URL.
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu126" }]]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu126", extra = "cu126" },
+]
+torchvision = [
+  { index = "pytorch-cpu", extra = "cpu" },
+  { index = "pytorch-cu126", extra = "cu126" },
+]

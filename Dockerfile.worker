@@ -1,0 +1,27 @@
+# GPU building-analysis worker for a local NVIDIA box or a cloud GPU VM.
+#   docker build -f Dockerfile.worker -t 360-city-analyser-worker .
+#   docker run --gpus all -p 8766:8766 -v "$PWD/models:/models" \
+#     -e BUILDING_ANALYSIS_REMOTE_TOKEN=... -e BUILDING_ANALYSIS_MODEL=high 360-city-analyser-worker
+# Pre-download weights into ./models (city-analyser-models) or let the first
+# start fetch them into the mounted volume. The PyTorch cu126 wheels bundle the
+# CUDA runtime; the host only needs the NVIDIA driver and container toolkit.
+FROM ubuntu:24.04
+
+COPY --from=ghcr.io/astral-sh/uv:0.7.2 /uv /usr/local/bin/uv
+ENV UV_LINK_MODE=copy \
+    UV_PYTHON_INSTALL_DIR=/opt/python \
+    UV_COMPILE_BYTECODE=1 \
+    PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --extra cu126 --no-install-project
+COPY README.md LICENSE ./
+COPY src ./src
+RUN uv sync --locked --extra cu126 --no-editable
+
+EXPOSE 8766
+HEALTHCHECK --interval=30s --timeout=5s --start-period=300s CMD /app/.venv/bin/python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8766/api/health')" || exit 1
+ENTRYPOINT ["uv", "run", "--no-sync", "city-analyser-worker", "--host", "0.0.0.0", "--model-root", "/models", "--preload"]

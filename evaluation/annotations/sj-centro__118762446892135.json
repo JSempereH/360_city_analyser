@@ -1,0 +1,304 @@
+{
+  "dataset": "sj-centro",
+  "image": "118762446892135",
+  "views": [
+    {
+      "yaw": 0,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 90,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 180,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 270,
+      "pitch": 10,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 0,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 90,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 180,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    },
+    {
+      "yaw": 270,
+      "pitch": 50,
+      "fov": 100,
+      "size": 768
+    }
+  ],
+  "buildings": [
+    {
+      "building": "ibiza_white",
+      "view": 0,
+      "box": [
+        0,
+        0,
+        135,
+        440
+      ]
+    },
+    {
+      "building": "koaj_white",
+      "view": 0,
+      "box": [
+        130,
+        0,
+        310,
+        410
+      ]
+    },
+    {
+      "building": "right_shops",
+      "view": 0,
+      "box": [
+        400,
+        60,
+        768,
+        610
+      ],
+      "points": [
+        [
+          580,
+          500,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "right_shops",
+      "view": 1,
+      "box": [
+        0,
+        0,
+        768,
+        740
+      ],
+      "points": [
+        [
+          300,
+          700,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "right_shops",
+      "view": 2,
+      "box": [
+        0,
+        0,
+        250,
+        560
+      ],
+      "points": [
+        [
+          180,
+          700,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "white_far_v2",
+      "view": 2,
+      "box": [
+        220,
+        215,
+        380,
+        480
+      ]
+    },
+    {
+      "building": "old_far_right",
+      "view": 2,
+      "box": [
+        440,
+        330,
+        705,
+        500
+      ]
+    },
+    {
+      "building": "ibiza_white",
+      "view": 2,
+      "box": [
+        590,
+        0,
+        768,
+        470
+      ]
+    },
+    {
+      "building": "ibiza_white",
+      "view": 3,
+      "box": [
+        60,
+        0,
+        768,
+        470
+      ],
+      "points": [
+        [
+          450,
+          600,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "right_shops",
+      "view": 4,
+      "box": [
+        410,
+        0,
+        768,
+        768
+      ],
+      "points": [
+        [
+          430,
+          700,
+          0
+        ]
+      ]
+    },
+    {
+      "building": "right_shops",
+      "view": 5,
+      "box": [
+        0,
+        180,
+        768,
+        768
+      ],
+      "points": [
+        [
+          300,
+          120,
+          0
+        ],
+        [
+          400,
+          600,
+          1
+        ]
+      ]
+    },
+    {
+      "building": "right_shops",
+      "view": 6,
+      "box": [
+        0,
+        0,
+        245,
+        768
+      ]
+    },
+    {
+      "building": "white_far_v2",
+      "view": 6,
+      "box": [
+        180,
+        470,
+        375,
+        768
+      ]
+    },
+    {
+      "building": "old_far_right",
+      "view": 6,
+      "box": [
+        460,
+        580,
+        768,
+        768
+      ]
+    },
+    {
+      "building": "ibiza_white",
+      "view": 6,
+      "box": [
+        495,
+        0,
+        768,
+        690
+      ]
+    },
+    {
+      "building": "ibiza_white",
+      "view": 7,
+      "box": [
+        0,
+        230,
+        768,
+        768
+      ],
+      "points": [
+        [
+          300,
+          100,
+          0
+        ],
+        [
+          400,
+          400,
+          1
+        ]
+      ]
+    }
+  ],
+  "ignore": [
+    {
+      "view": 0,
+      "box": [
+        300,
+        300,
+        420,
+        400
+      ]
+    },
+    {
+      "view": 3,
+      "box": [
+        0,
+        300,
+        70,
+        470
+      ]
+    },
+    {
+      "view": 4,
+      "box": [
+        0,
+        0,
+        320,
+        620
+      ]
+    }
+  ]
+}
