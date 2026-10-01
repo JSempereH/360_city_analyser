@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .building_analysis import _load_segmentation_model, _require_ml_dependencies, _segment_buildings
+from .building_analysis import _load_analysis_panorama, _load_segmentation_model, _require_ml_dependencies, _segment_buildings
 from .download_models import MODEL_ALIASES
 
 
@@ -33,7 +33,7 @@ def benchmark_model(image_path: Path, model_root: Path, model_id: str) -> dict[s
     previous_model = os.environ.get("BUILDING_ANALYSIS_MODEL")
     os.environ["BUILDING_ANALYSIS_MODEL"] = model_id
     try:
-        _, _, _, device, resolved_model, resolved_revision = _segment_buildings(image_path, model_root, progress)
+        _, _, _, device, resolved_model, resolved_revision = _segment_buildings(_load_analysis_panorama(image_path), model_root, progress)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         finished = time.perf_counter()

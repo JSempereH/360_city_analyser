@@ -19,7 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
-from .panorama_geometry import panorama_to_tile_grid, perspective_tile
+from .panorama_geometry import panorama_to_tile_grid, perspective_tiles_torch
 
 
 DETECTOR_ID = "IDEA-Research/grounding-dino-tiny"
@@ -280,6 +280,72 @@ def _detect_grounding(
     return detections
 
 
+def _outline_boxes(
+    segmenter_processor: Any, segmenter: Any, tiles: list[Any], boxes_per_view: list[list[list[float]]], device: Any, autocast: Any,
+) -> dict[int, Any]:
+    """SAM 2 masks (bool, tile resolution, CPU) for each view's boxes.
+
+    The image encoder dominates SAM 2's cost, so views are encoded in batches
+    and only the light prompt decoder runs per view.
+    """
+    torch = importlib.import_module("torch")
+    views = [view for view, boxes in enumerate(boxes_per_view) if boxes]
+    batch_size = _detector_batch_size(device, max(len(views), 1))
+    masks = {}
+    for start in range(0, len(views), batch_size):
+        batch = views[start:start + batch_size]
+        encoded = segmenter_processor(images=[tiles[view] for view in batch], return_tensors="pt").to(device)
+        with torch.inference_mode(), autocast:
+            embeddings = segmenter.get_image_embeddings(encoded["pixel_values"])
+        for offset, view in enumerate(batch):
+            original_sizes = encoded["original_sizes"][offset:offset + 1]
+            prompt = segmenter_processor(original_sizes=original_sizes, input_boxes=[boxes_per_view[view]], return_tensors="pt").to(device)
+            with torch.inference_mode(), autocast:
+                predicted = segmenter(
+                    image_embeddings=[level[offset:offset + 1] for level in embeddings],
+                    input_boxes=prompt["input_boxes"], multimask_output=False,
+                )
+            masks[view] = segmenter_processor.post_process_masks(predicted.pred_masks.float().cpu(), original_sizes.cpu())[0][:, 0]
+    return masks
+
+
+def _merge_groups(masks: list[Any], views: list[int], visibility: list[Any]) -> list[list[int]]:
+    """Group masks of one building seen by neighboring views.
+
+    Masks are compared only where both views see the panorama, since each is
+    clipped by its tile, and only inside that shared region's bounding box.
+    """
+    union_find = _UnionFind(len(masks))
+    windows: dict[tuple[int, int], tuple[tuple[slice, slice], Any] | None] = {}
+    for first in range(len(masks)):
+        for second in range(first + 1, len(masks)):
+            if views[first] == views[second]:
+                continue
+            pair = (min(views[first], views[second]), max(views[first], views[second]))
+            if pair not in windows:
+                shared = visibility[pair[0]] & visibility[pair[1]]
+                rows, columns = shared.any(dim=1).nonzero().flatten(), shared.any(dim=0).nonzero().flatten()
+                if len(rows) == 0:
+                    windows[pair] = None
+                else:
+                    window = (slice(int(rows[0]), int(rows[-1]) + 1), slice(int(columns[0]), int(columns[-1]) + 1))
+                    windows[pair] = (window, shared[window])
+            if windows[pair] is None:
+                continue
+            window, shared = windows[pair]
+            first_part, second_part = masks[first][window] & shared, masks[second][window] & shared
+            first_size, second_size = int(first_part.sum()), int(second_part.sum())
+            if min(first_size, second_size) < MERGE_MINIMUM_OVERLAP_PIXELS:
+                continue
+            intersection = int((first_part & second_part).sum())
+            if intersection / (first_size + second_size - intersection) >= MERGE_OVERLAP_IOU:
+                union_find.union(first, second)
+    groups: dict[int, list[int]] = {}
+    for index in range(len(masks)):
+        groups.setdefault(union_find.find(index), []).append(index)
+    return list(groups.values())
+
+
 def segment_instances(
     panorama: Any, model_root: Path, device: Any, settings: InstanceSettings, progress: Callable[[str], None],
 ) -> tuple[Any, list[dict[str, Any]]]:
@@ -294,11 +360,11 @@ def segment_instances(
     pitch = math.radians(INSTANCE_PITCH_DEGREES)
     aspect = INSTANCE_TILE_HEIGHT / INSTANCE_TILE_SIZE
     Image = importlib.import_module("PIL.Image")
-    tiles = [
-        Image.fromarray(perspective_tile(panorama, yaw, pitch, INSTANCE_TILE_SIZE, settings.field_of_view_degrees, INSTANCE_TILE_HEIGHT)[0])
-        for yaw in yaws
-    ]
-    # Half precision on GPUs; CPUs keep float32 (no fast half kernels).
+    source = torch.from_numpy(panorama).to(device).permute(2, 0, 1)[None].float()
+    sampled_tiles = perspective_tiles_torch(
+        torch, source, [(yaw, pitch) for yaw in yaws], INSTANCE_TILE_SIZE, settings.field_of_view_degrees, INSTANCE_TILE_HEIGHT,
+    )
+    tiles = [Image.fromarray(tile.round().clamp(0, 255).byte().permute(1, 2, 0).cpu().numpy()) for tile in sampled_tiles]
     autocast = torch.autocast(device_type=device.type, dtype=torch.float16, enabled=device.type == "cuda")
 
     progress(f"Detecting buildings in {len(tiles)} views...")
@@ -307,53 +373,39 @@ def segment_instances(
     else:
         detections = _detect_grounding(detector_processor, detector, tiles, settings, device, aspect, autocast)
 
-    masks, scores, views = [], [], []
-    visibility = []
-    for view, (tile, yaw, detection) in enumerate(zip(tiles, yaws, detections)):
-        grid, visible = panorama_to_tile_grid(torch, width, height, yaw, pitch, settings.field_of_view_degrees, device, aspect)
-        visibility.append(visible)
-        boxes, box_scores = _without_group_boxes(detection["boxes"].tolist(), detection["scores"].tolist())
-        if not boxes:
-            continue
-        progress(f"Outlining {len(boxes)} buildings in view {view + 1}/{len(tiles)}...")
-        if settings.segmenter == DETECTOR_MASKS:
+    kept = [_without_group_boxes(detection["boxes"].tolist(), detection["scores"].tolist()) for detection in detections]
+    if settings.segmenter == DETECTOR_MASKS:
+        tile_masks_per_view = {}
+        for view, (detection, (boxes, _)) in enumerate(zip(detections, kept)):
+            if not boxes:
+                continue
             if "masks" not in detection:
                 raise RuntimeError(f"{settings.detector} returns no masks; choose a SAM 2 segmenter.")
-            kept = [index for index, box in enumerate(detection["boxes"].tolist()) if box in boxes]
-            tile_masks = detection["masks"][kept]
-        else:
-            prompt = segmenter_processor(images=tile, input_boxes=[boxes], return_tensors="pt").to(device)
-            with torch.inference_mode(), autocast:
-                predicted = segmenter(**prompt, multimask_output=False)
-            tile_masks = segmenter_processor.post_process_masks(predicted.pred_masks.float().cpu(), prompt["original_sizes"].cpu())[0][:, 0]
+            indices = [index for index, box in enumerate(detection["boxes"].tolist()) if box in boxes]
+            tile_masks_per_view[view] = detection["masks"][indices]
+    else:
+        progress(f"Outlining {sum(len(boxes) for boxes, _ in kept)} buildings in {len(tiles)} views...")
+        tile_masks_per_view = _outline_boxes(segmenter_processor, segmenter, tiles, [boxes for boxes, _ in kept], device, autocast)
+
+    masks, scores, views = [], [], []
+    visibility = []
+    for view, yaw in enumerate(yaws):
+        grid, visible = panorama_to_tile_grid(torch, width, height, yaw, pitch, settings.field_of_view_degrees, device, aspect)
+        visibility.append(visible)
+        if view not in tile_masks_per_view:
+            continue
+        tile_masks = tile_masks_per_view[view]
+        box_scores = kept[view][1]
         sampled = torch.nn.functional.grid_sample(
-            tile_masks[:, None].float().to(device), grid.expand(len(boxes), -1, -1, -1), mode="nearest", align_corners=False,
+            tile_masks[:, None].float().to(device), grid.expand(len(tile_masks), -1, -1, -1), mode="nearest", align_corners=False,
         )[:, 0] > 0.5
         for mask, score in zip(sampled & visible, box_scores):
             masks.append(mask)
             scores.append(float(score))
             views.append(view)
 
-    # Merge the same building seen by neighboring views: compare masks only
-    # where both views see the panorama, since each is clipped by its tile.
-    union_find = _UnionFind(len(masks))
-    for first in range(len(masks)):
-        for second in range(first + 1, len(masks)):
-            if views[first] == views[second]:
-                continue
-            shared = visibility[views[first]] & visibility[views[second]]
-            first_part, second_part = masks[first] & shared, masks[second] & shared
-            first_size, second_size = int(first_part.sum()), int(second_part.sum())
-            if min(first_size, second_size) < MERGE_MINIMUM_OVERLAP_PIXELS:
-                continue
-            intersection = int((first_part & second_part).sum())
-            if intersection / (first_size + second_size - intersection) >= MERGE_OVERLAP_IOU:
-                union_find.union(first, second)
-    groups: dict[int, list[int]] = {}
-    for index in range(len(masks)):
-        groups.setdefault(union_find.find(index), []).append(index)
     merged = []
-    for members in groups.values():
+    for members in _merge_groups(masks, views, visibility):
         mask = torch.zeros((height, width), dtype=torch.bool, device=device)
         for member in members:
             mask |= masks[member]

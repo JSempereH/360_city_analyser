@@ -62,7 +62,7 @@ class InstanceLabelTests(unittest.TestCase):
         self.assertEqual(details[0]["mode"], "abstain")
         self.assertFalse(labels.any())
 
-    def test_narrow_facade_slivers_join_a_wider_neighbour(self):
+    def test_narrow_facade_slivers_join_a_wider_neighbor(self):
         owners = np.array([1] * 10 + [2] * 2 + [3] * 10)
         columns = np.arange(len(owners))
 

@@ -82,6 +82,16 @@ Click **Analyze buildings** to process the current panorama and up to six nearby
 
 Artifacts are written under `data/<dataset>/analysis/` (`<id>.json`, `<id>-ids.png`, `<id>-facades.png`, `<id>-instances.png`). Cache identity includes source bytes, GPS, heading, every model setting, SfM input, and mask hashes. Models remain loaded per process.
 
+The model stages are cached separately, under `data/.stage-cache/`, keyed by the panorama bytes, the model and its downloaded revision, and the stage's own settings. Changing association code, `ANALYSIS_VERSION` or the minimum confidence therefore re-associates panoramas in seconds instead of running the models again, and a panorama shared by several datasets is segmented once.
+
+To analyze a whole dataset from the command line, overlapping model inference with OSM association:
+
+```bash
+uv run city-analyser-analyze san-jose-pilot --report analysis-report.json
+```
+
+The report lists per-panorama model and association times, cached stages and peak memory. Panoramas whose analysis is already current are skipped unless `--force` is given.
+
 | Variable | Purpose |
 |---|---|
 | `BUILDING_ANALYSIS_DEVICE=auto` | `auto`, `cpu`, `cuda`, `cuda:<n>` or `mps` for every model stage |
@@ -102,6 +112,8 @@ Artifacts are written under `data/<dataset>/analysis/` (`<id>.json`, `<id>-ids.p
 | `BUILDING_ANALYSIS_INSTANCE_BOX_THRESHOLD=0.30` | Detector confidence threshold (detectors are calibrated differently) |
 | `BUILDING_ANALYSIS_OSM_CACHE_DIR=off` | OSM footprint snapshot directory (default `data/.osm-cache`), or `off` |
 | `BUILDING_ANALYSIS_OSM_CACHE_DAYS=30` | Age after which a cached OSM cell is fetched again |
+| `BUILDING_ANALYSIS_STAGE_CACHE=on` | Model-stage cache; `off` always runs the models |
+| `BUILDING_ANALYSIS_STAGE_CACHE_DIR` | Model-stage cache directory (default `data/.stage-cache`); set it on a remote worker to keep the cache between requests |
 
 The semantic tile size is the resolution the model actually runs at, so it directly trades latency for detail:
 
@@ -159,7 +171,7 @@ Or as a container on any NVIDIA host (local workstation or cloud GPU VM with the
 
 ```bash
 docker build -f Dockerfile.worker -t 360-city-analyser-worker .
-docker run --gpus all -p 8766:8766 -v "$PWD/models:/models" \
+docker run --gpus all -p 8766:8766 -v "$PWD/models:/models" -v "$PWD/cache:/cache" \
   -e BUILDING_ANALYSIS_REMOTE_TOKEN -e BUILDING_ANALYSIS_MODEL=high 360-city-analyser-worker
 ```
 

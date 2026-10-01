@@ -17,13 +17,14 @@ import xml.etree.ElementTree as ElementTree
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Iterable, cast
+from typing import Any, Callable, Iterable, NamedTuple, cast
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .building_instances import instance_coverage, instance_settings, segment_instances
+from .building_instances import _load_models as _load_instance_models, instance_coverage, instance_settings, segment_instances
 from .analysis_cache import analysis_cache_matches, analysis_input_sha256, atomic_write_bytes, file_sha256, sfm_input_sha256
-from .panorama_geometry import panorama_to_tile_grid, perspective_tile
+from .panorama_geometry import panorama_to_tile_grid, perspective_tiles_torch
+from .stage_cache import load_stage, save_stage, stage_key
 
 
 # B5 materially improves facade boundaries in shadows and vegetation. It fits
@@ -32,7 +33,14 @@ GPU_MODEL_ID = "nvidia/segformer-b5-finetuned-cityscapes-1024-1024"
 CPU_MODEL_ID = "nvidia/segformer-b0-finetuned-cityscapes-1024-1024"
 HIGH_ACCURACY_MODEL_ID = "facebook/mask2former-swin-large-mapillary-vistas-semantic"
 MODEL_VERSION = "mask2former-mapillary-high-segformer-confidence-fusion-osm-multipolygons"
-ANALYSIS_VERSION = 26
+ANALYSIS_VERSION = 27
+# Model-stage outputs are cached separately from the analysis artifacts (see
+# stage_cache). Bump these only when a stage's own output changes.
+SEMANTIC_STAGE_VERSION = 1
+INSTANCE_STAGE_VERSION = 1
+ANALYSIS_MAX_WIDTH = 2048
+# Semantic confidences are stored as uint8 (255 = 1.0).
+CONFIDENCE_SCALE = 255
 EARTH_RADIUS_M = 6_371_008.8
 DEFAULT_BUILDING_HEIGHT_M = 10.0
 UNKNOWN_FACADE_RENDER_HEIGHT_M = 32.0
@@ -643,17 +651,55 @@ def _load_segmentation_model(model_id: str, architecture: str, model_root: str, 
     return processor, model
 
 
+def _cached_model_revision(model_id: str, model_root: Path, requested: str | None) -> str | None:
+    """Commit a model will load from the local Hugging Face cache, without loading it.
+
+    Stage cache keys need the revision before the model is loaded, so a cache
+    hit never loads it. Falls back to the requested revision for weights that
+    are not in the cache yet (they resolve on first download).
+    """
+    if requested and re.fullmatch(r"[0-9a-f]{40}", requested):
+        return requested
+    reference = model_root / f"models--{model_id.replace('/', '--')}" / "refs" / (requested or "main")
+    try:
+        return reference.read_text(encoding="utf-8").strip() or requested
+    except OSError:
+        return requested
+
+
+def _semantic_stage_identity(torch: Any, model_root: Path, panorama_sha256: str) -> dict[str, Any]:
+    """Everything the semantic confidences depend on; the minimum confidence is applied later."""
+    model_id, architecture = _segmentation_model_spec(torch)
+    requested_revision = os.environ.get("BUILDING_ANALYSIS_MODEL_REVISION", "").strip() or None
+    return {
+        "version": SEMANTIC_STAGE_VERSION,
+        "panorama_sha256": panorama_sha256,
+        "analysis_width": ANALYSIS_MAX_WIDTH,
+        "model": model_id,
+        "architecture": architecture,
+        "revision": _cached_model_revision(model_id, model_root, requested_revision),
+        "tile_size": _segmentation_tile_size(architecture),
+        "views": [[round(yaw, 6), round(pitch, 6)] for yaw, pitch in PERSPECTIVE_VIEWS],
+        "field_of_view_degrees": PERSPECTIVE_FOV_DEGREES,
+    }
+
+
 def _tile_scores(
-    torch: Any, processor: Any, model: Any, architecture: str, tiles: list[Any], tile_size: int,
+    torch: Any, processor: Any, model: Any, architecture: str, tiles: Any, tile_size: int,
     device: Any, building_label: int, vegetation_label: int,
 ) -> tuple[Any, Any]:
-    """Per-pixel building and vegetation confidence for a batch of tiles, on device."""
-    # The processor would otherwise resample every tile to its configured size,
-    # silently decoupling BUILDING_ANALYSIS_TILE_SIZE from the model resolution.
-    inputs = processor(images=tiles, size={"height": tile_size, "width": tile_size}, return_tensors="pt")
-    inputs = {name: value.to(device) for name, value in inputs.items()}
+    """Per-pixel building and vegetation confidence for a batch of [0, 1] RGB tiles, on device."""
+    # Tiles are sampled at the model resolution on the device, so only the
+    # processor's rescaling and normalization are left to apply.
+    pixel_values = tiles * 255
+    if getattr(processor, "do_rescale", True):
+        pixel_values = pixel_values * processor.rescale_factor
+    if getattr(processor, "do_normalize", True):
+        mean = torch.tensor(processor.image_mean, device=device, dtype=tiles.dtype)[None, :, None, None]
+        std = torch.tensor(processor.image_std, device=device, dtype=tiles.dtype)[None, :, None, None]
+        pixel_values = (pixel_values - mean) / std
     with torch.inference_mode(), torch.autocast(device_type=device.type, enabled=device.type == "cuda"):
-        output = model(**inputs)
+        output = model(pixel_values=pixel_values)
         if architecture == "mask2former":
             labels = torch.stack(processor.post_process_semantic_segmentation(output, target_sizes=[(tile_size, tile_size)] * len(tiles)))
             return (labels == building_label).float(), (labels == vegetation_label).float()
@@ -667,6 +713,11 @@ def _tile_scores(
         return building, vegetation
 
 
+def _panorama_tensor(torch: Any, panorama: Any, device: Any) -> Any:
+    """``(1, 3, H, W)`` float panorama in [0, 1] on ``device``."""
+    return torch.from_numpy(panorama).to(device).permute(2, 0, 1)[None].float() / 255
+
+
 def _load_analysis_panorama(image_path: Path) -> Any:
     """Validated equirectangular RGB array at the analysis resolution (<= 2048 wide)."""
     np = __import__("numpy")
@@ -677,11 +728,13 @@ def _load_analysis_panorama(image_path: Path) -> Any:
             raise ValueError("The panorama resolution is too low for building analysis (minimum 512x256).")
         if not math.isclose(source.width / source.height, 2.0, rel_tol=0.03):
             raise ValueError("The image is not a valid 2:1 equirectangular panorama.")
-        analysis_width = min(2048, source.width)
-        return np.asarray(source.resize((analysis_width, analysis_width // 2), Image.Resampling.LANCZOS))
+        analysis_width = min(ANALYSIS_MAX_WIDTH, source.width)
+        # A writable array, so torch can share its memory on CPU.
+        return np.array(source.resize((analysis_width, analysis_width // 2), Image.Resampling.LANCZOS))
 
 
-def _segment_buildings(image_path: Path, model_root: Path, progress: Callable[[str], None]) -> tuple[Any, Any, int, str, str, str | None]:
+def _semantic_confidences(panorama: Any, model_root: Path, progress: Callable[[str], None]) -> tuple[Any, Any, str, str, str | None]:
+    """Building and vegetation confidence (uint8, 255 = 1.0) for an analysis-resolution panorama."""
     _, torch, _, _ = _require_ml_dependencies()
     device = inference_device(torch)
     model_id, architecture = _segmentation_model_spec(torch)
@@ -693,22 +746,22 @@ def _segment_buildings(image_path: Path, model_root: Path, progress: Callable[[s
     vegetation_label = _label_id(labels, "vegetation")
     if building_label is None or vegetation_label is None:
         raise RuntimeError("The downloaded model does not include building and vegetation labels.")
-    panorama = _load_analysis_panorama(image_path)
     analysis_height, analysis_width = panorama.shape[:2]
     tile_size = _segmentation_tile_size(architecture)
-    tiles = [perspective_tile(panorama, yaw, pitch, tile_size, PERSPECTIVE_FOV_DEGREES)[0] for yaw, pitch in PERSPECTIVE_VIEWS]
+    source = _panorama_tensor(torch, panorama, device)
     # Several overlapping perspective views can reach one equirectangular
     # pixel. Keep their strongest semantic evidence instead of a boolean union.
     building_confidence = torch.zeros((analysis_height, analysis_width), dtype=torch.float32, device=device)
     vegetation_confidence = torch.zeros_like(building_confidence)
     batch_size = _segmentation_batch_size()
     start = 0
-    while start < len(tiles):
-        stop = min(start + batch_size, len(tiles))
-        progress(f"Segmenting perspectives {start + 1}-{stop}/{len(tiles)} on {device.type.upper()}...")
+    while start < len(PERSPECTIVE_VIEWS):
+        stop = min(start + batch_size, len(PERSPECTIVE_VIEWS))
+        progress(f"Segmenting perspectives {start + 1}-{stop}/{len(PERSPECTIVE_VIEWS)} on {device.type.upper()}...")
         try:
+            tiles = perspective_tiles_torch(torch, source, PERSPECTIVE_VIEWS[start:stop], tile_size, PERSPECTIVE_FOV_DEGREES)
             building, vegetation = _tile_scores(
-                torch, processor, model, architecture, tiles[start:stop], tile_size, device, building_label, vegetation_label,
+                torch, processor, model, architecture, tiles, tile_size, device, building_label, vegetation_label,
             )
         except torch.cuda.OutOfMemoryError:
             if batch_size == 1:
@@ -724,11 +777,24 @@ def _segment_buildings(image_path: Path, model_root: Path, progress: Callable[[s
             building_confidence = torch.where(visible, torch.maximum(building_confidence, sampled[0]), building_confidence)
             vegetation_confidence = torch.where(visible, torch.maximum(vegetation_confidence, sampled[1]), vegetation_confidence)
         start = stop
-    minimum_confidence = _segmentation_minimum_confidence()
-    buildings = (building_confidence >= minimum_confidence).cpu().numpy()
-    vegetation = (vegetation_confidence >= minimum_confidence).cpu().numpy()
     resolved_revision = getattr(model.config, "_commit_hash", None) or requested_revision
-    return buildings, vegetation, analysis_width, device.type, model_id, resolved_revision
+    return _quantized(building_confidence), _quantized(vegetation_confidence), device.type, model_id, resolved_revision
+
+
+def _quantized(confidence: Any) -> Any:
+    return (confidence.clamp(0, 1) * CONFIDENCE_SCALE).round().byte().cpu().numpy()
+
+
+def _confident(confidence: Any) -> Any:
+    """Apply the configured minimum confidence to a quantized confidence map."""
+    # Round half up: a quantized value q stands for confidences in [q - 0.5, q + 0.5) / 255.
+    return confidence >= int(_segmentation_minimum_confidence() * CONFIDENCE_SCALE + 0.5)
+
+
+def _segment_buildings(panorama: Any, model_root: Path, progress: Callable[[str], None]) -> tuple[Any, Any, int, str, str, str | None]:
+    """Uncached building and vegetation masks; used by benchmarks and evaluation."""
+    building, vegetation, device, model_id, revision = _semantic_confidences(panorama, model_root, progress)
+    return _confident(building), _confident(vegetation), int(panorama.shape[1]), device, model_id, revision
 
 
 def _absorb_narrow_runs(column_owner: Any, columns: Any, minimum: int) -> None:
@@ -1072,7 +1138,7 @@ def preload_models(model_root: Path) -> dict[str, Any]:
     _load_segmentation_model(model_id, architecture, str(model_root.resolve()), str(device), revision)
     settings = instance_settings()
     if settings.enabled:
-        importlib.import_module("building_instances")._load_models(settings.detector, settings.segmenter, str(model_root.resolve()), str(device))
+        _load_instance_models(settings.detector, settings.segmenter, str(model_root.resolve()), str(device))
     return {"device": str(device), "segmentation_model": model_id, "instances": settings.as_configuration()}
 
 
@@ -1185,14 +1251,28 @@ def load_analysis(data_root: Path, dataset_id: str, image_id: str) -> dict[str, 
     ) else None
 
 
-def analyze_panorama(
-    data_root: Path,
-    model_root: Path,
-    dataset_id: str,
-    image: dict[str, Any],
-    progress: Callable[[str], None],
-    sfm_refinement: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+class PanoramaInputs(NamedTuple):
+    image_id: str
+    image_path: Path
+    latitude: float
+    longitude: float
+    heading: float
+
+
+class Perception(NamedTuple):
+    """Model-stage outputs for one panorama, computed or read from the stage cache."""
+
+    building_confidence: Any
+    vegetation_confidence: Any
+    model_id: str
+    model_revision: str | None
+    device: str
+    instance_map: Any | None
+    detected_instances: list[dict[str, Any]]
+
+
+def panorama_inputs(data_root: Path, dataset_id: str, image: dict[str, Any]) -> PanoramaInputs:
+    """Validate a manifest image record and return what analysis needs from it."""
     image_id = str(image["id"])
     geometry = image.get("selected_geometry") or image.get("computed_geometry") or image.get("geometry") or {}
     coordinates = geometry.get("coordinates") if isinstance(geometry, dict) else None
@@ -1218,37 +1298,82 @@ def analyze_panorama(
         raise ValueError("The panorama coordinates are invalid.")
     if not math.isfinite(heading):
         raise ValueError("The panorama has no valid compass heading.")
-    heading %= 360.0
+    return PanoramaInputs(image_id, image_path, latitude, longitude, heading % 360.0)
+
+
+def perceive_panorama(data_root: Path, model_root: Path, image_path: Path, progress: Callable[[str], None]) -> Perception:
+    """Run (or reuse) the semantic and instance model stages for one panorama."""
+    np, torch, _, _ = _require_ml_dependencies()
+    panorama_sha256 = file_sha256(image_path)
+    decoded: list[Any] = []
+
+    def panorama() -> Any:
+        # Decoded at most once, and not at all when every stage is cached.
+        if not decoded:
+            decoded.append(_load_analysis_panorama(image_path))
+        return decoded[0]
+
+    semantic_key = stage_key("semantic", _semantic_stage_identity(torch, model_root, panorama_sha256))
+    semantic = load_stage(data_root, "semantic", semantic_key)
+    if semantic is None:
+        building, vegetation, device, model_id, model_revision = _semantic_confidences(panorama(), model_root, progress)
+        save_stage(
+            data_root, "semantic", semantic_key, building=building, vegetation=vegetation,
+            model=np.array(model_id), revision=np.array(model_revision or ""), device=np.array(device),
+        )
+    else:
+        progress("Reusing cached semantic segmentation...")
+        building, vegetation = semantic["building"], semantic["vegetation"]
+        model_id, model_revision, device = str(semantic["model"]), str(semantic["revision"]) or None, str(semantic["device"])
+    settings = instance_settings()
+    instance_map, detected_instances = None, []
+    if settings.enabled:
+        instance_key = stage_key("instances", {
+            "version": INSTANCE_STAGE_VERSION,
+            "panorama_sha256": panorama_sha256,
+            "analysis_width": ANALYSIS_MAX_WIDTH,
+            "settings": settings.as_configuration(),
+            "detector_revision": _cached_model_revision(settings.detector, model_root, None),
+            "segmenter_revision": _cached_model_revision(settings.segmenter, model_root, None),
+        })
+        instances = load_stage(data_root, "instances", instance_key)
+        if instances is None:
+            instance_map, detected_instances = segment_instances(panorama(), model_root, inference_device(torch), settings, progress)
+            save_stage(data_root, "instances", instance_key, instance_map=instance_map, details=np.array(json.dumps(detected_instances)))
+        else:
+            progress("Reusing cached building instances...")
+            instance_map, detected_instances = instances["instance_map"], json.loads(str(instances["details"]))
+    return Perception(building, vegetation, model_id, model_revision, device, instance_map, detected_instances)
+
+
+def associate_panorama(
+    data_root: Path,
+    dataset_id: str,
+    image: dict[str, Any],
+    inputs: PanoramaInputs,
+    perception: Perception,
+    features: list[dict[str, Any]],
+    progress: Callable[[str], None],
+    sfm_refinement: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Refine the pose, name the perceived buildings with OSM footprints and publish the artifacts."""
+    image_id = inputs.image_id
     if sfm_refinement is None:
         from .sfm_refinement import load_sfm_refinement, sfm_path
 
         if load_sfm_refinement(data_root, dataset_id, image_id) is None:
             sfm_path(data_root, dataset_id, image_id).unlink(missing_ok=True)
     input_sha256 = analysis_input_sha256(data_root, dataset_id, image, analysis_configuration())
-    # Footprints come from the network on a cache miss; fetch them while the
-    # model segments instead of after it.
-    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="osm-footprints")
-    try:
-        pending_features = pool.submit(nearby_buildings, latitude, longitude)
-        buildings, vegetation, width, device, model_id, model_revision = _segment_buildings(image_path, model_root, progress)
-        progress("Loading nearby OpenStreetMap building footprints...")
-        features = pending_features.result()
-    finally:
-        # A failed segmentation must not wait for a slow footprint server.
-        pool.shutdown(wait=False, cancel_futures=True)
-    settings = instance_settings()
-    instance_map, detected_instances, coverage = None, [], None
-    if settings.enabled:
-        _, torch, _, _ = _require_ml_dependencies()
-        instance_map, detected_instances = segment_instances(
-            _load_analysis_panorama(image_path), model_root, inference_device(torch), settings, progress,
-        )
-        coverage = instance_coverage(settings, instance_map.shape[1], instance_map.shape[0])
+    buildings, vegetation = _confident(perception.building_confidence), _confident(perception.vegetation_confidence)
+    instance_map = perception.instance_map
+    coverage = None
+    if instance_map is not None:
+        coverage = instance_coverage(instance_settings(), instance_map.shape[1], instance_map.shape[0])
     progress("Refining camera pose against projected building facades...")
     # Detected instances exclude sky and trees the semantic mask can confuse
     # with facades, which makes a cleaner target for the pose search.
     pose_target = buildings & (instance_map > 0) if instance_map is not None and instance_map.any() else buildings
-    refined_pose = _refine_camera_pose(pose_target, features, latitude, longitude, heading)
+    refined_pose = _refine_camera_pose(pose_target, features, inputs.latitude, inputs.longitude, inputs.heading)
     progress("Associating building masks with OpenStreetMap footprints...")
     assignments, facade_assignments, building_ids, instance_links = _assign_buildings_detailed(
         buildings, vegetation, features,
@@ -1258,7 +1383,7 @@ def analyze_panorama(
         instance_map, coverage,
     )
     links_by_instance = {link["instance"]: link for link in instance_links}
-    visual_instances = [{**detected, **links_by_instance.get(detected["instance"], {"osm_ids": []})} for detected in detected_instances]
+    visual_instances = [{**detected, **links_by_instance.get(detected["instance"], {"osm_ids": []})} for detected in perception.detected_instances]
     Image = importlib.import_module("PIL.Image")
     id_output, facade_output = io.BytesIO(), io.BytesIO()
     Image.fromarray(assignments, mode="I;16").save(id_output, format="PNG")
@@ -1270,17 +1395,17 @@ def analyze_panorama(
     metadata = {
         "version": ANALYSIS_VERSION,
         "image_id": image_id,
-        "width": width,
+        "width": int(assignments.shape[1]),
         "height": int(assignments.shape[0]),
-        "model": model_id,
-        "model_revision": model_revision,
+        "model": perception.model_id,
+        "model_revision": perception.model_revision,
         "model_version": MODEL_VERSION,
         "analysis_configuration": analysis_configuration(),
         "segmentation_minimum_confidence": _segmentation_minimum_confidence(),
-        "device": device,
+        "device": perception.device,
         "input_sha256": input_sha256,
         "sfm_input_sha256": sfm_input_sha256(data_root, dataset_id, image_id),
-        "heading_degrees": heading,
+        "heading_degrees": inputs.heading,
         "refined_pose": refined_pose,
         "footprint_sources": {
             "osm_candidates": len(features),
@@ -1294,6 +1419,29 @@ def analyze_panorama(
     )
     progress(f"Analysis complete: {len(building_ids)} buildings matched.")
     return metadata
+
+
+def analyze_panorama(
+    data_root: Path,
+    model_root: Path,
+    dataset_id: str,
+    image: dict[str, Any],
+    progress: Callable[[str], None],
+    sfm_refinement: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    inputs = panorama_inputs(data_root, dataset_id, image)
+    # Footprints come from the network on a cache miss; fetch them while the
+    # models run instead of after them.
+    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="osm-footprints")
+    try:
+        pending_features = pool.submit(nearby_buildings, inputs.latitude, inputs.longitude)
+        perception = perceive_panorama(data_root, model_root, inputs.image_path, progress)
+        progress("Loading nearby OpenStreetMap building footprints...")
+        features = pending_features.result()
+    finally:
+        # A failed segmentation must not wait for a slow footprint server.
+        pool.shutdown(wait=False, cancel_futures=True)
+    return associate_panorama(data_root, dataset_id, image, inputs, perception, features, progress, sfm_refinement)
 
 
 @lru_cache(maxsize=8)

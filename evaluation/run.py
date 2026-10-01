@@ -43,7 +43,8 @@ def command_semantic(args: argparse.Namespace) -> None:
             if cache.load("semantic", args.variant, dataset_id, image["id"]) is not None:
                 continue
             started = time.perf_counter()
-            buildings, vegetation, *_ = analysis._segment_buildings(Path("data") / dataset_id / image["local_file"], Path("models"), lambda _: None)
+            panorama = analysis._load_analysis_panorama(Path("data") / dataset_id / image["local_file"])
+            buildings, vegetation, *_ = analysis._segment_buildings(panorama, Path("models"), lambda _: None)
             cache.save("semantic", args.variant, dataset_id, image["id"], buildings=buildings, vegetation=vegetation)
             print(f"{dataset_id} {image['id']} {time.perf_counter() - started:.1f}s", flush=True)
 

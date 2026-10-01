@@ -12,6 +12,8 @@ src/city_analyser/          installable package (import name `city_analyser`)
   sfm_refinement.py         optional PyCOLMAP sparse depth
   analysis_backend.py       local or remote inference dispatch
   analysis_cache.py         fingerprints and atomic artifact writes
+  stage_cache.py            content-addressed cache of model-stage outputs
+  batch_analysis.py         city-analyser-analyze (whole dataset, pipelined)
   building_inspection/      building-level reports (below)
   viewer/                   static web viewer served by local_viewer.py
   local_viewer.py           city-analyser-viewer
@@ -99,6 +101,15 @@ The viewer state contract is implemented in `src/city_analyser/viewer/deep-link.
 The current assessment concerns only association between direct image evidence and a footprint snapshot. Projection coverage is not a calibrated probability that the footprint is correct.
 
 A future GEM provider should be added behind a separate interface and consume the ranked evidence. It must return per-attribute distributions, evidence references, taxonomy/specification versions, and explicit abstentions. It must not overwrite the footprint assessment or reuse its scores as structural probabilities.
+
+## Analysis stages and caching
+
+`analyze_panorama` runs in two phases:
+
+- `perceive_panorama`: the model stages. Semantic confidences (uint8, 255 = 1.0) and the instance map are cached by `stage_cache` under a key built from the panorama SHA-256, the model ID, the revision in the local Hugging Face cache, and the stage's settings and `*_STAGE_VERSION`. The minimum confidence is applied when the confidences are read, so it is not part of the key. On a full cache hit the panorama is not decoded and no model is loaded.
+- `associate_panorama`: pose refinement, OSM projection and naming, and artifact publication. It is pure CPU work and is what `ANALYSIS_VERSION` versions.
+
+Model input views are sampled bilinearly on the inference device (`panorama_geometry.perspective_tiles_torch`); projection grids depend only on geometry and are memoized. `batch_analysis` overlaps `perceive_panorama` for one panorama with `associate_panorama` for the previous one and prefetches OSM footprints.
 
 ## Current artifact contract
 
