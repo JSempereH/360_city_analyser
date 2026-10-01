@@ -30,6 +30,7 @@ yolo = ["ultralytics>=8.4", "clip @ git+https://github.com/ultralytics/CLIP.git"
 [project.scripts]
 city-analyser-viewer = "city_analyser.local_viewer:main"
 city-analyser-download = "city_analyser.mapillary_street_download:main"
+city-analyser-analyze = "city_analyser.batch_analysis:main"
 city-analyser-models = "city_analyser.download_models:main"
 city-analyser-worker = "city_analyser.remote_analysis_worker:main"
 city-analyser-benchmark = "city_analyser.benchmark_models:main"
