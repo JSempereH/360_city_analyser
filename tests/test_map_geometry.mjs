@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { coordinatesOf, mergeBuildingFootprints, outerRingsOf } from "../src/city_analyser/viewer/map-geometry.mjs";
+import { coordinatesOf, geometryCentroid, mergeBuildingFootprints, nearestImageIndex, outerRingsOf } from "../src/city_analyser/viewer/map-geometry.mjs";
 
 test("uses the recorded Mapillary coordinates", () => {
   const image = {
@@ -92,4 +92,13 @@ test("keeps a relation MultiPolygon and all of its holes", () => {
   assert.equal(merged.properties.osm_id, "relation/42");
   assert.equal(merged.geometry, geometry);
   assert.deepEqual(merged.geometry.coordinates, geometry.coordinates);
+});
+
+test("finds the nearest panorama and a footprint centroid", () => {
+  const images = [{ computed_geometry: { coordinates: [0, 0] } }, { computed_geometry: { coordinates: [0.001, 0] } }, {}];
+  const planar = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  assert.equal(nearestImageIndex(images, [0.0009, 0], planar), 1);
+  assert.equal(nearestImageIndex([], [0, 0], planar), -1);
+  assert.deepEqual(geometryCentroid({ type: "Polygon", coordinates: [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]] }), [1, 1]);
+  assert.equal(geometryCentroid(null), null);
 });

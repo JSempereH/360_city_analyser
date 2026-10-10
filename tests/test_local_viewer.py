@@ -55,6 +55,7 @@ class LocalViewerTests(unittest.TestCase):
             server = SimpleNamespace(
                 analysis_backend=SimpleNamespace(label="test backend"),
                 analysis_jobs={},
+                job_cancellations={},
                 analysis_lock=threading.Lock(),
                 analysis_run_lock=threading.Lock(),
                 data_root=root,
@@ -215,7 +216,7 @@ class JobRetentionTests(unittest.TestCase):
 
         jobs = {f"old-{index}": {"id": f"old-{index}", "status": "complete"} for index in range(local_viewer.MAX_RETAINED_JOBS)}
         jobs["running"] = {"id": "running", "status": "running"}
-        server = SimpleNamespace(analysis_jobs=jobs, analysis_lock=threading.Lock())
+        server = SimpleNamespace(analysis_jobs=jobs, job_cancellations={}, analysis_lock=threading.Lock())
         with patch("city_analyser.local_viewer.threading.Thread", ImmediateThread):
             result = local_viewer._launch_job(server, "test", "Queued.", lambda update: {"message": "Done."})
 
@@ -223,3 +224,70 @@ class JobRetentionTests(unittest.TestCase):
         self.assertLessEqual(len(jobs), local_viewer.MAX_RETAINED_JOBS)
         self.assertIn("running", jobs)
         self.assertNotIn("old-0", jobs)
+
+
+class BatchAnalysisJobTests(unittest.TestCase):
+    def make_server(self, root: Path, coordinates: list[tuple[float, float]]) -> ViewerServer:
+        images = [
+            {"id": str(index), "is_pano": True, "local_file": f"images/{index}.jpg", "computed_compass_angle_deg": 10.0,
+             "computed_geometry": {"type": "Point", "coordinates": [longitude, latitude]}}
+            for index, (longitude, latitude) in enumerate(coordinates)
+        ]
+        (root / "data" / "city").mkdir(parents=True)
+        (root / "data" / "city" / "manifest.json").write_text(json.dumps({"images": images}), encoding="utf-8")
+        (root / "models").mkdir()
+        server = ViewerServer(("127.0.0.1", 0), root)
+        self.addCleanup(server.server_close)
+        return server
+
+    def wait(self, server: ViewerServer, job_id: str, statuses: set) -> dict:
+        import time
+
+        for _ in range(200):
+            job = server.analysis_job(job_id)
+            if job["status"] in statuses:
+                return job
+            time.sleep(0.02)
+        self.fail(f"job stayed {job['status']}")
+
+    def test_batch_analyzes_only_panoramas_inside_the_bbox(self):
+        analyzed = []
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("city_analyser.local_viewer.load_analysis", return_value=None), \
+                patch("city_analyser.local_viewer.run_analysis", side_effect=lambda *args: analyzed.append(args[4]["id"]) or {}):
+            server = self.make_server(Path(directory), [(0.0, 0.0), (0.001, 0.0), (1.0, 1.0)])
+            result = server.start_batch_analysis("city", [-0.01, -0.01, 0.01, 0.01], force=False)
+            job = self.wait(server, result["job"]["id"], {"complete", "failed"})
+
+            with self.assertRaisesRegex(ValueError, "bbox"):
+                server.start_batch_analysis("city", [1, 0], force=False)
+
+        self.assertEqual(job["status"], "complete")
+        self.assertEqual((job["total"], job["done"]), (2, 2))
+        self.assertEqual(analyzed, ["0", "1"])
+
+    def test_cancellation_stops_before_the_next_panorama(self):
+        import threading
+
+        release = threading.Event()
+        analyzed = []
+
+        def slow(*args):
+            analyzed.append(args[4]["id"])
+            release.wait(5)
+            return {}
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("city_analyser.local_viewer.load_analysis", return_value=None), \
+                patch("city_analyser.local_viewer.run_analysis", side_effect=slow):
+            server = self.make_server(Path(directory), [(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)])
+            job_id = server.start_batch_analysis("city", None, force=True)["job"]["id"]
+            self.wait(server, job_id, {"running"})
+            cancelled = server.cancel_job(job_id)
+            release.set()
+            job = self.wait(server, job_id, {"cancelled", "complete", "failed"})
+
+        self.assertIn("Cancelling", cancelled["message"])
+        self.assertEqual(job["status"], "cancelled")
+        self.assertEqual(analyzed, ["0"])
+        self.assertIsNone(server.cancel_job("0" * 32))

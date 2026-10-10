@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildViewerSearch, findImageIndex, parseViewerTarget } from "../src/city_analyser/viewer/deep-link.mjs";
+import { buildViewerSearch, findImageIndex, parseSearchQuery, parseViewerTarget } from "../src/city_analyser/viewer/deep-link.mjs";
 
 test("round trips a complete viewer target", () => {
   const search = buildViewerSearch({
@@ -19,7 +19,23 @@ test("round trips a complete viewer target", () => {
     yawDeg: -31.25,
     pitchDeg: 12.5,
     fovDeg: 84,
+    reviewKey: null,
   });
+});
+
+test("carries a review item and rejects malformed keys", () => {
+  assert.equal(parseViewerTarget(buildViewerSearch({ datasetId: "d", reviewKey: "proposal:way/1:2" })).reviewKey, "proposal:way/1:2");
+  assert.equal(parseViewerTarget("?review=%3Cscript%3E").reviewKey, null);
+  assert.equal(parseViewerTarget("?review=other:way/1").reviewKey, null);
+});
+
+test("reads OSM elements and coordinates from the search box", () => {
+  assert.deepEqual(parseSearchQuery("way/123"), { type: "osm", osmId: "way/123" });
+  assert.deepEqual(parseSearchQuery(" Relation 45 "), { type: "osm", osmId: "relation/45" });
+  assert.deepEqual(parseSearchQuery("987"), { type: "osm", osmId: "way/987" });
+  assert.deepEqual(parseSearchQuery("9.9341, -84.0783"), { type: "coordinates", latitude: 9.9341, longitude: -84.0783 });
+  assert.equal(parseSearchQuery("95, 10"), null);
+  assert.equal(parseSearchQuery("main street"), null);
 });
 
 test("normalizes and clamps view parameters", () => {

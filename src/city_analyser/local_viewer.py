@@ -20,10 +20,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from .analysis_backend import analysis_backend_from_environment, analysis_backend_status, run_analysis
 from .analysis_cache import atomic_write_json
-from .building_analysis import ANALYSIS_VERSION, building_mask, load_analysis, nearby_buildings, pick_building
+from .building_analysis import ANALYSIS_VERSION, analysis_paths, building_mask, instance_overlay, load_analysis, nearby_buildings, osm_buildings, pick_building
+from .footprint_corrections import CorrectionError, all_records, load_record, propose, revert, review
+from .footprint_issues import affected_panoramas, analysis_status, building_views, footprint_issues
 from .building_inspection import BuildingEvidenceNotFound, build_and_persist_report, load_report, load_report_html
 from .mapillary_street_download import MAPILLARY_IMAGE_FIELDS, MAPILLARY_IMAGE_SIZES, available_image_url, download_image, fetch_image, fetch_images, image_record, load_dotenv, point_from_image, write_manifest
-from .multi_view_analysis import fuse_nearby_analyses, has_valid_heading, load_nearby_analysis, nearby_analysis_path, nearby_panoramas
+from .multi_view_analysis import fuse_nearby_analyses, has_valid_heading, load_nearby_analysis, nearby_analysis_path, nearby_panoramas, panorama_coordinates
 from .sfm_refinement import load_sfm_refinement, refine_nearby_poses, sfm_path
 
 # Static viewer files ship inside the package.
@@ -31,8 +33,12 @@ VIEWER_ROOT = Path(__file__).resolve().parent / "viewer"
 
 
 DATASET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
+FOOTPRINT_CORRECTION_ROUTE = re.compile(r"/api/footprint-corrections/((?:node|way|relation)/[1-9][0-9]*)")
+BUILDING_VIEWS_ROUTE = re.compile(r"/api/datasets/([^/]+)/building-views/((?:node|way|relation)/[1-9][0-9]*(?:/part-[1-9][0-9]*)?)")
+# Corrected footprints are GeoJSON polygons and can be larger than other requests.
+MAX_FOOTPRINT_REQUEST_BYTES = 262_144
 BUILDING_REPORT_ROUTE = re.compile(
-    r"/api/datasets/([^/]+)/building-reports/((?:node|way|relation)/[1-9][0-9]*)(/html)?"
+    r"/api/datasets/([^/]+)/building-reports/((?:node|way|relation)/[1-9][0-9]*(?:/part-[1-9][0-9]*)?)(/html)?"
 )
 # City-scale queries stay bounded while allowing a typical urban municipality.
 MAX_MAPILLARY_AOI_DEG2 = 0.05
@@ -247,6 +253,10 @@ def download_mapillary_panoramas(
 MAX_RETAINED_JOBS = 200
 
 
+class JobCancelled(Exception):
+    """Raised by a job's work when a cancellation was requested; the message becomes the job's."""
+
+
 def _launch_job(
     server: Any, name: str, message: str, work: Callable[[Callable[..., None]], dict[str, Any]], **initial: Any,
 ) -> dict[str, Any]:
@@ -257,11 +267,14 @@ def _launch_job(
     the UI instead of killing the thread silently.
     """
     job_id = uuid.uuid4().hex
+    cancel = threading.Event()
     with server.analysis_lock:
-        finished = [key for key, job in server.analysis_jobs.items() if job.get("status") in {"complete", "failed"}]
+        finished = [key for key, job in server.analysis_jobs.items() if job.get("status") in {"complete", "failed", "cancelled"}]
         for key in finished[:max(0, len(server.analysis_jobs) - MAX_RETAINED_JOBS + 1)]:
             del server.analysis_jobs[key]
+            server.job_cancellations.pop(key, None)
         server.analysis_jobs[job_id] = {"id": job_id, "message": message, "status": "queued", **initial}
+        server.job_cancellations[job_id] = cancel
 
     def update(message: str | None = None, **fields: Any) -> None:
         if message is not None:
@@ -269,9 +282,15 @@ def _launch_job(
         with server.analysis_lock:
             server.analysis_jobs[job_id].update(status="running", **fields)
 
+    # Long jobs poll this between steps; see cancel_job.
+    update.cancelled = cancel.is_set  # type: ignore[attr-defined]
+
     def run() -> None:
         try:
             result = work(update)
+        except JobCancelled as cancelled:
+            with server.analysis_lock:
+                server.analysis_jobs[job_id].update(message=str(cancelled), status="cancelled")
         except Exception as error:  # noqa: BLE001 - reported to the polling client.
             with server.analysis_lock:
                 server.analysis_jobs[job_id].update(message=str(error), status="failed")
@@ -293,6 +312,7 @@ class ViewerServer(ThreadingHTTPServer):
         self.model_root = (self.workspace_root / "models").resolve()
         self.analysis_backend = analysis_backend_from_environment()
         self.analysis_jobs: dict[str, dict[str, Any]] = {}
+        self.job_cancellations: dict[str, threading.Event] = {}
         self.analysis_lock = threading.Lock()
         # Small GPUs cannot safely host concurrent transformer inference jobs.
         self.analysis_run_lock = threading.Lock()
@@ -320,6 +340,100 @@ class ViewerServer(ThreadingHTTPServer):
             return {"analysis": analysis, "message": "Building analysis complete."}
 
         return _launch_job(self, "building-analysis", f"Queued {self.analysis_backend.label} building analysis.", work)
+
+    def propose_footprint_correction(self, osm_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        geometry = payload.get("geometry")
+        parts = payload.get("parts")
+        try:
+            shape = __import__("shapely.geometry", fromlist=["shape"]).shape
+            if isinstance(parts, list) and parts:
+                centroid = __import__("shapely.ops", fromlist=["unary_union"]).unary_union([shape(part) for part in parts]).centroid
+            else:
+                centroid = shape(geometry).centroid
+        except (TypeError, ValueError, KeyError, AttributeError) as error:
+            raise CorrectionError("geometry must be a GeoJSON polygon") from error
+        # The correction is tied to the element exactly as OSM serves it now.
+        base = next((feature for feature in osm_buildings(centroid.y, centroid.x) if feature["properties"]["osm_id"] == osm_id), None)
+        if base is None:
+            raise CorrectionError(f"{osm_id} is not an OpenStreetMap building near the proposed footprint")
+        evidence = payload.get("evidence") if isinstance(payload.get("evidence"), list) else []
+        return {"revision": propose(base, geometry, "manual", str(payload.get("author", "")), str(payload.get("note", "")), evidence, payload.get("parts"))}
+
+    def review_footprint_correction(self, osm_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            revision_number = int(payload["revision"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise CorrectionError("revision must be an integer") from error
+        revision = review(osm_id, revision_number, str(payload.get("decision", "")), str(payload.get("reviewer", "")), str(payload.get("note", "")))
+        result: dict[str, Any] = {"revision": revision}
+        if revision["status"] == "accepted":
+            # A split has no single geometry; its parts together locate it.
+            changed = revision["geometry"] or {"type": "GeometryCollection", "geometries": revision.get("parts", [])}
+            result.update(self.start_reassociation(changed))
+        return result
+
+    def revert_footprint_correction(self, osm_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        revision = revert(osm_id, str(payload.get("reviewer", "")), str(payload.get("note", "")))
+        changed = revision["geometry"] or {"type": "GeometryCollection", "geometries": revision.get("parts", [])}
+        return {"revision": revision, **self.start_reassociation(changed)}
+
+    def start_reassociation(self, geometry: dict[str, Any]) -> dict[str, Any]:
+        """Re-associate analyzed panoramas that load a changed footprint."""
+        targets = [
+            (dataset_id, image) for dataset_id, image in affected_panoramas(self.data_root, geometry)
+            if has_valid_heading(image) and analysis_paths(self.data_root, dataset_id, str(image["id"]))[0].is_file()
+        ]
+        def work(update: Callable[..., None]) -> dict[str, Any]:
+            for number, (dataset_id, image) in enumerate(targets, start=1):
+                update(f"Re-associating panorama {number}/{len(targets)} with the corrected footprint...")
+                with self.analysis_run_lock:
+                    run_analysis(self.analysis_backend, self.data_root, self.model_root, dataset_id, image, lambda _: None)
+            return {"message": f"Re-associated {len(targets)} panoramas.", "reassociated": len(targets)}
+
+        return {"reassociation": _launch_job(self, "footprint-reassociation", f"Queued re-association of {len(targets)} panoramas.", work)}
+
+    def cancel_job(self, job_id: str) -> dict[str, Any] | None:
+        """Ask a cancellable job to stop after its current step."""
+        with self.analysis_lock:
+            job = self.analysis_jobs.get(job_id)
+            if job is None:
+                return None
+            if job.get("cancellable") and job.get("status") in {"queued", "running"}:
+                self.job_cancellations[job_id].set()
+                job["message"] = "Cancelling after the current panorama..."
+            return dict(job)
+
+    def start_batch_analysis(self, dataset_id: str, bbox: list[float] | None, force: bool) -> dict[str, Any]:
+        """Analyze every panorama of a dataset, or those inside ``bbox`` (west, south, east, north)."""
+        manifest = dataset_manifest(self.data_root, dataset_id)
+        if bbox is not None:
+            if len(bbox) != 4 or not all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in bbox) or bbox[0] > bbox[2] or bbox[1] > bbox[3]:
+                raise ValueError("bbox must be [west, south, east, north]")
+        images = []
+        for image in manifest["images"]:
+            if not isinstance(image, dict) or not image.get("is_pano") or not image.get("local_file") or not has_valid_heading(image):
+                continue
+            coordinates = panorama_coordinates(image)
+            if bbox is not None and (coordinates is None or not (bbox[0] <= coordinates[0] <= bbox[2] and bbox[1] <= coordinates[1] <= bbox[3])):
+                continue
+            if not force and load_analysis(self.data_root, dataset_id, str(image["id"]), image) is not None:
+                continue
+            images.append(image)
+
+        def work(update: Any) -> dict[str, Any]:
+            for number, image in enumerate(images, start=1):
+                if update.cancelled():
+                    raise JobCancelled(f"Cancelled after {number - 1} of {len(images)} panoramas.")
+                update(f"Analyzing panorama {number} of {len(images)}...", done=number - 1, current=str(image["id"]))
+                with self.analysis_run_lock:
+                    run_analysis(self.analysis_backend, self.data_root, self.model_root, dataset_id, image, lambda _: None)
+            return {"message": f"Analyzed {len(images)} panorama{'s' if len(images) != 1 else ''}.", "done": len(images)}
+
+        scope = "in the map view" if bbox is not None else "in the dataset"
+        return _launch_job(
+            self, "batch-analysis", f"Queued analysis of {len(images)} panoramas {scope}.", work,
+            total=len(images), done=0, cancellable=True, dataset=dataset_id,
+        )
 
     def start_nearby_analysis(self, dataset_id: str, image_id: str) -> dict[str, Any]:
         current_image = self.image_record(dataset_id, image_id)
@@ -425,6 +539,45 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
             except (OSError, RuntimeError, json.JSONDecodeError) as error:
                 self.send_json({"error": str(error)}, HTTPStatus.BAD_GATEWAY)
             return
+        if path == "/api/footprint-issues":
+            dataset_id = query.get("dataset", [None])[0]
+            if dataset_id is not None and not DATASET_ID.fullmatch(dataset_id):
+                self.send_json({"error": "invalid dataset id"}, HTTPStatus.BAD_REQUEST)
+                return
+            self.send_json(footprint_issues(server.data_root, dataset_id))
+            return
+        if path == "/api/footprint-corrections":
+            status = query.get("status", [None])[0]
+            records = [
+                record for record in all_records()
+                if status is None or any(revision.get("status") == status for revision in record["revisions"])
+            ]
+            self.send_json({"corrections": records})
+            return
+        status_match = re.fullmatch(r"/api/datasets/([^/]+)/analysis-status", path)
+        if status_match:
+            dataset_id = unquote(status_match.group(1))
+            if not DATASET_ID.fullmatch(dataset_id) or not (server.data_root / dataset_id / "manifest.json").is_file():
+                self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_json({"analysis_version": ANALYSIS_VERSION, "panoramas": analysis_status(server.data_root, dataset_id)})
+            return
+        views_match = BUILDING_VIEWS_ROUTE.fullmatch(path)
+        if views_match:
+            dataset_id = unquote(views_match.group(1))
+            if not DATASET_ID.fullmatch(dataset_id) or not (server.data_root / dataset_id / "manifest.json").is_file():
+                self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_json(building_views(server.data_root, dataset_id, views_match.group(2)))
+            return
+        correction_match = FOOTPRINT_CORRECTION_ROUTE.fullmatch(path)
+        if correction_match:
+            record = load_record(correction_match.group(1))
+            if record is None:
+                self.send_json({"error": "no corrections for this building"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_json(record)
+            return
         if path.startswith("/api/jobs/"):
             job = server.analysis_job(unquote(path.removeprefix("/api/jobs/")))
             if not job:
@@ -461,7 +614,11 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
                 server.image_record(dataset_id, image_id)
                 if action == "mask":
                     osm_id = query.get("building_id", [""])[0]
-                    mask = building_mask(server.data_root, dataset_id, image_id, osm_id, query.get("layer", [""])[0] == "inferred")
+                    layer = query.get("layer", [""])[0]
+                    mask = (
+                        instance_overlay(server.data_root, dataset_id, image_id) if layer == "instances"
+                        else building_mask(server.data_root, dataset_id, image_id, osm_id, layer == "inferred")
+                    )
                     if mask is None:
                         self.send_error(HTTPStatus.NOT_FOUND, "Building mask not found")
                     else:
@@ -528,11 +685,13 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
             if candidate.is_relative_to(server.data_root):
                 parts = candidate.relative_to(server.data_root).parts
                 if len(parts) >= 3 and parts[1:3] == ("reports", "buildings"):
+                    # Screenshots of an OSM element, or of a part of a reviewed split one level deeper.
+                    part = len(parts) == 7 and re.fullmatch(r"part-[1-9][0-9]*", parts[5]) is not None
                     allowed_screenshot = bool(
-                        len(parts) == 6
+                        (len(parts) == 6 or part)
                         and parts[3] in {"node", "way", "relation"}
                         and parts[4].isdecimal()
-                        and parts[5].startswith("view-")
+                        and parts[-1].startswith("view-")
                         and candidate.suffix.lower() == ".jpg"
                     )
                     if not allowed_screenshot:
@@ -559,6 +718,44 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         server = cast(ViewerServer, self.server)
         path = urlparse(self.path).path
+        cancel_match = re.fullmatch(r"/api/jobs/([0-9a-f]{32})/cancel", path)
+        if cancel_match:
+            job = server.cancel_job(cancel_match.group(1))
+            if job is None:
+                self.send_json({"error": "job not found"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_json({"job": job}, HTTPStatus.ACCEPTED)
+            return
+        batch_match = re.fullmatch(r"/api/datasets/([^/]+)/analysis-batch", path)
+        if batch_match:
+            try:
+                payload = self.read_json_body() if int(self.headers.get("Content-Length", "0")) else {}
+                result = server.start_batch_analysis(unquote(batch_match.group(1)), payload.get("bbox"), bool(payload.get("force")))
+            except ValueError as error:
+                self.send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+            else:
+                self.send_json(result, HTTPStatus.ACCEPTED)
+            return
+        correction_match = FOOTPRINT_CORRECTION_ROUTE.fullmatch(path)
+        if correction_match:
+            try:
+                payload = self.read_json_body(MAX_FOOTPRINT_REQUEST_BYTES)
+                action = payload.get("action")
+                if action == "propose":
+                    result = server.propose_footprint_correction(correction_match.group(1), payload)
+                elif action == "review":
+                    result = server.review_footprint_correction(correction_match.group(1), payload)
+                elif action == "revert":
+                    result = server.revert_footprint_correction(correction_match.group(1), payload)
+                else:
+                    raise CorrectionError("action must be propose, review or revert")
+            except (CorrectionError, ValueError) as error:
+                self.send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+            except (OSError, RuntimeError) as error:
+                self.send_json({"error": str(error)}, HTTPStatus.BAD_GATEWAY)
+            else:
+                self.send_json(result, HTTPStatus.CREATED if action == "propose" else HTTPStatus.OK)
+            return
         report_match = BUILDING_REPORT_ROUTE.fullmatch(path)
         if report_match and not report_match.group(3):
             dataset_id = unquote(report_match.group(1))
@@ -662,9 +859,9 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def read_json_body(self) -> dict[str, Any]:
+    def read_json_body(self, limit: int = 16_384) -> dict[str, Any]:
         content_length = int(self.headers.get("Content-Length", "0"))
-        if not 0 < content_length <= 16_384:
+        if not 0 < content_length <= limit:
             raise ValueError("invalid request body")
         payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
         if not isinstance(payload, dict):

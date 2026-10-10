@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies (CPU PyTorch)
+        run: uv sync --locked --extra cpu
+      - name: Lint
+        run: make lint
+      - name: Python and JavaScript tests
+        run: make test
+
+  e2e:
+    runs-on: ubuntu-24.04
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # The browser tests use synthetic model outputs, so PyTorch is not installed.
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Install Chromium
+        run: uv run --with playwright==1.62.0 playwright install --with-deps chromium
+      - name: Browser tests
+        env:
+          VIEWER_E2E_SCREENSHOTS: ${{ runner.temp }}/viewer-screenshots
+        run: uv run --with playwright==1.62.0 python -m unittest discover -s tests/e2e -v
+      - name: Keep layout screenshots when tests fail
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: viewer-screenshots
+          path: ${{ runner.temp }}/viewer-screenshots
+          if-no-files-found: ignore

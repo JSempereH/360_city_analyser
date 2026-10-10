@@ -1,12 +1,21 @@
-import { nearbyPanoramas, nearestPanoramasByBearing, projectGroundPanoramaToView, signedDegrees } from "./navigation.mjs";
-import { buildViewerSearch, DEFAULT_FOV, findImageIndex, parseViewerTarget } from "./deep-link.mjs";
-import { coordinatesOf, destinationPoint, mergeBuildingFootprints, normalizeDegrees, outerRingsOf, segmentIntersectionFraction, sortedLocalPanoramas } from "./map-geometry.mjs";
+import { bearingDegrees, distanceMeters, nearbyPanoramas, nearestPanoramasByBearing, projectGroundPanoramaToView, signedDegrees } from "./navigation.mjs";
+import { buildViewerSearch, DEFAULT_FOV, findImageIndex, parseSearchQuery, parseViewerTarget } from "./deep-link.mjs";
+import { coordinatesOf, destinationPoint, geometryCentroid, mergeBuildingFootprints, nearestImageIndex, normalizeDegrees, outerRingsOf, segmentIntersectionFraction, sortedLocalPanoramas } from "./map-geometry.mjs";
+import { editableRings, startFootprintEdit } from "./footprint-editor.mjs";
+import { bearingCenter, buildReviewQueue, preservedIndex, REVIEW_KINDS, stepIndex } from "./review-queue.mjs";
+import { wallHeight, wallPolylines } from "./wall-projection.mjs";
 
 const elements = {
   analyzeBuildingsButton: document.querySelector("#analyze-buildings-button"),
   refineNearbyPosesButton: document.querySelector("#refine-nearby-poses-button"),
+  analyzeDatasetButton: document.querySelector("#analyze-dataset-button"),
+  analyzeMapViewButton: document.querySelector("#analyze-map-view-button"),
   buildingStatus: document.querySelector("#building-status"),
   canvas: document.querySelector("#panorama-canvas"),
+  projectionOverlay: document.querySelector("#projection-overlay"),
+  footprintUndoButton: document.querySelector("#footprint-undo-button"),
+  footprintSplitButton: document.querySelector("#footprint-split-button"),
+  footprintRedoButton: document.querySelector("#footprint-redo-button"),
   capturedAt: document.querySelector("#captured-at"),
   coordinates: document.querySelector("#coordinates"),
   creator: document.querySelector("#creator"),
@@ -39,7 +48,7 @@ const elements = {
   mapDirection: document.querySelector("#map-direction"),
   mapMessage: document.querySelector("#map-message"),
   mapCanvas: document.querySelector("#location-map-canvas"),
-  maskToggleButton: document.querySelector("#mask-toggle-button"),
+  layerInputs: [...document.querySelectorAll("[data-layer]")],
   metadata: document.querySelector("#metadata"),
   nextButton: document.querySelector("#next-button"),
   previousButton: document.querySelector("#previous-button"),
@@ -50,7 +59,85 @@ const elements = {
   sourceLink: document.querySelector("#source-link"),
   status: document.querySelector("#status"),
   closeMapillaryDialogButton: document.querySelector("#close-mapillary-dialog-button"),
+  closeHelpDialogButton: document.querySelector("#close-help-dialog-button"),
+  helpButton: document.querySelector("#help-button"),
+  helpDialog: document.querySelector("#help-dialog"),
+  themeSelect: document.querySelector("#theme-select"),
+  footprintCancelButton: document.querySelector("#footprint-cancel-button"),
+  footprintEditButton: document.querySelector("#footprint-edit-button"),
+  footprintEditForm: document.querySelector("#footprint-edit-form"),
+  footprintEditTarget: document.querySelector("#footprint-edit-target"),
+  footprintNote: document.querySelector("#footprint-note"),
+  footprintRefreshButton: document.querySelector("#footprint-refresh-button"),
+  footprintReviewMessage: document.querySelector("#footprint-review-message"),
+  appShell: document.querySelector(".app-shell"),
+  buildingBestViewButton: document.querySelector("#building-best-view-button"),
+  buildingRevertButton: document.querySelector("#building-revert-button"),
+  searchForm: document.querySelector("#search-form"),
+  searchInput: document.querySelector("#search-input"),
+  searchMessage: document.querySelector("#search-message"),
+  buildingDetails: document.querySelector("#building-details"),
+  buildingEditButton: document.querySelector("#building-edit-button"),
+  buildingEmpty: document.querySelector("#building-empty"),
+  buildingFacts: document.querySelector("#building-facts"),
+  buildingOsmLink: document.querySelector("#building-osm-link"),
+  buildingTitle: document.querySelector("#building-title"),
+  jobList: document.querySelector("#job-list"),
+  jobsCount: document.querySelector("#jobs-count"),
+  messageLog: document.querySelector("#message-log"),
+  panelCloseButton: document.querySelector("#panel-close-button"),
+  panelToggleButton: document.querySelector("#panel-toggle-button"),
+  reviewCount: document.querySelector("#review-count"),
+  reviewAcceptButton: document.querySelector("#review-accept-button"),
+  reviewAllDatasets: document.querySelector("#review-all-datasets"),
+  reviewCurrent: document.querySelector("#review-current"),
+  reviewCurrentDetail: document.querySelector("#review-current-detail"),
+  reviewCurrentKind: document.querySelector("#review-current-kind"),
+  reviewCurrentLabel: document.querySelector("#review-current-label"),
+  reviewEditButton: document.querySelector("#review-edit-button"),
+  reviewerName: document.querySelector("#reviewer-name"),
+  reviewHideResolved: document.querySelector("#review-hide-resolved"),
+  reviewKind: document.querySelector("#review-kind"),
+  reviewList: document.querySelector("#review-list"),
+  reviewNextButton: document.querySelector("#review-next-button"),
+  reviewPosition: document.querySelector("#review-position"),
+  reviewPreviousButton: document.querySelector("#review-previous-button"),
+  reviewRejectButton: document.querySelector("#review-reject-button"),
+  reviewShowButton: document.querySelector("#review-show-button"),
+  sidePanel: document.querySelector("#side-panel"),
+  tabs: [...document.querySelectorAll('.panel-tabs [role="tab"]')],
 };
+
+const PANEL_TABS = ["building", "review", "jobs"];
+const PREFERENCES_KEY = "viewer-preferences";
+
+// Per-viewer conveniences: theme, panel state, open tab and map visibility.
+function preferences() {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(PREFERENCES_KEY) || "{}");
+    return stored && typeof stored === "object" ? stored : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePreference(name, value) {
+  try {
+    window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...preferences(), [name]: value }));
+  } catch {
+    // Private windows may refuse storage; the setting applies to this page only.
+  }
+}
+
+function applyTheme(theme) {
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+  elements.themeSelect.value = ["light", "dark"].includes(theme) ? theme : "system";
+}
+const MAX_LOGGED_MESSAGES = 100;
+// Below this width the details panel overlays the viewer instead of taking a column.
+const OVERLAY_PANEL_QUERY = window.matchMedia("(max-width: 1180px)");
+const PHONE_QUERY = window.matchMedia("(max-width: 760px)");
 
 const vertexShaderSource = `
   attribute vec2 position;
@@ -67,6 +154,8 @@ const fragmentShaderSource = `
   uniform sampler2D panorama;
   uniform sampler2D selectionMask;
   uniform sampler2D vegetationMask;
+  uniform sampler2D instanceMask;
+  uniform float instanceVisible;
   uniform float selectionVisible;
   uniform float selectionEmphasis;
   uniform vec2 maskSize;
@@ -98,7 +187,9 @@ const fragmentShaderSource = `
     vec4 panoramaColor = texture2D(panorama, panoramaUv);
     float selected = texture2D(selectionMask, panoramaUv).r * selectionVisible;
     float vegetation = texture2D(vegetationMask, panoramaUv).r * vegetationVisible;
-    vec4 completedColor = mix(panoramaColor, vec4(0.20, 0.65, 1.0, 1.0), vegetation * 0.18);
+    vec4 instanceColor = texture2D(instanceMask, panoramaUv);
+    vec4 instancedColor = mix(panoramaColor, vec4(instanceColor.rgb, 1.0), instanceColor.a * 0.38 * instanceVisible);
+    vec4 completedColor = mix(instancedColor, vec4(0.20, 0.65, 1.0, 1.0), vegetation * 0.18);
     // Overview: a light tint on every matched building. Selection: a stronger
     // fill plus an outline, so one building stands out on dark facades too.
     float fillStrength = mix(0.26, 0.42, selectionEmphasis);
@@ -140,7 +231,21 @@ let selectionMaskSize = [2048, 1024];
 let currentAnalysis = null;
 let currentSfmRefinement = null;
 let selectedBuildingId = null;
-let buildingOverlayVisible = true;
+const LAYER_DEFAULTS = { masks: true, vegetation: true, instances: false, footprints: true, captures: true, view: true, diagnostics: true, coverage: false };
+const LAYERS_KEY = "viewer-layers";
+const layers = { ...LAYER_DEFAULTS, ...storedLayers() };
+let instanceTexture = null;
+let diagnosticsLayer = null;
+let coverageStatus = {};
+
+function storedLayers() {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(LAYERS_KEY) || "{}");
+    return Object.fromEntries(Object.entries(stored).filter(([name, value]) => name in LAYER_DEFAULTS && typeof value === "boolean"));
+  } catch {
+    return {};
+  }
+}
 let analysisRequest = 0;
 let sfmRequest = 0;
 let maskLoadRequest = 0;
@@ -149,6 +254,15 @@ let analysisBackend = { kind: "local", label: "local device" };
 let locationMap = null;
 let cameraMarker = null;
 let buildingLayer = null;
+let footprintPreviewLayer = null;
+let footprintEditMode = false;
+let footprintEditSession = null;
+let footprintEditFeature = null;
+const FOOTPRINT_AUTHOR_KEY = "footprint-author";
+let projection = null;
+let reviewData = { corrections: [], issues: null };
+let reviewQueue = [];
+let reviewIndex = -1;
 let viewLayer = null;
 let captureLayer = null;
 let currentMapImage = null;
@@ -193,6 +307,7 @@ function syncViewerUrl() {
     yawDeg: yaw * 180 / Math.PI,
     pitchDeg: -pitch * 180 / Math.PI,
     fovDeg: fov,
+    reviewKey: !elements.sidePanel.hidden && currentPanelTab() === "review" ? reviewQueue[reviewIndex]?.key : null,
   });
   window.history.replaceState(null, "", `${window.location.pathname}${search}`);
 }
@@ -243,10 +358,12 @@ function initializeRenderer() {
     selectionVisible: gl.getUniformLocation(program, "selectionVisible"), vegetationMask: gl.getUniformLocation(program, "vegetationMask"),
     selectionEmphasis: gl.getUniformLocation(program, "selectionEmphasis"), maskSize: gl.getUniformLocation(program, "maskSize"),
     vegetationVisible: gl.getUniformLocation(program, "vegetationVisible"), yaw: gl.getUniformLocation(program, "yaw"),
+    instanceMask: gl.getUniformLocation(program, "instanceMask"), instanceVisible: gl.getUniformLocation(program, "instanceVisible"),
   };
   gl.uniform1i(uniforms.panorama, 0);
   gl.uniform1i(uniforms.selectionMask, 1);
   gl.uniform1i(uniforms.vegetationMask, 2);
+  gl.uniform1i(uniforms.instanceMask, 3);
   clearSelectionMask();
   gl.clearColor(0.03, 0.04, 0.035, 1);
   window.addEventListener("resize", resizeCanvas);
@@ -272,12 +389,62 @@ function render() {
   gl.uniform1f(uniforms.yaw, yaw);
   gl.uniform1f(uniforms.pitch, pitch);
   gl.uniform1f(uniforms.fov, fov);
-  gl.uniform1f(uniforms.selectionVisible, selectionTexture && buildingOverlayVisible ? 1 : 0);
-  gl.uniform1f(uniforms.vegetationVisible, vegetationTexture && buildingOverlayVisible ? 1 : 0);
+  gl.uniform1f(uniforms.selectionVisible, selectionTexture && layers.masks ? 1 : 0);
+  gl.uniform1f(uniforms.vegetationVisible, vegetationTexture && layers.vegetation ? 1 : 0);
+  gl.uniform1f(uniforms.instanceVisible, instanceTexture && layers.instances ? 1 : 0);
   gl.uniform1f(uniforms.selectionEmphasis, selectionIsSingleBuilding ? 1 : 0);
   gl.uniform2f(uniforms.maskSize, selectionMaskSize[0], selectionMaskSize[1]);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+  drawProjection();
+}
+
+// The camera the analysis projected from: its refined pose when available.
+function projectionCamera() {
+  const image = images[currentIndex];
+  if (!image) return null;
+  const pose = currentAnalysis && currentAnalysis.image_id === image.id ? currentAnalysis.refined_pose : null;
+  if (Number.isFinite(pose?.latitude) && Number.isFinite(pose?.heading_degrees)) return { position: [pose.longitude, pose.latitude], headingDeg: pose.heading_degrees };
+  const coordinates = coordinatesOf(image);
+  const heading = recordedHeading(image);
+  return coordinates && heading !== null ? { position: coordinates, headingDeg: heading } : null;
+}
+
+// Walls of the footprint being edited, drawn over the panorama next to the OSM original.
+function drawProjection() {
+  const overlay = elements.projectionOverlay;
+  const context = overlay.getContext("2d");
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const width = elements.canvas.clientWidth;
+  const height = elements.canvas.clientHeight;
+  if (overlay.width !== Math.floor(width * ratio) || overlay.height !== Math.floor(height * ratio)) {
+    overlay.width = Math.floor(width * ratio);
+    overlay.height = Math.floor(height * ratio);
+  }
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const camera = projectionCamera();
+  if (!projection || !camera) return;
+  const view = { headingDeg: camera.headingDeg, yaw, pitch, fovDeg: fov, width, height };
+  const stroke = (geometry, color, dash, lineWidth) => {
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth;
+    context.setLineDash(dash);
+    outerRingsOf(geometry).forEach((ring) => {
+      wallPolylines(camera.position, ring, projection.height, view).forEach((line) => {
+        context.beginPath();
+        line.forEach(([x, y], index) => (index ? context.lineTo(x, y) : context.moveTo(x, y)));
+        context.stroke();
+      });
+    });
+  };
+  if (projection.original) stroke(projection.original, "rgba(220, 226, 222, 0.85)", [5, 5], 1.5);
+  (projection.edited || []).forEach((geometry) => stroke(geometry, "#2f80ed", [], 2.5));
+}
+
+function updateUndoButtons() {
+  elements.footprintUndoButton.disabled = !footprintEditSession?.canUndo();
+  elements.footprintRedoButton.disabled = !footprintEditSession?.canRedo();
 }
 
 function uploadTexture(image) {
@@ -319,7 +486,7 @@ function uploadTexture(image) {
   const textureError = gl.getError();
   if (textureError !== gl.NO_ERROR) {
     gl.deleteTexture(texture);
-    throw new Error(`WebGL no pudo cargar la textura (error ${textureError}).`);
+    throw new Error(`WebGL could not load the texture (error ${textureError}).`);
   }
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -370,6 +537,43 @@ function uploadVegetationMask(source) {
   render();
 }
 
+function uploadInstanceOverlay(source) {
+  const texture = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE3);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  // Nearest sampling keeps instance colors from blending at their borders.
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  if (instanceTexture) gl.deleteTexture(instanceTexture);
+  instanceTexture = texture;
+  gl.activeTexture(gl.TEXTURE0);
+  render();
+}
+
+function clearInstanceOverlay() {
+  if (instanceTexture) gl.deleteTexture(instanceTexture);
+  instanceTexture = null;
+  render();
+}
+
+let instanceOverlayRequest = 0;
+
+function loadInstanceOverlay() {
+  const requestId = ++instanceOverlayRequest;
+  if (!layers.instances || !currentAnalysis) {
+    clearInstanceOverlay();
+    return;
+  }
+  const image = new Image();
+  image.onload = () => { if (requestId === instanceOverlayRequest) uploadInstanceOverlay(image); };
+  image.onerror = () => { if (requestId === instanceOverlayRequest) clearInstanceOverlay(); };
+  image.src = `/api/datasets/${encodeURIComponent(datasetId)}/analysis/${encodeURIComponent(images[currentIndex].id)}/mask?layer=instances&t=${Date.now()}`;
+}
+
 function clearVegetationMask() {
   if (vegetationTexture) gl.deleteTexture(vegetationTexture);
   vegetationTexture = null;
@@ -387,6 +591,280 @@ function clearSelectionMask() {
 function showBuildingStatus(message) {
   elements.buildingStatus.textContent = message || "";
   elements.buildingStatus.hidden = !message;
+  if (message) logMessage(message);
+}
+
+// Every status message is kept, newest first, so a message that is
+// replaced quickly can still be read in the Jobs tab.
+function logMessage(message) {
+  if (elements.messageLog.firstElementChild?.dataset.message === message) return;
+  const item = document.createElement("li");
+  item.dataset.message = message;
+  const time = document.createElement("time");
+  const now = new Date();
+  time.dateTime = now.toISOString();
+  time.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  item.append(time, document.createTextNode(message));
+  elements.messageLog.prepend(item);
+  while (elements.messageLog.children.length > MAX_LOGGED_MESSAGES) elements.messageLog.lastElementChild.remove();
+}
+
+const trackedJobs = new Map();
+
+// Jobs started from this page, polled until they finish, listed in the Jobs tab.
+const FINISHED_JOB_STATUSES = new Set(["complete", "failed", "cancelled"]);
+
+function trackJob(job, label, onFinished = null) {
+  if (!job?.id || trackedJobs.has(job.id)) return;
+  trackedJobs.set(job.id, { ...job, label, startedAt: new Date() });
+  renderJobs();
+  const poll = async () => {
+    try {
+      const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}`);
+      if (!response.ok) throw new Error("The job is no longer known to the server.");
+      const latest = await response.json();
+      trackedJobs.set(job.id, { ...trackedJobs.get(job.id), ...latest });
+      renderJobs();
+      if (!FINISHED_JOB_STATUSES.has(latest.status)) window.setTimeout(poll, 1500);
+      else {
+        logMessage(`${label}: ${latest.message}`);
+        onFinished?.(latest);
+      }
+    } catch (error) {
+      trackedJobs.set(job.id, { ...trackedJobs.get(job.id), status: "failed", message: error.message });
+      renderJobs();
+    }
+  };
+  window.setTimeout(poll, 500);
+}
+
+function renderJobs() {
+  const jobs = [...trackedJobs.values()].reverse();
+  const running = jobs.filter((job) => !FINISHED_JOB_STATUSES.has(job.status)).length;
+  elements.jobsCount.textContent = String(running);
+  elements.jobsCount.hidden = running === 0;
+  if (!jobs.length) {
+    const empty = document.createElement("li");
+    empty.className = "panel-empty";
+    empty.textContent = "No jobs in this session.";
+    elements.jobList.replaceChildren(empty);
+    return;
+  }
+  elements.jobList.replaceChildren(...jobs.map((job) => {
+    const item = document.createElement("li");
+    item.dataset.status = job.status;
+    const title = document.createElement("strong");
+    title.textContent = `${job.label} · ${job.status}`;
+    const message = document.createElement("span");
+    message.textContent = job.message || "";
+    item.append(title, message);
+    if (Number.isFinite(job.total) && job.total > 0) {
+      const progress = document.createElement("progress");
+      progress.max = job.total;
+      progress.value = job.status === "complete" ? job.total : job.done || 0;
+      progress.setAttribute("aria-label", `${job.label}: ${progress.value} of ${job.total}`);
+      item.append(progress);
+    }
+    if (job.cancellable && !FINISHED_JOB_STATUSES.has(job.status)) {
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", async () => {
+        cancel.disabled = true;
+        const response = await fetch(`/api/jobs/${encodeURIComponent(job.id)}/cancel`, { method: "POST" });
+        if (response.ok) trackedJobs.set(job.id, { ...trackedJobs.get(job.id), ...(await response.json()).job });
+        renderJobs();
+      });
+      item.append(cancel);
+    }
+    return item;
+  }));
+}
+
+function setPanelTab(name, focusTab = false) {
+  savePreference("tab", name);
+  PANEL_TABS.forEach((tab) => {
+    const selected = tab === name;
+    const button = document.querySelector(`#tab-${tab}`);
+    button.setAttribute("aria-selected", String(selected));
+    button.tabIndex = selected ? 0 : -1;
+    document.querySelector(`#panel-${tab}`).hidden = !selected;
+    if (selected && focusTab) button.focus();
+  });
+  if (name === "review") refreshFootprintReview();
+}
+
+function currentPanelTab() {
+  return PANEL_TABS.find((tab) => document.querySelector(`#tab-${tab}`).getAttribute("aria-selected") === "true");
+}
+
+function setSidePanelVisible(visible, remember = true) {
+  // Only the docked desktop panel is remembered; drawers open on demand.
+  if (remember && !OVERLAY_PANEL_QUERY.matches) savePreference("panel", visible);
+  elements.sidePanel.hidden = !visible;
+  elements.appShell.classList.toggle("panel-closed", !visible);
+  elements.panelToggleButton.setAttribute("aria-expanded", String(visible));
+  // The panorama canvas and the map change size with the panel.
+  window.setTimeout(() => {
+    resizeCanvas();
+    locationMap?.invalidateSize();
+  }, 0);
+}
+
+function openPanelTab(name) {
+  setSidePanelVisible(true);
+  setPanelTab(name);
+}
+
+function selectedBuildingFeature() {
+  return featureById(selectedBuildingId);
+}
+
+function addFact(term, value) {
+  const dt = document.createElement("dt");
+  dt.textContent = term;
+  const dd = document.createElement("dd");
+  dd.textContent = value;
+  elements.buildingFacts.append(dt, dd);
+}
+
+function renderBuildingPanel() {
+  const osmId = selectedBuildingId;
+  elements.buildingEmpty.hidden = Boolean(osmId);
+  elements.buildingDetails.hidden = !osmId;
+  if (!osmId) return;
+  const details = Object.values(currentAnalysis?.building_ids || {}).find((building) => building.osm_id === osmId);
+  const properties = selectedBuildingFeature()?.properties || {};
+  elements.buildingTitle.textContent = osmId;
+  elements.buildingFacts.replaceChildren();
+  const version = details?.osm_version ?? properties.osm_version;
+  if (version) addFact("OSM version", `${version}${details?.osm_timestamp || properties.osm_timestamp ? ` · ${String(details?.osm_timestamp || properties.osm_timestamp).slice(0, 10)}` : ""}`);
+  const correction = details?.footprint_correction || properties.footprint_correction;
+  addFact("Footprint", correction
+    ? `${correction.kind === "split" ? "Split" : "Corrected"} locally (revision ${correction.revision}, ${correction.source})`
+    : properties.footprint_correction_stale ? "Correction is stale: OSM changed since it was drawn" : "As served by OpenStreetMap");
+  if (properties.building && properties.building !== "yes") addFact("OSM building type", properties.building);
+  if (details) {
+    addFact("Visible facades", String(details.facades || 1));
+    addFact("Observed", `${Math.round(details.confidence * 100)}% of the projected facade`);
+    if (Number.isFinite(details.height_m)) addFact("Height used", `${details.height_m.toFixed(1)} m (${details.height_source || "default"})`);
+    if (details.sfm_depth_samples) addFact("SfM depth", `${details.sfm_depth_samples} points${details.sfm_depth_conflicts ? `, ${details.sfm_depth_conflicts} rejected` : ""}`);
+  } else {
+    addFact("This panorama", currentAnalysis ? "No directly visible facade" : "Not analyzed yet");
+  }
+  elements.buildingRevertButton.hidden = !correction;
+  const parent = properties.parent_osm_id || details?.footprint_correction?.kind === "split" && osmId.split("/part-")[0];
+  if (parent && parent !== osmId) addFact("Split part", `Part ${correction?.part ?? "?"} of ${correction?.parts ?? "?"} of ${parent}`);
+  elements.buildingOsmLink.href = `https://www.openstreetmap.org/${osmId.split("/part-")[0]}`;
+  loadBuildingViews(osmId);
+}
+
+const buildingViewsRequests = new Map();
+
+async function fetchBuildingViews(osmId) {
+  const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-views/${osmId}`);
+  if (!response.ok) throw new Error(`Building views unavailable (${response.status}).`);
+  return response.json();
+}
+
+async function loadBuildingViews(osmId) {
+  const requestId = (buildingViewsRequests.get("current") || 0) + 1;
+  buildingViewsRequests.set("current", requestId);
+  elements.buildingBestViewButton.hidden = true;
+  try {
+    const result = await fetchBuildingViews(osmId);
+    if (buildingViewsRequests.get("current") !== requestId || selectedBuildingId !== osmId) return;
+    const views = result.views || [];
+    addFact("Analyzed views", views.length ? `${views.length} panorama${views.length === 1 ? "" : "s"} in this dataset` : "None in this dataset yet");
+    const best = views[0];
+    elements.buildingBestViewButton.hidden = !best || String(best.image) === String(images[currentIndex]?.id);
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+// Open the panorama that shows a building best, or the nearest one when no analysis shows it.
+async function goToBestView(osmId, knownGeometry = null) {
+  const result = await fetchBuildingViews(osmId);
+  const best = result.views?.[0];
+  if (best) {
+    await showPanorama(datasetId, best.image);
+    selectBuilding(osmId, true, true);
+    return `${osmId}: best of ${result.views.length} analyzed panorama${result.views.length === 1 ? "" : "s"}.`;
+  }
+  const centroid = geometryCentroid(knownGeometry || result.geometry || featureById(osmId)?.geometry);
+  if (!centroid) return `${osmId} is not in any analysis of this dataset, and its footprint is not on the map.`;
+  const index = nearestImageIndex(images, centroid, distanceMeters);
+  if (index < 0) return "This dataset has no georeferenced panoramas.";
+  if (index !== currentIndex) await selectImage(index);
+  selectBuilding(osmId, true, false);
+  lookAtBearing(bearingDegrees(coordinatesOf(images[index]), centroid));
+  return `${osmId} is not analyzed yet; showing the nearest panorama, ${Math.round(distanceMeters(coordinatesOf(images[index]), centroid))} m away.`;
+}
+
+async function runSearch(event) {
+  event.preventDefault();
+  const query = parseSearchQuery(elements.searchInput.value);
+  const say = (message) => {
+    elements.searchMessage.textContent = message;
+    elements.searchMessage.hidden = !message;
+    if (message) logMessage(message);
+  };
+  if (!query) {
+    say("Enter an OSM element such as way/123, or coordinates such as 9.934, -84.078.");
+    return;
+  }
+  if (!images.length) return;
+  try {
+    if (query.type === "osm") {
+      say(await goToBestView(query.osmId));
+      return;
+    }
+    const point = [query.longitude, query.latitude];
+    const index = nearestImageIndex(images, point, distanceMeters);
+    if (index < 0) {
+      say("This dataset has no georeferenced panoramas.");
+      return;
+    }
+    if (index !== currentIndex) await selectImage(index);
+    lookAtBearing(bearingDegrees(coordinatesOf(images[index]), point));
+    say(`Nearest panorama is ${Math.round(distanceMeters(coordinatesOf(images[index]), point))} m from that point.`);
+  } catch (error) {
+    say(`Search failed: ${error.message}`);
+  }
+}
+
+// Withdraw an accepted correction; a part of a split reverts the whole split.
+async function revertSelectedCorrection() {
+  if (!selectedBuildingId) return;
+  const element = selectedBuildingId.split("/part-")[0];
+  const reviewer = requireReviewerName();
+  if (!reviewer) return;
+  const split = element !== selectedBuildingId;
+  if (!window.confirm(`Revert ${element}${split ? " and all parts of its split" : ""} to the OpenStreetMap geometry? The correction stays in the history as reverted.`)) return;
+  const note = window.prompt("Why is the correction being reverted? (optional)") ?? "";
+  try {
+    const result = await footprintRequest(`/api/footprint-corrections/${element}`, { action: "revert", reviewer, note });
+    showBuildingStatus(`Revision ${result.revision.revision} of ${element} reverted.`);
+    if (result.reassociation?.job) {
+      trackJob(result.reassociation.job, "Re-associate panoramas");
+      await followFootprintJob(result.reassociation.job.id);
+    } else if (result.reassociation?.message) {
+      showBuildingStatus(result.reassociation.message);
+    }
+    if (split) selectBuilding(element, true, false);
+    refreshFootprintReview(false);
+  } catch (error) {
+    showBuildingStatus(`Revert failed: ${error.message}`);
+  }
+}
+
+function editSelectedFootprint() {
+  const feature = selectedBuildingFeature();
+  if (!feature) return;
+  openPanelTab("review");
+  setFootprintEditMode(true);
+  beginFootprintEdit(feature);
 }
 
 function setActivity(element, running) {
@@ -408,6 +886,8 @@ function setAnalysisJobRunning(running) {
   const hasCurrentImage = Boolean(images[currentIndex]);
   elements.analyzeBuildingsButton.disabled = running || !hasCurrentImage;
   elements.refineNearbyPosesButton.disabled = running || images.length < 2;
+  elements.analyzeDatasetButton.disabled = !images.length;
+  elements.analyzeMapViewButton.disabled = !images.length;
   updateReportButton();
   if (!running) {
     elements.analyzeBuildingsButton.textContent = analysisButtonLabel();
@@ -453,9 +933,15 @@ function initializeMap() {
     maxZoom: 19,
   }).addTo(locationMap);
   buildingLayer = window.L.geoJSON(null, {
-    onEachFeature: (feature, layer) => layer.on("click", () => selectBuilding(feature.properties.osm_id, true, true)),
+    onEachFeature: (feature, layer) => layer.on("click", () => {
+      if (footprintEditMode) beginFootprintEdit(feature);
+      else selectBuilding(feature.properties.osm_id, true, true);
+    }),
     style: buildingStyle,
   }).addTo(locationMap);
+  footprintPreviewLayer = window.L.layerGroup().addTo(locationMap);
+  diagnosticsLayer = window.L.layerGroup().addTo(locationMap);
+  applyMapLayers();
   viewLayer = window.L.layerGroup().addTo(locationMap);
   captureLayer = window.L.layerGroup().addTo(locationMap);
   new ResizeObserver(() => locationMap.invalidateSize()).observe(elements.mapCanvas);
@@ -620,7 +1106,7 @@ async function searchMapillaryAoi() {
   const bounds = aoiRectangle.getBounds();
   const bbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
   elements.mapillarySearchButton.disabled = true;
-  elements.mapillarySearchStatus.textContent = "Consultando Mapillary...";
+  elements.mapillarySearchStatus.textContent = "Querying Mapillary...";
   setActivity(elements.mapillarySearchStatus, true);
   try {
     const response = await fetch("/api/mapillary/search", {
@@ -689,6 +1175,7 @@ async function downloadMapillaryPanoramas(imageIds, allResults = false) {
     }
     if (!response.ok) throw new Error(result.error || `Download failed (${response.status}).`);
     if (result.status !== "queued" || !result.job?.id) throw new Error("The server did not create a download job.");
+    trackJob(result.job, `Download ${datasetId}`);
     await pollMapillaryDownload(result.job.id);
   } catch (error) {
     elements.mapillarySearchStatus.textContent = `Download failed: ${error.message}`;
@@ -818,7 +1305,8 @@ function broadcastMapWindowState() {
   if (state) mapWindowChannel?.postMessage(state);
 }
 
-function setMapPanelVisible(visible) {
+function setMapPanelVisible(visible, remember = true) {
+  if (remember && !PHONE_QUERY.matches) savePreference("map", visible);
   elements.mapPanel.hidden = !visible;
   elements.mapToggleButton.setAttribute("aria-expanded", String(visible));
   elements.mapToggleButton.setAttribute("aria-label", visible ? "Hide map" : "Show map");
@@ -914,13 +1402,15 @@ function renderCaptureLocations() {
   if (!captureLayer) return;
   captureLayer.clearLayers();
   images.forEach((image, index) => {
-    if (index === currentIndex) return;
+    if (index === currentIndex || (!layers.captures && !layers.coverage)) return;
     const coordinates = coordinatesOf(image);
     if (!coordinates) return;
     const [longitude, latitude] = coordinates;
+    const status = coverageStatus[String(image.id)];
+    const [color, fillColor] = layers.coverage && status ? COVERAGE_COLORS[status] : ["#7d231c", "#d95045"];
     window.L.circleMarker([latitude, longitude], {
-      color: "#7d231c", fillColor: "#d95045", fillOpacity: 0.35, radius: 5, weight: 2,
-    }).addTo(captureLayer).bindTooltip(`Panorama ${index + 1}`, { direction: "top" }).on("click", () => selectImage(index));
+      color, fillColor, fillOpacity: layers.coverage ? 0.8 : 0.35, radius: 5, weight: 2,
+    }).addTo(captureLayer).bindTooltip(`Panorama ${index + 1}${layers.coverage && status ? ` · analysis ${status}` : ""}`, { direction: "top" }).on("click", () => selectImage(index));
   });
 }
 
@@ -991,6 +1481,9 @@ function buildingStyle(feature) {
     : !directlyVisible
       ? { color: "#59685f", fillColor: "#59685f", fillOpacity: 0.08, weight: 1 }
       : { color: "#d47a36", fillColor: "#ecba74", fillOpacity: 0.28, weight: 1 };
+  // Dashed outlines mark geometry that differs from what OpenStreetMap serves.
+  if (feature.properties?.footprint_correction) return { ...style, dashArray: "6 4", weight: Math.max(style.weight, 2) };
+  if (feature.properties?.footprint_correction_stale) return { ...style, color: "#c0392b", dashArray: "2 4", weight: 2 };
   return style;
 }
 
@@ -1004,6 +1497,8 @@ function applyAnalysisFootprints() {
   buildingLayer.clearLayers();
   buildingLayer.addData({ type: "FeatureCollection", features });
   refreshBuildingStyles();
+  renderBuildingPanel();
+  renderDiagnostics();
 }
 
 function analysisHasBuilding(osmId) {
@@ -1015,15 +1510,84 @@ function updateReportButton() {
 }
 
 function updateMaskToggle() {
-  elements.maskToggleButton.disabled = !currentAnalysis;
-  elements.maskToggleButton.textContent = buildingOverlayVisible ? "Hide overlay" : "Show overlay";
-  elements.maskToggleButton.setAttribute("aria-pressed", String(buildingOverlayVisible));
+  elements.layerInputs.forEach((input) => { input.checked = layers[input.dataset.layer]; });
 }
 
-function toggleBuildingOverlay() {
-  buildingOverlayVisible = !buildingOverlayVisible;
+function setLayer(name, visible) {
+  layers[name] = visible;
+  try {
+    window.localStorage.setItem(LAYERS_KEY, JSON.stringify(layers));
+  } catch {
+    // Private windows may refuse storage; layers still work for this page.
+  }
   updateMaskToggle();
+  if (name === "instances") loadInstanceOverlay();
+  applyMapLayers();
   render();
+}
+
+function applyMapLayers() {
+  if (!locationMap) return;
+  const toggle = (layer, visible) => {
+    if (!layer) return;
+    if (visible && !locationMap.hasLayer(layer)) layer.addTo(locationMap);
+    if (!visible && locationMap.hasLayer(layer)) layer.remove();
+  };
+  toggle(buildingLayer, layers.footprints);
+  toggle(captureLayer, layers.captures || layers.coverage);
+  toggle(viewLayer, layers.view);
+  toggle(diagnosticsLayer, layers.diagnostics);
+  renderCaptureLocations();
+  renderDiagnostics();
+}
+
+const COVERAGE_COLORS = { current: ["#1e6b3a", "#3fbf6c"], stale: ["#8a5a10", "#e0a339"], missing: ["#4a524d", "#9aa49e"] };
+
+async function loadCoverageStatus() {
+  if (!datasetId) return;
+  try {
+    const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/analysis-status`);
+    if (!response.ok) return;
+    coverageStatus = (await response.json()).panoramas || {};
+    renderCaptureLocations();
+    renderList();
+  } catch (error) {
+    console.warn("Analysis coverage unavailable.", error);
+  }
+}
+
+// Fans toward buildings the footprints do not explain, and outlines of footprints the imagery contradicts.
+function renderDiagnostics() {
+  if (!diagnosticsLayer) return;
+  diagnosticsLayer.clearLayers();
+  const image = images[currentIndex];
+  if (!layers.diagnostics || !currentAnalysis || currentAnalysis.image_id !== image?.id) return;
+  const pose = currentAnalysis.refined_pose;
+  const camera = Number.isFinite(pose?.latitude) ? [pose.latitude, pose.longitude] : (coordinatesOf(image) || []).slice().reverse();
+  (currentAnalysis.footprint_diagnostics || []).forEach((diagnostic) => {
+    if (diagnostic.type === "unexplained_instance" && diagnostic.bearings?.length === 2 && camera.length === 2) {
+      const [from, to] = diagnostic.bearings;
+      const span = ((to - from) % 360 + 360) % 360;
+      const arc = Array.from({ length: 13 }, (_, step) => destinationPoint(camera[0], camera[1], from + span * step / 12, 30));
+      window.L.polygon([camera, ...arc], { color: "#c0392b", fillColor: "#e74c3c", fillOpacity: 0.12, weight: 1.5, dashArray: "4 3" })
+        .bindTooltip("A building in the imagery with no footprint", { direction: "top" }).addTo(diagnosticsLayer);
+    }
+    if ((diagnostic.type === "merged_footprint" || diagnostic.type === "unsupported_footprint") && diagnostic.osm_id) {
+      const feature = featureById(diagnostic.osm_id);
+      if (!feature) return;
+      const label = diagnostic.type === "merged_footprint" ? "Several buildings in this footprint" : "No building in the imagery";
+      window.L.geoJSON(feature.geometry, { style: { color: "#c0392b", weight: 2, fill: false, dashArray: "2 3" }, interactive: false })
+        .addTo(diagnosticsLayer);
+      const centroid = geometryCentroid(feature.geometry);
+      // The marker sits on the footprint, so a click on it must still select that building.
+      if (centroid) {
+        window.L.circleMarker([centroid[1], centroid[0]], { color: "#fff", fillColor: "#c0392b", fillOpacity: 1, radius: 4, weight: 1 })
+          .bindTooltip(label, { direction: "top" })
+          .on("click", () => (footprintEditMode ? beginFootprintEdit(feature) : selectBuilding(diagnostic.osm_id, true, true)))
+          .addTo(diagnosticsLayer);
+      }
+    }
+  });
 }
 
 function loadSelectionMask(osmId) {
@@ -1089,20 +1653,14 @@ function focusBuilding(osmId) {
 }
 
 function selectBuilding(osmId, broadcast = true, focus = false) {
-  if (osmId && currentAnalysis && !analysisHasBuilding(osmId)) {
-    selectedBuildingId = null;
-    loadBuildingOverviewMask();
-    refreshBuildingStyles();
-    showBuildingStatus("This footprint has no directly visible facade in the current panorama.");
-    updateReportButton();
-    updateMaskToggle();
-    if (broadcast) broadcastMapWindowState();
-    return;
-  }
   selectedBuildingId = osmId || null;
   if (focus && selectedBuildingId) focusBuilding(selectedBuildingId);
   refreshBuildingStyles();
-  if (selectedBuildingId) {
+  if (selectedBuildingId && !analysisHasBuilding(selectedBuildingId)) {
+    // Any footprint can be selected; without a facade here, the panel offers its best view.
+    loadBuildingOverviewMask();
+    showBuildingStatus(`Selected ${selectedBuildingId} · no directly visible facade in this panorama`);
+  } else if (selectedBuildingId) {
     loadSelectionMask(selectedBuildingId);
     const details = Object.values(currentAnalysis?.building_ids || {}).find((building) => building.osm_id === selectedBuildingId);
     const depth = details?.sfm_depth_samples
@@ -1117,6 +1675,7 @@ function selectBuilding(osmId, broadcast = true, focus = false) {
   }
   updateReportButton();
   updateMaskToggle();
+  renderBuildingPanel();
   syncViewerUrl();
   if (broadcast) broadcastMapWindowState();
 }
@@ -1203,6 +1762,333 @@ function centerMapOnCurrentCamera() {
   locationMap.setView([latitude, longitude], 18, { animate: false });
 }
 
+function storedFootprintAuthor() {
+  try {
+    return window.localStorage.getItem(FOOTPRINT_AUTHOR_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberFootprintAuthor(name) {
+  try {
+    window.localStorage.setItem(FOOTPRINT_AUTHOR_KEY, name);
+  } catch {
+    // Private windows may refuse storage; the name is only a convenience.
+  }
+}
+
+function setFootprintEditMode(enabled) {
+  footprintEditMode = enabled;
+  elements.footprintEditButton.setAttribute("aria-pressed", String(enabled));
+  elements.footprintEditButton.textContent = enabled ? "Stop editing" : "Edit a footprint on the map";
+  if (enabled) elements.mapMessage.textContent = "Click the footprint to correct.";
+  else endFootprintEdit();
+}
+
+function reviewerName() {
+  return elements.reviewerName.value.trim();
+}
+
+function requireReviewerName() {
+  const name = reviewerName();
+  if (name) {
+    rememberFootprintAuthor(name);
+    return name;
+  }
+  openPanelTab("review");
+  elements.footprintReviewMessage.textContent = "Enter your name first; it is recorded with proposals and reviews.";
+  elements.reviewerName.focus();
+  return null;
+}
+
+function beginFootprintEdit(feature) {
+  endFootprintEdit();
+  const parent = feature.properties?.parent_osm_id;
+  if (parent) {
+    elements.footprintReviewMessage.textContent = `${feature.properties.osm_id} is part of a reviewed split of ${parent}. To change it, propose a new revision of ${parent}; editing single parts is not supported yet.`;
+    return;
+  }
+  if (!editableRings(feature.geometry)) {
+    elements.mapMessage.textContent = "Footprints with several parts cannot be edited here yet.";
+    return;
+  }
+  const analyzed = Object.values(currentAnalysis?.building_ids || {}).find((building) => building.osm_id === feature.properties.osm_id);
+  projection = {
+    original: feature.geometry,
+    edited: [feature.geometry],
+    height: Number.isFinite(analyzed?.render_height_m) ? analyzed.render_height_m : wallHeight(feature.properties),
+  };
+  footprintEditSession = startFootprintEdit(window.L, locationMap, feature.geometry, (geometries) => {
+    projection = { ...projection, edited: geometries };
+    render();
+    // Undo steps are committed right after the change that triggered this.
+    window.setTimeout(updateUndoButtons, 0);
+  });
+  footprintEditFeature = feature;
+  setSplitMode(false);
+  updateUndoButtons();
+  const version = feature.properties?.osm_version;
+  elements.footprintEditTarget.textContent = `Correcting ${feature.properties.osm_id}${version ? ` (OSM version ${version})` : ""}.`;
+  elements.footprintNote.value = "";
+  elements.footprintEditForm.hidden = false;
+}
+
+function endFootprintEdit() {
+  footprintEditSession?.stop();
+  footprintEditSession = null;
+  footprintEditFeature = null;
+  projection = null;
+  elements.footprintEditForm.hidden = true;
+  if (program) render();
+}
+
+function setSplitMode(enabled) {
+  elements.footprintSplitButton.setAttribute("aria-pressed", String(enabled));
+  elements.footprintSplitButton.textContent = enabled ? "Done splitting" : "Split";
+  footprintEditSession?.setSplitting(enabled);
+  if (enabled) elements.footprintReviewMessage.textContent = "Click two vertices of one part to cut it between them. Add vertices first with the edge dots if needed.";
+}
+
+function undoFootprintEdit(redo = false) {
+  if (!footprintEditSession) return;
+  if (redo) footprintEditSession.redo();
+  else footprintEditSession.undo();
+  updateUndoButtons();
+}
+
+async function footprintRequest(url, body) {
+  const response = await fetch(url, body
+    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    : undefined);
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || response.statusText);
+  return payload;
+}
+
+async function submitFootprintCorrection(event) {
+  event.preventDefault();
+  if (!footprintEditSession || !footprintEditFeature) return;
+  const author = requireReviewerName();
+  if (!author) return;
+  const osmId = footprintEditFeature.properties.osm_id;
+  const image = images[currentIndex];
+  try {
+    const geometries = footprintEditSession.geometries();
+    const result = await footprintRequest(`/api/footprint-corrections/${osmId}`, {
+      action: "propose",
+      ...(geometries.length > 1 ? { parts: geometries } : { geometry: geometries[0] }),
+      author,
+      note: elements.footprintNote.value.trim(),
+      evidence: image ? [{ dataset: datasetId, image: image.id }] : [],
+    });
+    setFootprintEditMode(false);
+    elements.footprintReviewMessage.textContent = `Proposed revision ${result.revision.revision} for ${osmId}; it waits for review below.`;
+    await refreshFootprintReview(false);
+  } catch (error) {
+    elements.footprintReviewMessage.textContent = `Correction not saved: ${error.message}`;
+  }
+}
+
+function previewFootprint(geometry, color = "#2f80ed") {
+  if (!locationMap || !footprintPreviewLayer) return;
+  footprintPreviewLayer.clearLayers();
+  const layer = window.L.geoJSON(geometry, { style: { color, fillColor: color, fillOpacity: 0.15, dashArray: "5 4", weight: 2 } }).addTo(footprintPreviewLayer);
+  locationMap.fitBounds(layer.getBounds(), { maxZoom: 20, padding: [24, 24] });
+}
+
+async function reviewFootprintCorrection(osmId, revision, decision) {
+  const reviewer = requireReviewerName();
+  if (!reviewer) return;
+  try {
+    const result = await footprintRequest(`/api/footprint-corrections/${osmId}`, { action: "review", revision, decision, reviewer });
+    footprintPreviewLayer?.clearLayers();
+    elements.footprintReviewMessage.textContent = `Revision ${revision} of ${osmId} ${decision}.`;
+    const reassociation = result.reassociation;
+    if (reassociation?.job) {
+      trackJob(reassociation.job, "Re-associate panoramas");
+      elements.footprintReviewMessage.textContent = reassociation.job.message;
+      await followFootprintJob(reassociation.job.id);
+    } else if (reassociation?.message) {
+      elements.footprintReviewMessage.textContent = reassociation.message;
+    }
+    // The queue keeps the reviewer's position, which now holds the next item.
+    await refreshFootprintReview(false);
+    if (reviewQueue[reviewIndex]) await openReviewItem(reviewQueue[reviewIndex]);
+  } catch (error) {
+    elements.footprintReviewMessage.textContent = `Review not saved: ${error.message}`;
+  }
+}
+
+async function followFootprintJob(jobId) {
+  for (;;) {
+    const job = await footprintRequest(`/api/jobs/${encodeURIComponent(jobId)}`);
+    elements.footprintReviewMessage.textContent = job.message;
+    if (job.status === "failed") throw new Error(job.message);
+    if (job.status === "complete") break;
+    await new Promise((resolve) => window.setTimeout(resolve, 1000));
+  }
+  // Footprints and analyses changed on the server: drop cached copies and reload.
+  buildingCache.clear();
+  loadCoverageStatus();
+  const image = images[currentIndex];
+  if (image) await Promise.all([loadBuildingAnalysis(image), updateMap(image)]);
+}
+
+function reviewFilters() {
+  return {
+    kind: elements.reviewKind.value,
+    dataset: elements.reviewAllDatasets.checked ? null : datasetId,
+    unresolvedOnly: elements.reviewHideResolved.checked,
+  };
+}
+
+async function refreshFootprintReview(announce = true) {
+  if (announce) elements.footprintReviewMessage.textContent = "Loading footprint review...";
+  try {
+    const issuesUrl = elements.reviewAllDatasets.checked || !datasetId ? "/api/footprint-issues" : `/api/footprint-issues?dataset=${encodeURIComponent(datasetId)}`;
+    const [corrections, issues] = await Promise.all([footprintRequest("/api/footprint-corrections?status=proposed"), footprintRequest(issuesUrl)]);
+    reviewData = { corrections: corrections.corrections || [], issues };
+    rebuildReviewQueue();
+    if (announce) elements.footprintReviewMessage.textContent = "";
+  } catch (error) {
+    elements.footprintReviewMessage.textContent = `Footprint review unavailable: ${error.message}`;
+  }
+}
+
+function rebuildReviewQueue() {
+  const previous = reviewQueue[reviewIndex];
+  reviewQueue = buildReviewQueue(reviewData.corrections, reviewData.issues, reviewFilters());
+  reviewIndex = preservedIndex(reviewQueue, previous?.key, reviewIndex);
+  const pending = reviewData.corrections.reduce((total, record) => total + record.revisions.filter((revision) => revision.status === "proposed").length, 0);
+  elements.reviewCount.textContent = String(pending);
+  elements.reviewCount.hidden = pending === 0;
+  renderReviewQueue();
+}
+
+function renderReviewQueue() {
+  elements.reviewPosition.textContent = !reviewQueue.length ? "Nothing to review"
+    : reviewIndex < 0 ? `${reviewQueue.length} to review` : `${reviewIndex + 1} of ${reviewQueue.length}`;
+  elements.reviewPreviousButton.disabled = reviewQueue.length === 0;
+  elements.reviewNextButton.disabled = reviewQueue.length === 0;
+  const current = reviewQueue[reviewIndex];
+  elements.reviewCurrent.hidden = !current;
+  if (current) {
+    elements.reviewCurrentKind.textContent = REVIEW_KINDS[current.kind] || current.kind;
+    elements.reviewCurrentLabel.textContent = current.label;
+    elements.reviewCurrentDetail.textContent = current.detail;
+    elements.reviewAcceptButton.hidden = current.kind !== "proposal";
+    elements.reviewRejectButton.hidden = current.kind !== "proposal";
+    elements.reviewEditButton.hidden = !current.osmId;
+  }
+  elements.reviewList.replaceChildren(...reviewQueue.map((item, index) => {
+    const entry = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("aria-current", String(index === reviewIndex));
+    const kind = document.createElement("span");
+    kind.className = "review-kind";
+    kind.textContent = REVIEW_KINDS[item.kind] || item.kind;
+    const label = document.createElement("strong");
+    label.textContent = item.label;
+    const detail = document.createElement("span");
+    detail.textContent = item.detail;
+    button.append(kind, label, detail);
+    button.addEventListener("click", () => goToReviewItem(index));
+    entry.append(button);
+    return entry;
+  }));
+  elements.reviewList.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+}
+
+async function goToReviewItem(index) {
+  if (index < 0 || !reviewQueue[index]) return;
+  reviewIndex = index;
+  renderReviewQueue();
+  await openReviewItem(reviewQueue[index]);
+  syncViewerUrl();
+}
+
+function stepReview(step) {
+  return goToReviewItem(stepIndex(reviewQueue.length, reviewIndex, step));
+}
+
+function featureById(osmId) {
+  let feature = null;
+  buildingLayer?.eachLayer((layer) => {
+    if (layer.feature?.properties?.osm_id === osmId) feature = layer.feature;
+  });
+  return feature;
+}
+
+// Open the panorama that shows a review item, look at it and mark it on the map.
+async function openReviewItem(item) {
+  if (!item) return;
+  endFootprintEdit();
+  if (item.dataset && item.image) await showPanorama(item.dataset, item.image);
+  if (item.osmId) {
+    selectBuilding(item.osmId, true, true);
+    const feature = featureById(item.osmId);
+    if (item.geometry) previewFootprint(item.geometry);
+    else if (feature) previewFootprint(feature.geometry, "#c0392b");
+  } else if (item.bearings) {
+    footprintPreviewLayer?.clearLayers();
+    lookAtBearing(bearingCenter(item.bearings));
+  }
+}
+
+function lookAtBearing(bearing) {
+  const image = images[currentIndex];
+  if (!image) return;
+  const analysisPose = currentAnalysis && currentAnalysis.image_id === image.id ? currentAnalysis.refined_pose : null;
+  const heading = Number.isFinite(analysisPose?.heading_degrees) ? analysisPose.heading_degrees : recordedHeading(image);
+  if (heading === null) return;
+  yaw = signedDegrees(bearing - heading) * Math.PI / 180;
+  render();
+  scheduleViewIndicator();
+}
+
+async function showPanorama(dataset, imageId) {
+  if (dataset !== datasetId) {
+    if (!datasets.some((item) => item.id === dataset)) return;
+    elements.datasetSelect.value = dataset;
+    await loadDataset(dataset, { imageId });
+    return;
+  }
+  const index = images.findIndex((image) => String(image.id) === String(imageId));
+  if (index >= 0 && index !== currentIndex) await selectImage(index);
+}
+
+async function openLinkedReviewItem(key) {
+  openPanelTab("review");
+  await refreshFootprintReview(false);
+  let index = reviewQueue.findIndex((item) => item.key === key);
+  if (index < 0 && !elements.reviewAllDatasets.checked) {
+    elements.reviewAllDatasets.checked = true;
+    await refreshFootprintReview(false);
+    index = reviewQueue.findIndex((item) => item.key === key);
+  }
+  if (index >= 0) await goToReviewItem(index);
+  else elements.footprintReviewMessage.textContent = "The linked review item is resolved or no longer exists.";
+}
+
+function reviewCurrentAction(action) {
+  const current = reviewQueue[reviewIndex];
+  if (!current) return;
+  if (action === "accept" || action === "reject") {
+    if (current.kind === "proposal") reviewFootprintCorrection(current.osmId, current.revision, action === "accept" ? "accepted" : "rejected");
+    return;
+  }
+  if (action === "edit" && current.osmId && !PHONE_QUERY.matches) {
+    const feature = featureById(current.osmId);
+    if (feature) {
+      setFootprintEditMode(true);
+      beginFootprintEdit(feature);
+    }
+  }
+  if (action === "show") openReviewItem(current);
+}
+
 async function loadBuildingAnalysis(image) {
   const requestId = ++analysisRequest;
   const requestedDataset = datasetId;
@@ -1211,6 +2097,8 @@ async function loadBuildingAnalysis(image) {
   currentAnalysis = null;
   setBuildingAnalysisRunning(analysisJobRunning);
   clearSelectionMask();
+  clearInstanceOverlay();
+  renderDiagnostics();
   updateMaskToggle();
   elements.analyzeBuildingsButton.disabled = analysisJobRunning;
   elements.analyzeBuildingsButton.textContent = analysisButtonLabel();
@@ -1226,6 +2114,7 @@ async function loadBuildingAnalysis(image) {
     const analysis = await response.json();
     if (requestId !== analysisRequest || requestedDataset !== datasetId || images[currentIndex]?.id !== requestedImageId) return;
     currentAnalysis = analysis;
+    loadInstanceOverlay();
     updateMetadata(image);
     elements.analyzeBuildingsButton.textContent = analysisButtonLabel();
     if (selectedBuildingId) selectBuilding(selectedBuildingId, false);
@@ -1283,6 +2172,7 @@ async function pollNearbyBuildingAnalysis(jobId, requestedDataset, imageId, curr
   }
   if (job.status === "complete") {
     setBuildingAnalysisRunning(false);
+    loadCoverageStatus();
     if (showingRequestedImage) {
       if (!currentLoaded) await loadBuildingAnalysis(images[currentIndex]);
       showNearbyAnalysisSummary(job.analysis);
@@ -1302,6 +2192,38 @@ async function pollNearbyBuildingAnalysis(jobId, requestedDataset, imageId, curr
       showBuildingStatus(`Building analysis failed: ${error.message}`);
     });
   }, 1000);
+}
+
+async function startBatchAnalysis(useMapView) {
+  if (!datasetId) return;
+  let body = {};
+  if (useMapView && locationMap) {
+    const bounds = locationMap.getBounds();
+    body = { bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()] };
+  }
+  try {
+    const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/analysis-batch`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `The analysis could not start (${response.status}).`);
+    const job = result.job;
+    if (!job.total) {
+      showBuildingStatus(useMapView ? "Every panorama in the map view is already analyzed." : "Every panorama in this dataset is already analyzed.");
+      return;
+    }
+    const requestedDataset = datasetId;
+    trackJob(job, useMapView ? "Analyze map view" : `Analyze ${datasetId}`, async () => {
+      if (datasetId !== requestedDataset) return;
+      await loadCoverageStatus();
+      if (images[currentIndex]) await loadBuildingAnalysis(images[currentIndex]);
+      refreshFootprintReview(false);
+    });
+    openPanelTab("jobs");
+    showBuildingStatus(job.message);
+  } catch (error) {
+    showBuildingStatus(`Analysis could not start: ${error.message}`);
+  }
 }
 
 async function analyzeBuildings() {
@@ -1325,6 +2247,7 @@ async function analyzeBuildings() {
       setAnalysisJobRunning(false);
       return;
     }
+    trackJob(result.job, "Analyze buildings");
     await pollNearbyBuildingAnalysis(result.job.id, requestedDataset, image.id);
   } catch (error) {
     setBuildingAnalysisRunning(false);
@@ -1387,6 +2310,7 @@ async function refineNearbyPoses() {
       setAnalysisJobRunning(false);
       return;
     }
+    trackJob(result.job, "Sparse depth (SfM)");
     await pollSfmRefinement(result.job.id, image.id);
   } catch (error) {
     setBuildingAnalysisRunning(false);
@@ -1445,7 +2369,15 @@ function renderList() {
     button.setAttribute("aria-current", String(index === currentIndex));
     const indexElement = document.createElement("span");
     indexElement.className = "list-index";
-    indexElement.textContent = String(index + 1).padStart(2, "0");
+    const status = coverageStatus[String(image.id)];
+    if (status) {
+      const dot = document.createElement("span");
+      dot.className = "status-dot";
+      dot.dataset.status = status;
+      dot.title = { current: "Analysis current", stale: "Analysis from an older version", missing: "Not analyzed" }[status];
+      indexElement.append(dot);
+    }
+    indexElement.append(String(index + 1).padStart(2, "0"));
     const content = document.createElement("span");
     const date = document.createElement("span");
     date.className = "list-date";
@@ -1466,6 +2398,8 @@ function updateControls() {
   elements.sequencePosition.textContent = hasImages ? `${currentIndex + 1} / ${images.length}` : "0 / 0";
   elements.previousButton.disabled = !hasImages;
   elements.nextButton.disabled = !hasImages;
+  elements.analyzeDatasetButton.disabled = !hasImages;
+  elements.analyzeMapViewButton.disabled = !hasImages;
   updateSceneNavigation();
 }
 
@@ -1490,8 +2424,8 @@ function selectImage(index, reset = false) {
   renderList();
   updateControls();
   updateMetadata(image);
-  updateMap(image);
-  loadBuildingAnalysis(image);
+  // Callers that need the building data wait for both; the texture loads independently.
+  const ready = Promise.all([updateMap(image), loadBuildingAnalysis(image)]);
   loadSfmRefinement(image);
   scheduleViewIndicator();
   clearError();
@@ -1520,6 +2454,7 @@ function selectImage(index, reset = false) {
     if (loadId === activeLoad) showError(`${image.local_file} was not found in this dataset.`);
   };
   textureImage.src = assetUrl(image);
+  return ready;
 }
 
 async function loadDataset(nextDatasetId, target = null) {
@@ -1556,7 +2491,10 @@ async function loadDataset(nextDatasetId, target = null) {
     fov = Number.isFinite(target?.fovDeg) ? target.fovDeg : DEFAULT_FOV;
     selectedBuildingId = target?.buildingId || null;
     updateReportButton();
-    selectImage(requestedIndex);
+    const ready = selectImage(requestedIndex);
+    refreshFootprintReview(false);
+    loadCoverageStatus();
+    await ready;
   } catch (error) {
     if (requestId === datasetLoadRequest) showError(error.message);
   } finally {
@@ -1605,13 +2543,14 @@ async function deleteCurrentDataset() {
 
 async function generateBuildingReport() {
   if (!datasetId || !selectedBuildingId || !analysisHasBuilding(selectedBuildingId)) return;
-  const [osmType, osmNumber] = selectedBuildingId.split("/");
+  // Parts of a split have a third segment ("way/1/part-2").
+  const buildingPath = selectedBuildingId.split("/").map(encodeURIComponent).join("/");
   const popup = window.open("", "_blank");
   elements.generateReportButton.disabled = true;
   elements.generateReportButton.textContent = "Generating report...";
   showBuildingStatus("Generating ranked views, annotated screenshots, and footprint assessment...");
   try {
-    const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-reports/${encodeURIComponent(osmType)}/${encodeURIComponent(osmNumber)}`, { method: "POST" });
+    const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-reports/${buildingPath}`, { method: "POST" });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `Report could not be generated (${response.status}).`);
     showBuildingStatus(`Report generated from ${result.report.ranked_views.length} panorama view${result.report.ranked_views.length === 1 ? "" : "s"}.`);
@@ -1627,12 +2566,32 @@ async function generateBuildingReport() {
 }
 
 function bindInteraction() {
+  const touches = new Map();
+  let pinch = null;
+  const pinchDistance = () => {
+    const [first, second] = [...touches.values()];
+    return Math.hypot(first.x - second.x, first.y - second.y);
+  };
   elements.canvas.addEventListener("pointerdown", (event) => {
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size === 2) {
+      // A second finger turns the drag into a pinch.
+      pinch = { distance: pinchDistance(), fov };
+      pointer = null;
+      return;
+    }
     pointer = { id: event.pointerId, moved: false, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY };
     elements.canvas.setPointerCapture(event.pointerId);
     elements.canvas.classList.add("dragging");
   });
   elements.canvas.addEventListener("pointermove", (event) => {
+    if (touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch && touches.size === 2) {
+      fov = Math.max(45, Math.min(110, pinch.fov * pinch.distance / Math.max(pinchDistance(), 1)));
+      render();
+      scheduleViewIndicator();
+      return;
+    }
     if (!pointer || event.pointerId !== pointer.id) return;
     // Drag the panorama itself: down looks up, right looks left.
     yaw -= (event.clientX - pointer.x) * 0.006;
@@ -1642,6 +2601,8 @@ function bindInteraction() {
     scheduleViewIndicator();
   });
   const endPointer = (event, cancelled = false) => {
+    touches.delete(event.pointerId);
+    if (touches.size < 2) pinch = null;
     if (!pointer || event.pointerId !== pointer.id) return;
     const clicked = !pointer.moved;
     pointer = null;
@@ -1662,9 +2623,57 @@ function bindInteraction() {
   elements.searchMapillaryButton.addEventListener("click", openMapillaryDialog);
   elements.analyzeBuildingsButton.addEventListener("click", analyzeBuildings);
   elements.refineNearbyPosesButton.addEventListener("click", refineNearbyPoses);
+  // A menu closes once one of its actions is chosen.
+  document.querySelectorAll(".advanced-actions-menu button").forEach((button) => {
+    button.addEventListener("click", () => { button.closest("details").open = false; });
+  });
+  elements.analyzeDatasetButton.addEventListener("click", () => startBatchAnalysis(false));
+  elements.analyzeMapViewButton.addEventListener("click", () => startBatchAnalysis(true));
   elements.generateReportButton.addEventListener("click", generateBuildingReport);
-  elements.maskToggleButton.addEventListener("click", toggleBuildingOverlay);
+  elements.footprintEditButton.addEventListener("click", () => setFootprintEditMode(!footprintEditMode));
+  elements.footprintCancelButton.addEventListener("click", () => setFootprintEditMode(false));
+  elements.footprintEditForm.addEventListener("submit", submitFootprintCorrection);
+  elements.footprintRefreshButton.addEventListener("click", () => refreshFootprintReview());
+  elements.footprintUndoButton.addEventListener("click", () => undoFootprintEdit());
+  elements.footprintSplitButton.addEventListener("click", () => setSplitMode(elements.footprintSplitButton.getAttribute("aria-pressed") !== "true"));
+  elements.footprintRedoButton.addEventListener("click", () => undoFootprintEdit(true));
+  elements.reviewerName.value = storedFootprintAuthor();
+  elements.reviewerName.addEventListener("change", () => rememberFootprintAuthor(reviewerName()));
+  elements.reviewKind.addEventListener("change", rebuildReviewQueue);
+  elements.reviewHideResolved.addEventListener("change", rebuildReviewQueue);
+  elements.reviewAllDatasets.addEventListener("change", () => refreshFootprintReview(false));
+  elements.reviewPreviousButton.addEventListener("click", () => stepReview(-1));
+  elements.reviewNextButton.addEventListener("click", () => stepReview(1));
+  elements.reviewAcceptButton.addEventListener("click", () => reviewCurrentAction("accept"));
+  elements.reviewRejectButton.addEventListener("click", () => reviewCurrentAction("reject"));
+  elements.reviewEditButton.addEventListener("click", () => reviewCurrentAction("edit"));
+  elements.reviewShowButton.addEventListener("click", () => reviewCurrentAction("show"));
+  elements.buildingEditButton.addEventListener("click", editSelectedFootprint);
+  elements.buildingRevertButton.addEventListener("click", revertSelectedCorrection);
+  elements.buildingBestViewButton.addEventListener("click", async () => {
+    if (selectedBuildingId) showBuildingStatus(await goToBestView(selectedBuildingId));
+  });
+  elements.searchForm.addEventListener("submit", runSearch);
+  elements.panelToggleButton.addEventListener("click", () => setSidePanelVisible(elements.sidePanel.hidden));
+  elements.panelCloseButton.addEventListener("click", () => setSidePanelVisible(false));
+  elements.tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => setPanelTab(PANEL_TABS[index]));
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      event.stopPropagation();
+      const step = event.key === "ArrowRight" ? 1 : -1;
+      setPanelTab(PANEL_TABS[(index + step + PANEL_TABS.length) % PANEL_TABS.length], true);
+    });
+  });
+  elements.layerInputs.forEach((input) => input.addEventListener("change", () => setLayer(input.dataset.layer, input.checked)));
   elements.closeMapillaryDialogButton.addEventListener("click", () => elements.mapillaryDialog.close());
+  elements.helpButton.addEventListener("click", () => elements.helpDialog.showModal());
+  elements.closeHelpDialogButton.addEventListener("click", () => elements.helpDialog.close());
+  elements.themeSelect.addEventListener("change", () => {
+    applyTheme(elements.themeSelect.value);
+    savePreference("theme", elements.themeSelect.value);
+  });
   elements.mapillarySearchButton.addEventListener("click", searchMapillaryAoi);
   elements.mapillarySelectAllButton.addEventListener("click", () => {
     const shouldSelect = selectedMapillaryIds.size !== mapillarySearchResults.length;
@@ -1697,9 +2706,29 @@ function bindInteraction() {
   });
   window.addEventListener("keydown", (event) => {
     if (event.target.closest?.("input, select, textarea, [contenteditable=true]")) return;
+    if (footprintEditSession && (event.ctrlKey || event.metaKey) && ["z", "y"].includes(event.key.toLowerCase())) {
+      event.preventDefault();
+      undoFootprintEdit(event.key.toLowerCase() === "y" || event.shiftKey);
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    // Review shortcuts apply while the Review tab is open.
+    if (!elements.sidePanel.hidden && currentPanelTab() === "review") {
+      const action = { n: () => stepReview(1), p: () => stepReview(-1), a: () => reviewCurrentAction("accept"), x: () => reviewCurrentAction("reject"), e: () => reviewCurrentAction("edit") }[event.key.toLowerCase()];
+      if (action) {
+        event.preventDefault();
+        action();
+        return;
+      }
+    }
     if (event.key === "ArrowLeft") { event.preventDefault(); selectImage(currentIndex - 1); }
     if (event.key === "ArrowRight") { event.preventDefault(); selectImage(currentIndex + 1); }
     if (event.key.toLowerCase() === "r") resetView();
+    if (event.key.toLowerCase() === "m") setLayer("masks", !layers.masks);
+    if (event.key === "?") {
+      event.preventDefault();
+      elements.helpDialog.showModal();
+    }
   });
 }
 
@@ -1707,6 +2736,12 @@ async function start() {
   try {
     initializeRenderer();
     bindInteraction();
+    const saved = preferences();
+    applyTheme(saved.theme);
+    setSidePanelVisible(!OVERLAY_PANEL_QUERY.matches && saved.panel !== false, false);
+    if (PANEL_TABS.includes(saved.tab) && saved.tab !== "building") setPanelTab(saved.tab);
+    updateMaskToggle();
+    if (PHONE_QUERY.matches || saved.map === false) setMapPanelVisible(false, false);
     setActivity(elements.loading, true);
     await loadAnalysisBackend();
     const response = await fetch("/api/datasets");
@@ -1725,6 +2760,7 @@ async function start() {
     const first = datasets.some((dataset) => dataset.id === target.datasetId) ? target.datasetId : datasets[0].id;
     elements.datasetSelect.value = first;
     await loadDataset(first, first === target.datasetId ? target : null);
+    if (target.reviewKey) await openLinkedReviewItem(target.reviewKey);
   } catch (error) {
     showError(`${error.message} Run uv run city-analyser-viewer and open http://127.0.0.1:8765/viewer/.`);
   }

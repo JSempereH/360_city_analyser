@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>360 City Analyser</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23ecba74'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -20,6 +21,11 @@
             </select>
           </label>
            <p id="dataset-summary" class="muted">Reading local library</p>
+           <form id="search-form" class="search-form" role="search">
+             <input id="search-input" type="search" placeholder="way/123 or lat, lon" aria-label="Find a building or a place" autocomplete="off" />
+             <button type="submit">Find</button>
+           </form>
+           <p id="search-message" class="search-message" role="status" hidden></p>
            <button id="delete-dataset-button" class="delete-dataset-button" type="button" disabled>Delete dataset</button>
         </div>
 
@@ -32,9 +38,8 @@
         <ol id="image-list" class="image-list" aria-label="Panoramas in chronological order"></ol>
 
         <div class="sidebar-footer">
-          <p><kbd>←</kbd> <kbd>→</kbd> browse</p>
-          <p><kbd>R</kbd> reset view</p>
-          <p>Drag to look around. Scroll to zoom.</p>
+          <p><kbd>←</kbd> <kbd>→</kbd> browse · <kbd>R</kbd> reset view · <kbd>?</kbd> all shortcuts</p>
+          <p>Drag to look around. Scroll or pinch to zoom.</p>
         </div>
       </aside>
 
@@ -46,13 +51,34 @@
             <button id="analyze-buildings-button" type="button" disabled>Analyze buildings</button>
             <details class="advanced-actions">
               <summary>Advanced</summary>
-              <div class="advanced-actions-menu">
+              <div class="advanced-actions-menu" data-overlay>
+                <button id="analyze-dataset-button" type="button" disabled>Analyze whole dataset</button>
+                <button id="analyze-map-view-button" type="button" disabled>Analyze panoramas in map view</button>
+                <small>Runs in the background; follow and cancel it in the Jobs tab. Analyses that are already current are skipped.</small>
                 <button id="refine-nearby-poses-button" type="button" disabled>Build sparse depth (SfM)</button>
                 <small>Optional depth validation. Map and navigation positions always use Mapillary GPS.</small>
               </div>
             </details>
-            <button id="generate-report-button" type="button" disabled>Generate report</button>
-            <button id="mask-toggle-button" type="button" disabled>Hide overlay</button>
+            <details id="layers-menu" class="advanced-actions layers-menu">
+              <summary>Layers</summary>
+              <div class="advanced-actions-menu" data-overlay>
+                <fieldset>
+                  <legend>Panorama</legend>
+                  <label class="check"><input type="checkbox" data-layer="masks" checked /> Building masks <kbd>M</kbd></label>
+                  <label class="check"><input type="checkbox" data-layer="vegetation" checked /> Tree-occluded facades</label>
+                  <label class="check"><input type="checkbox" data-layer="instances" /> Detected building instances</label>
+                </fieldset>
+                <fieldset>
+                  <legend>Map</legend>
+                  <label class="check"><input type="checkbox" data-layer="footprints" checked /> Building footprints</label>
+                  <label class="check"><input type="checkbox" data-layer="captures" checked /> Other captures</label>
+                  <label class="check"><input type="checkbox" data-layer="view" checked /> View direction</label>
+                  <label class="check"><input type="checkbox" data-layer="diagnostics" checked /> Footprint diagnostics</label>
+                  <label class="check"><input type="checkbox" data-layer="coverage" /> Analysis coverage</label>
+                </fieldset>
+              </div>
+            </details>
+            <button id="panel-toggle-button" class="panel-toggle-button" type="button" aria-controls="side-panel" aria-expanded="true">Details</button>
             <button id="map-toggle-button" class="map-toggle-button" type="button" aria-controls="map-panel" aria-expanded="true" aria-label="Hide map" title="Hide map">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M12 2a10 10 0 1 0 10 10" />
@@ -61,12 +87,18 @@
                 <path d="M14 12h8" />
               </svg>
             </button>
-            <button id="reset-button" type="button">Reset view</button>
+            <button id="help-button" class="icon-button" type="button" aria-label="Settings and keyboard shortcuts" title="Settings and shortcuts (?)" aria-haspopup="dialog">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.6" /><path d="M12 16.8h.01" /></svg>
+            </button>
+            <button id="reset-button" class="icon-button" type="button" aria-label="Reset view" title="Reset view (R)">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v4.5h4.5" /></svg>
+            </button>
           </div>
         </header>
 
            <div id="canvas-wrap" class="canvas-wrap">
              <canvas id="panorama-canvas" aria-label="Interactive panorama"></canvas>
+             <canvas id="projection-overlay" class="projection-overlay" aria-hidden="true"></canvas>
              <nav id="scene-navigation" class="scene-navigation" aria-label="Nearby panoramas" hidden></nav>
              <section id="map-panel" class="location-map" aria-label="Location mini-map">
                <header id="map-drag-handle" class="map-panel-header">
@@ -106,8 +138,130 @@
           <a id="source-link" target="_blank" rel="noreferrer">View source</a>
         </footer>
       </section>
+
+      <aside id="side-panel" class="side-panel" aria-label="Details" data-overlay>
+        <div class="panel-tabs" role="tablist" aria-label="Details">
+          <button id="tab-building" role="tab" type="button" aria-selected="true" aria-controls="panel-building">Building</button>
+          <button id="tab-review" role="tab" type="button" aria-selected="false" aria-controls="panel-review" tabindex="-1">Review <span id="review-count" class="tab-count" hidden></span></button>
+          <button id="tab-jobs" role="tab" type="button" aria-selected="false" aria-controls="panel-jobs" tabindex="-1">Jobs <span id="jobs-count" class="tab-count" hidden></span></button>
+          <button id="panel-close-button" class="panel-close-button" type="button" aria-label="Close details">Close</button>
+        </div>
+
+        <section id="panel-building" class="panel-section" role="tabpanel" aria-labelledby="tab-building">
+          <p id="building-empty" class="panel-empty">Select a building in the panorama or on the map.</p>
+          <div id="building-details" hidden>
+            <h2 id="building-title"></h2>
+            <dl id="building-facts" class="facts"></dl>
+            <div class="panel-actions">
+              <button id="generate-report-button" type="button" disabled>Generate report</button>
+              <button id="building-best-view-button" type="button" hidden>Go to best view</button>
+              <button id="building-edit-button" class="needs-large-screen" type="button">Edit footprint</button>
+              <button id="building-revert-button" type="button" hidden>Revert to OpenStreetMap</button>
+              <a id="building-osm-link" target="_blank" rel="noreferrer">Open in OpenStreetMap</a>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-review" class="panel-section" role="tabpanel" aria-labelledby="tab-review" hidden>
+          <label class="field">Your name <input id="reviewer-name" maxlength="80" autocomplete="name" placeholder="Recorded with proposals and reviews" /></label>
+          <div class="review-filters">
+            <label class="field">Show
+              <select id="review-kind">
+                <option value="all">Everything</option>
+                <option value="proposal">Proposed corrections</option>
+                <option value="merged_footprint">Several buildings in one footprint</option>
+                <option value="unsupported_footprint">No building in the imagery</option>
+                <option value="unexplained_instance">Buildings without a footprint</option>
+              </select>
+            </label>
+            <label class="check"><input id="review-all-datasets" type="checkbox" /> All datasets</label>
+            <label class="check"><input id="review-hide-resolved" type="checkbox" checked /> Hide corrected</label>
+          </div>
+          <div class="review-navigation">
+            <button id="review-previous-button" type="button" aria-keyshortcuts="P">Previous</button>
+            <span id="review-position" aria-live="polite">0 of 0</span>
+            <button id="review-next-button" type="button" aria-keyshortcuts="N">Next problem</button>
+          </div>
+          <article id="review-current" class="review-current" hidden>
+            <p id="review-current-kind" class="review-kind"></p>
+            <h2 id="review-current-label"></h2>
+            <p id="review-current-detail"></p>
+            <div class="panel-actions">
+              <button id="review-accept-button" type="button" aria-keyshortcuts="A">Accept</button>
+              <button id="review-reject-button" type="button" aria-keyshortcuts="X">Reject</button>
+              <button id="review-edit-button" class="needs-large-screen" type="button" aria-keyshortcuts="E">Edit footprint</button>
+              <button id="review-show-button" type="button">Show again</button>
+            </div>
+          </article>
+          <p class="review-keys"><kbd>N</kbd> next · <kbd>P</kbd> previous · <kbd>A</kbd> accept · <kbd>X</kbd> reject · <kbd>E</kbd> edit</p>
+          <p class="phone-only panel-empty">Footprint editing needs a larger screen; proposals can still be reviewed here.</p>
+          <form id="footprint-edit-form" class="footprint-form" hidden>
+            <p id="footprint-edit-target"></p>
+            <small>Drag vertices or the center handle; click an edge dot to add a vertex; double-click a vertex to remove it.</small>
+            <label>Why is the footprint wrong? <textarea id="footprint-note" required maxlength="500" rows="3"></textarea></label>
+            <p class="projection-legend">Walls on the panorama: <span><span class="swatch edited"></span> yours</span> <span><span class="swatch original"></span> OpenStreetMap</span></p>
+            <div class="panel-actions">
+              <button id="footprint-split-button" type="button" aria-pressed="false" title="Cut the footprint between two of its vertices, e.g. along a party wall">Split</button>
+              <button id="footprint-undo-button" type="button" aria-keyshortcuts="Control+Z" disabled>Undo</button>
+              <button id="footprint-redo-button" type="button" aria-keyshortcuts="Control+Shift+Z" disabled>Redo</button>
+            </div>
+            <div class="panel-actions">
+              <button type="submit">Propose correction</button>
+              <button id="footprint-cancel-button" type="button">Cancel</button>
+            </div>
+          </form>
+          <p id="footprint-review-message" role="status"></p>
+          <ol id="review-list" class="review-list"></ol>
+          <div class="panel-actions">
+            <button id="footprint-edit-button" class="needs-large-screen" type="button" aria-pressed="false" title="Correct an OpenStreetMap footprint that does not match the imagery">Edit a footprint on the map</button>
+            <button id="footprint-refresh-button" type="button">Refresh</button>
+          </div>
+        </section>
+
+        <section id="panel-jobs" class="panel-section" role="tabpanel" aria-labelledby="tab-jobs" hidden>
+          <h3>Background jobs</h3>
+          <ul id="job-list" class="job-list"><li class="panel-empty">No jobs in this session.</li></ul>
+          <h3>Messages</h3>
+          <ol id="message-log" class="message-log"></ol>
+        </section>
+      </aside>
     </main>
-    <dialog id="mapillary-dialog" class="mapillary-dialog" aria-labelledby="mapillary-dialog-title">
+    <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-dialog-title" data-overlay>
+      <header>
+        <h2 id="help-dialog-title">Settings and shortcuts</h2>
+        <button id="close-help-dialog-button" class="dialog-close" type="button">Close</button>
+      </header>
+      <div class="help-body">
+        <label class="field">Theme
+          <select id="theme-select">
+            <option value="system">Follow the system</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </label>
+        <h3>Panorama</h3>
+        <dl class="shortcuts">
+          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous and next panorama</dd>
+          <dt><kbd>R</kbd></dt><dd>Reset the view</dd>
+          <dt><kbd>M</kbd></dt><dd>Show or hide building masks</dd>
+          <dt>Drag · scroll · pinch</dt><dd>Look around and zoom</dd>
+          <dt><kbd>?</kbd></dt><dd>This dialog</dd>
+          <dt>Panel tabs</dt><dd><kbd>←</kbd> <kbd>→</kbd> move between tabs when one has focus</dd>
+        </dl>
+        <h3>Review tab</h3>
+        <dl class="shortcuts">
+          <dt><kbd>N</kbd> <kbd>P</kbd></dt><dd>Next and previous item</dd>
+          <dt><kbd>A</kbd> <kbd>X</kbd></dt><dd>Accept or reject a proposed correction</dd>
+          <dt><kbd>E</kbd></dt><dd>Edit the item's footprint</dd>
+        </dl>
+        <h3>Editing a footprint</h3>
+        <dl class="shortcuts">
+          <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd>Undo</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></dt><dd>Redo</dd>
+        </dl>
+      </div>
+    </dialog>
+    <dialog id="mapillary-dialog" class="mapillary-dialog" aria-labelledby="mapillary-dialog-title" data-overlay>
       <header>
         <div>
           <p class="eyebrow">COVERAGE EXPLORER</p>

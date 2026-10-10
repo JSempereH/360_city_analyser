@@ -1,5 +1,6 @@
 const EARTH_RADIUS_M = 6_371_008.8;
-const OSM_BUILDING_ID = /^(?:node|way|relation)\/[1-9][0-9]*$/;
+// OSM elements and parts of a reviewed split ("way/123/part-2").
+const OSM_BUILDING_ID = /^(?:node|way|relation)\/[1-9][0-9]*(?:\/part-[1-9][0-9]*)?$/;
 
 export function coordinatesOf(image) {
   return image?.selected_geometry?.coordinates || image?.computed_geometry?.coordinates || image?.geometry?.coordinates || null;
@@ -30,15 +31,17 @@ export function mergeBuildingFootprints(baseFeatures, analyzedBuildings) {
     const outerRings = outerRingsOf(geometry);
     if (!OSM_BUILDING_ID.test(identifier) || !outerRings.length || outerRings.some((ring) => ring.length < 4)) return;
     const existing = merged.get(identifier);
-    merged.set(identifier, {
-      type: "Feature",
-      properties: {
-        ...(existing?.properties || {}),
-        osm_id: identifier,
-        footprint_source: building.footprint_source || existing?.properties?.footprint_source || "osm",
-      },
-      geometry,
-    });
+    const properties = {
+      ...(existing?.properties || {}),
+      osm_id: identifier,
+      footprint_source: building.footprint_source || existing?.properties?.footprint_source || "osm",
+    };
+    // The analysis geometry wins, so its correction state must win too.
+    if ("footprint_correction" in building) {
+      if (building.footprint_correction) properties.footprint_correction = building.footprint_correction;
+      else delete properties.footprint_correction;
+    }
+    merged.set(identifier, { type: "Feature", properties, geometry });
   });
   return [...merged.values()];
 }
@@ -82,4 +85,27 @@ export function sortedLocalPanoramas(manifest) {
     const byCapture = (first.captured_at_ms || 0) - (second.captured_at_ms || 0);
     return byCapture || String(first.id).localeCompare(String(second.id));
   });
+}
+
+// Index of the panorama nearest to a [longitude, latitude] point, or -1.
+export function nearestImageIndex(images, point, distance) {
+  let best = -1;
+  let bestDistance = Infinity;
+  images.forEach((image, index) => {
+    const coordinates = coordinatesOf(image);
+    if (!coordinates) return;
+    const meters = distance(coordinates, point);
+    if (meters < bestDistance) {
+      best = index;
+      bestDistance = meters;
+    }
+  });
+  return best;
+}
+
+export function geometryCentroid(geometry) {
+  const vertices = outerRingsOf(geometry).flatMap((ring) => ring.slice(0, -1));
+  if (!vertices.length) return null;
+  const [longitude, latitude] = vertices.reduce((total, point) => [total[0] + point[0], total[1] + point[1]], [0, 0]);
+  return [longitude / vertices.length, latitude / vertices.length];
 }
