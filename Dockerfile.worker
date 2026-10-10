@@ -1,4 +1,5 @@
-# GPU building-analysis worker for a local NVIDIA box or a cloud GPU VM.
+# GPU perception worker (semantic and instance models only) for a local NVIDIA box or a cloud GPU VM.
+# It never reads OpenStreetMap: the client associates the returned model outputs with footprints.
 #   docker build -f Dockerfile.worker -t 360-city-analyser-worker .
 #   docker run --gpus all -p 8766:8766 -v "$PWD/models:/models" -v "$PWD/cache:/cache" \
 #     -e BUILDING_ANALYSIS_REMOTE_TOKEN=... -e BUILDING_ANALYSIS_MODEL=high 360-city-analyser-worker

@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+# Bumped when the score or its inputs change (v2: image quality weights the score).
+RANKING_FORMULA_VERSION = "direct-facade-evidence-v2"
+
 
 @dataclass(frozen=True, slots=True)
 class InputIssue:
@@ -35,6 +38,8 @@ class ViewEvidence:
     footprint_source: str
     alternative_footprint_id: str | None
     footprint_geometry: dict[str, Any]
+    osm_version: int | None
+    footprint_correction: dict[str, Any] | None
     pose_facade_iou: float | None
     pose_facade_iou_gain: float | None
     sfm_depth_samples: int
@@ -50,6 +55,7 @@ class ViewEvidence:
     id_mask_sha256: str
     inferred_mask_relative_path: str
     inferred_mask_sha256: str
+    image_quality: dict[str, Any] | None = None
 
     def public_dict(self) -> dict[str, Any]:
         return {
@@ -79,6 +85,8 @@ class ViewEvidence:
                 "visible_facades": self.visible_facades,
                 "footprint_source": self.footprint_source,
                 "alternative_footprint_id": self.alternative_footprint_id,
+                "osm_version": self.osm_version,
+                "footprint_correction": self.footprint_correction,
                 "sfm_depth_samples": self.sfm_depth_samples,
                 "sfm_depth_conflicts": self.sfm_depth_conflicts,
             },
@@ -86,6 +94,7 @@ class ViewEvidence:
                 "facade_iou": self.pose_facade_iou,
                 "facade_iou_gain": self.pose_facade_iou_gain,
             },
+            "image_quality": self.image_quality,
         }
 
 
@@ -118,7 +127,7 @@ class RankedView:
         payload.update({
             "rank": self.rank,
             "ranking": {
-                "formula_version": "direct-facade-evidence-v1",
+                "formula_version": RANKING_FORMULA_VERSION,
                 "score": self.score,
                 "observed_fraction": self.observed_fraction,
                 "inferred_fraction": self.inferred_fraction,

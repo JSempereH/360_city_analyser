@@ -24,6 +24,8 @@ from urllib.request import Request, urlopen
 from .building_instances import _load_models as _load_instance_models, instance_coverage, instance_settings, segment_instances
 from .analysis_cache import analysis_cache_matches, analysis_input_sha256, atomic_write_bytes, file_sha256, sfm_input_sha256
 from .panorama_geometry import panorama_to_tile_grid, perspective_tiles_torch
+from .footprint_corrections import apply_corrections, footprints_sha256
+from .image_quality import panorama_quality, quality_thresholds
 from .stage_cache import load_stage, save_stage, stage_key
 
 
@@ -33,7 +35,14 @@ GPU_MODEL_ID = "nvidia/segformer-b5-finetuned-cityscapes-1024-1024"
 CPU_MODEL_ID = "nvidia/segformer-b0-finetuned-cityscapes-1024-1024"
 HIGH_ACCURACY_MODEL_ID = "facebook/mask2former-swin-large-mapillary-vistas-semantic"
 MODEL_VERSION = "mask2former-mapillary-high-segformer-confidence-fusion-osm-multipolygons"
-ANALYSIS_VERSION = 27
+ANALYSIS_VERSION = 29
+# Footprint diagnostics (heuristic thresholds, see docs/footprint-corrections.md).
+# Evidence regions smaller than this share of the panorama are not reported.
+FOOTPRINT_DIAGNOSTIC_MIN_SHARE = 0.005
+UNSUPPORTED_FOOTPRINT_MAX_BUILDING_SHARE = 0.1
+UNSUPPORTED_FOOTPRINT_MAX_VEGETATION_SHARE = 0.5
+# Pose corrections shorter than this are GPS noise, not a footprint hint.
+POSE_OFFSET_DIAGNOSTIC_MIN_M = 1.0
 # Model-stage outputs are cached separately from the analysis artifacts (see
 # stage_cache). Bump these only when a stage's own output changes.
 SEMANTIC_STAGE_VERSION = 1
@@ -79,7 +88,7 @@ INSTANCE_MIN_FACADE_DEGREES = 2.0
 OSM_QUERY_RADIUS_M = 140.0
 # About 110 m; every camera in a cell reuses one enlarged footprint query.
 OSM_CELL_DEGREES = 0.001
-OSM_CACHE_VERSION = 1
+OSM_CACHE_VERSION = 2
 OVERPASS_ENDPOINTS = (
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
@@ -240,6 +249,20 @@ def _relation_geometry(element: dict[str, Any]) -> dict[str, Any] | None:
     return cast(dict[str, Any], json.loads(json.dumps(mapped)))
 
 
+def _osm_metadata(element: dict[str, Any]) -> dict[str, Any]:
+    """Element version, timestamp and changeset; user names are deliberately not kept."""
+    metadata: dict[str, Any] = {}
+    for key, name, parse in (("version", "osm_version", int), ("timestamp", "osm_timestamp", str), ("changeset", "osm_changeset", int)):
+        value = element.get(key)
+        if value is None or isinstance(value, bool):
+            continue
+        try:
+            metadata[name] = parse(value)
+        except (TypeError, ValueError):
+            continue
+    return metadata
+
+
 def _feature_from_osm(element: dict[str, Any]) -> dict[str, Any] | None:
     tags = cast(dict[str, Any], element.get("tags")) if isinstance(element.get("tags"), dict) else {}
     if not _is_building(tags):
@@ -259,7 +282,7 @@ def _feature_from_osm(element: dict[str, Any]) -> dict[str, Any] | None:
         feature_geometry = {"type": "Polygon", "coordinates": [ring]}
     if feature_geometry is None:
         return None
-    properties = {**tags, "osm_id": f"{osm_type}/{osm_id}", "osm_type": osm_type, "footprint_source": "osm"}
+    properties = {**tags, "osm_id": f"{osm_type}/{osm_id}", "osm_type": osm_type, "footprint_source": "osm", **_osm_metadata(element)}
     return {"type": "Feature", "properties": properties, "geometry": feature_geometry}
 
 
@@ -325,7 +348,10 @@ def _download_buildings_from_osm_api(latitude: float, longitude: float, radius_m
         if len(ring) < 2 or "id" not in way.attrib:
             continue
         way_id = int(way.attrib["id"])
-        ways[way_id] = {"type": "way", "id": way_id, "tags": tags, "geometry": [{"lon": point[0], "lat": point[1]} for point in ring]}
+        ways[way_id] = {
+            "type": "way", "id": way_id, "tags": tags, "geometry": [{"lon": point[0], "lat": point[1]} for point in ring],
+            **{key: way.attrib[key] for key in ("version", "timestamp", "changeset") if key in way.attrib},
+        }
     elements: list[dict[str, Any]] = list(ways.values())
     for relation in root.findall("relation"):
         if "id" not in relation.attrib:
@@ -340,7 +366,10 @@ def _download_buildings_from_osm_api(latitude: float, longitude: float, radius_m
             source = ways.get(reference)
             if member.attrib.get("type") == "way" and source is not None:
                 members.append({"type": "way", "ref": reference, "role": member.attrib.get("role", ""), "geometry": source["geometry"]})
-        elements.append({"type": "relation", "id": int(relation.attrib["id"]), "tags": tags, "members": members})
+        elements.append({
+            "type": "relation", "id": int(relation.attrib["id"]), "tags": tags, "members": members,
+            **{key: relation.attrib[key] for key in ("version", "timestamp", "changeset") if key in relation.attrib},
+        })
     return _features_from_osm_elements(elements)
 
 
@@ -353,7 +382,8 @@ def _download_buildings(latitude: float, longitude: float, radius_m: float) -> t
         f'way["building:part"](around:{radius},{latitude},{longitude});'
         f'relation["building:part"]["type"="multipolygon"](around:{radius},{latitude},{longitude});'
         ");"
-        "out tags geom;"
+        # meta adds each element's version, timestamp and changeset.
+        "out meta geom;"
     )
     errors = []
     payload = None
@@ -431,7 +461,12 @@ def _cell_buildings(latitude_cell: int, longitude_cell: int) -> tuple[dict[str, 
 
 
 def nearby_buildings(latitude: float, longitude: float) -> list[dict[str, Any]]:
-    """Return cacheable GeoJSON features while preserving OSM identifiers and tags.
+    """Footprints used for analysis: OSM elements with accepted, current corrections applied."""
+    return apply_corrections(osm_buildings(latitude, longitude))
+
+
+def osm_buildings(latitude: float, longitude: float) -> list[dict[str, Any]]:
+    """Return cacheable GeoJSON features exactly as OSM serves them, with identifiers and tags.
 
     Features are those with a wall within OSM_QUERY_RADIUS_M of the rounded
     camera position, matching an Overpass ``around`` query at that point.
@@ -579,8 +614,11 @@ def inference_device(torch: Any) -> Any:
     return device
 
 
-def _segmentation_model_spec(torch: Any) -> tuple[str, str]:
-    """Choose an accurate street-scene model when the available GPU can hold it."""
+def _segmentation_model_spec(torch: Any = None) -> tuple[str, str]:
+    """Choose an accurate street-scene model when the available GPU can hold it.
+
+    PyTorch is imported only for the automatic choice, which depends on the GPU.
+    """
     requested = os.environ.get("BUILDING_ANALYSIS_MODEL", "auto").strip()
     if requested == "high":
         return HIGH_ACCURACY_MODEL_ID, "mask2former"
@@ -590,6 +628,7 @@ def _segmentation_model_spec(torch: Any) -> tuple[str, str]:
         return f"nvidia/segformer-{requested}-finetuned-cityscapes-1024-1024", "segformer"
     if requested not in {"", "auto"}:
         return requested, "mask2former" if "mask2former" in requested.lower() else "segformer"
+    torch = torch or _require_ml_dependencies()[1]
     device = inference_device(torch)
     if device.type == "cuda" and torch.cuda.get_device_properties(device).total_memory >= 12 * 1024 ** 3:
         return HIGH_ACCURACY_MODEL_ID, "mask2former"
@@ -667,9 +706,9 @@ def _cached_model_revision(model_id: str, model_root: Path, requested: str | Non
         return requested
 
 
-def _semantic_stage_identity(torch: Any, model_root: Path, panorama_sha256: str) -> dict[str, Any]:
+def _semantic_stage_identity(model_root: Path, panorama_sha256: str) -> dict[str, Any]:
     """Everything the semantic confidences depend on; the minimum confidence is applied later."""
-    model_id, architecture = _segmentation_model_spec(torch)
+    model_id, architecture = _segmentation_model_spec()
     requested_revision = os.environ.get("BUILDING_ANALYSIS_MODEL_REVISION", "").strip() or None
     return {
         "version": SEMANTIC_STAGE_VERSION,
@@ -940,7 +979,9 @@ def _assign_buildings(
 def _assign_buildings_detailed(
     buildings: Any, vegetation: Any, features: list[dict[str, Any]], camera_latitude: float, camera_longitude: float, heading_degrees: float,
     sfm_depth_samples: list[dict[str, float]] | None = None, instance_map: Any = None, instance_coverage: Any = None,
+    diagnostics: list[dict[str, Any]] | None = None,
 ) -> tuple[Any, Any, dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """Name building pixels with footprints; append footprint diagnostics to ``diagnostics`` if given."""
     np = __import__("numpy")
     height, width = buildings.shape
     owners, depth_buffer, candidate_features, facade_counts = _render_facade_owners(
@@ -985,9 +1026,23 @@ def _assign_buildings_detailed(
     conflict_counts = counts(flat_owners, conflicts)
     accepted = np.zeros(bins, dtype=bool)
     metadata = {}
+    if diagnostics is not None:
+        evidence_counts = counts(flat_owners, selected_mask)
+        vegetation_counts = counts(flat_owners, vegetation)
+        minimum_pixels = FOOTPRINT_DIAGNOSTIC_MIN_SHARE * height * width
     for ordinal, feature in enumerate(candidate_features, start=1):
         available = int(available_counts[ordinal])
         claimed = int(claimed_counts[ordinal])
+        if diagnostics is not None and available >= minimum_pixels:
+            building_share = int(evidence_counts[ordinal]) / available
+            vegetation_share = int(vegetation_counts[ordinal]) / available
+            # A large, unoccluded projected facade with almost no building in
+            # the image: the footprint is misplaced, demolished or not a building.
+            if building_share < UNSUPPORTED_FOOTPRINT_MAX_BUILDING_SHARE and vegetation_share < UNSUPPORTED_FOOTPRINT_MAX_VEGETATION_SHARE:
+                diagnostics.append({
+                    "type": "unsupported_footprint", "osm_id": str(feature["properties"]["osm_id"]),
+                    "projected_pixels": available, "building_share": round(building_share, 3), "vegetation_share": round(vegetation_share, 3),
+                })
         if not available or claimed < max(16, int(available * 0.025)):
             continue
         accepted[ordinal] = True
@@ -996,6 +1051,10 @@ def _assign_buildings_detailed(
             "osm_id": osm_id,
             "footprint_source": str(feature["properties"].get("footprint_source", "osm")),
             "alternative_footprint_id": feature["properties"].get("alternative_footprint_id"),
+            "osm_version": feature["properties"].get("osm_version"),
+            "osm_timestamp": feature["properties"].get("osm_timestamp"),
+            # Reviewed local geometry correction applied on top of this OSM version, if any.
+            "footprint_correction": feature["properties"].get("footprint_correction"),
             # The viewer map and raycast must use the exact OSM geometry that produced this mask.
             "footprint_geometry": feature["geometry"],
             "facades": facade_counts[osm_id],
@@ -1017,6 +1076,67 @@ def _assign_buildings_detailed(
     for detail in instance_details:
         detail["osm_ids"] = [metadata[str(ordinal)]["osm_id"] for ordinal in detail.pop("ordinals") if accepted[ordinal]]
     return assignments, vegetation_assignments, metadata, instance_details
+
+
+def _bearing_range(columns: Any, width: int, heading_degrees: float) -> list[float]:
+    """Compass bearings ``[from, to]`` (clockwise) spanned by panorama columns."""
+    np = __import__("numpy")
+    angles = np.unique((np.asarray(columns) + 0.5) / width * 360.0)
+    if len(angles) == 0:
+        return []
+    # The span is the complement of the widest empty gap around the circle.
+    gaps = np.diff(np.append(angles, angles[0] + 360.0))
+    widest = int(np.argmax(gaps))
+    start, end = angles[(widest + 1) % len(angles)], angles[widest]
+    # Column 0.5 * width faces the recorded heading.
+    return [round(float((heading_degrees - 180.0 + start) % 360.0), 1), round(float((heading_degrees - 180.0 + end) % 360.0), 1)]
+
+
+def _instance_diagnostics(instance_map: Any, instance_links: list[dict[str, Any]], heading_degrees: float) -> list[dict[str, Any]]:
+    """Visual instances that the footprints fail to explain."""
+    np = __import__("numpy")
+    height, width = instance_map.shape
+    minimum_pixels = FOOTPRINT_DIAGNOSTIC_MIN_SHARE * height * width
+    diagnostics = []
+    whole_by_footprint: dict[str, list[dict[str, Any]]] = {}
+    for link in instance_links:
+        if link["evidence_pixels"] < minimum_pixels:
+            continue
+        columns = np.flatnonzero((instance_map == link["instance"]).any(axis=0))
+        bearings = _bearing_range(columns, width, heading_degrees)
+        if link["mode"] == "abstain":
+            # A building in the image with no footprint projecting onto it.
+            diagnostics.append({
+                "type": "unexplained_instance", "instance": link["instance"], "evidence_pixels": link["evidence_pixels"],
+                "projected_share": link["projected_share"], "bearings": bearings,
+            })
+        elif link["mode"] == "whole" and len(link["osm_ids"]) == 1:
+            whole_by_footprint.setdefault(link["osm_ids"][0], []).append({"instance": link["instance"], "bearings": bearings})
+    for osm_id, instances in sorted(whole_by_footprint.items()):
+        if len(instances) >= 2:
+            # Separate buildings in the image named by one footprint: often a
+            # block mapped as a single polygon without its party walls.
+            diagnostics.append({"type": "merged_footprint", "osm_id": osm_id, "instances": instances})
+    return diagnostics
+
+
+def _pose_diagnostic(inputs: Any, refined_pose: dict[str, Any]) -> dict[str, Any] | None:
+    """How far pose refinement moved the camera, when it is more than GPS noise."""
+    pyproj = importlib.import_module("pyproj")
+    azimuth, _, distance = pyproj.Geod(ellps="WGS84").inv(
+        inputs.longitude, inputs.latitude, float(refined_pose["longitude"]), float(refined_pose["latitude"]),
+    )
+    if distance < POSE_OFFSET_DIAGNOSTIC_MIN_M:
+        return None
+    heading_delta = (float(refined_pose["heading_degrees"]) - inputs.heading + 180.0) % 360.0 - 180.0
+    return {
+        "type": "pose_offset",
+        "east_m": round(distance * math.sin(math.radians(azimuth)), 2),
+        "north_m": round(distance * math.cos(math.radians(azimuth)), 2),
+        "heading_delta_deg": round(heading_delta, 2),
+        "gps_repair_m": refined_pose.get("gps_repair_m", 0.0),
+        "pose_accepted": bool(refined_pose.get("accepted")),
+    }
 
 
 def _shift_camera_position(latitude: float, longitude: float, east: float, north: float) -> tuple[float, float]:
@@ -1168,6 +1288,7 @@ def analysis_configuration() -> dict[str, Any]:
         "perspective_pitch_degrees": list(PERSPECTIVE_PITCHES_DEG),
         "perspective_fov_degrees": PERSPECTIVE_FOV_DEGREES,
         "instances": instance_settings().as_configuration(),
+        "quality_thresholds": quality_thresholds(),
     }
 
 
@@ -1229,7 +1350,13 @@ def _analysis_artifacts_match(
     return True
 
 
-def load_analysis(data_root: Path, dataset_id: str, image_id: str) -> dict[str, Any] | None:
+def load_analysis(data_root: Path, dataset_id: str, image_id: str, image: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """The current analysis of one panorama, or ``None``.
+
+    Pass the manifest record as ``image`` when looping over a dataset: without
+    it every call re-reads and parses the whole manifest, which makes a loop
+    over N panoramas quadratic.
+    """
     metadata_path, id_path = analysis_paths(data_root, dataset_id, image_id)
     facade_mask_path = facade_path(data_root, dataset_id, image_id)
     if not metadata_path.is_file() or not id_path.is_file() or not facade_mask_path.is_file():
@@ -1238,7 +1365,7 @@ def load_analysis(data_root: Path, dataset_id: str, image_id: str) -> dict[str, 
         payload = json.loads(metadata_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    image = _dataset_image(data_root, dataset_id, image_id)
+    image = image if image is not None else _dataset_image(data_root, dataset_id, image_id)
     if not isinstance(payload, dict) or image is None:
         return None
     try:
@@ -1269,6 +1396,43 @@ class Perception(NamedTuple):
     device: str
     instance_map: Any | None
     detected_instances: list[dict[str, Any]]
+
+
+def perception_configuration() -> dict[str, Any]:
+    """The settings the model stages depend on; a remote perception worker must match them exactly.
+
+    Association settings (``ANALYSIS_VERSION``, the minimum confidence) are
+    applied after perception, so changing them never needs another model run.
+    """
+    configuration = analysis_configuration()
+    return {
+        name: configuration[name]
+        for name in (
+            "model_version", "requested_model", "requested_model_revision", "tile_size",
+            "perspective_yaws", "perspective_pitch_degrees", "perspective_fov_degrees", "instances",
+        )
+    }
+
+
+def perception_to_arrays(perception: Perception) -> dict[str, Any]:
+    """Flat arrays for ``np.savez`` that ``perception_from_arrays`` restores."""
+    np = __import__("numpy")
+    arrays = {
+        "building": perception.building_confidence, "vegetation": perception.vegetation_confidence,
+        "model": np.array(perception.model_id), "revision": np.array(perception.model_revision or ""),
+        "device": np.array(perception.device),
+        "details": np.array(json.dumps(perception.detected_instances)),
+    }
+    if perception.instance_map is not None:
+        arrays["instance_map"] = perception.instance_map
+    return arrays
+
+
+def perception_from_arrays(arrays: Any) -> Perception:
+    return Perception(
+        arrays["building"], arrays["vegetation"], str(arrays["model"]), str(arrays["revision"]) or None, str(arrays["device"]),
+        arrays["instance_map"] if "instance_map" in arrays else None, json.loads(str(arrays["details"])),
+    )
 
 
 def panorama_inputs(data_root: Path, dataset_id: str, image: dict[str, Any]) -> PanoramaInputs:
@@ -1302,8 +1466,12 @@ def panorama_inputs(data_root: Path, dataset_id: str, image: dict[str, Any]) -> 
 
 
 def perceive_panorama(data_root: Path, model_root: Path, image_path: Path, progress: Callable[[str], None]) -> Perception:
-    """Run (or reuse) the semantic and instance model stages for one panorama."""
-    np, torch, _, _ = _require_ml_dependencies()
+    """Run (or reuse) the semantic and instance model stages for one panorama.
+
+    On a full stage-cache hit neither PyTorch nor Transformers is imported:
+    together they hold about 500 MB for the life of the process.
+    """
+    np = __import__("numpy")
     panorama_sha256 = file_sha256(image_path)
     decoded: list[Any] = []
 
@@ -1313,7 +1481,7 @@ def perceive_panorama(data_root: Path, model_root: Path, image_path: Path, progr
             decoded.append(_load_analysis_panorama(image_path))
         return decoded[0]
 
-    semantic_key = stage_key("semantic", _semantic_stage_identity(torch, model_root, panorama_sha256))
+    semantic_key = stage_key("semantic", _semantic_stage_identity(model_root, panorama_sha256))
     semantic = load_stage(data_root, "semantic", semantic_key)
     if semantic is None:
         building, vegetation, device, model_id, model_revision = _semantic_confidences(panorama(), model_root, progress)
@@ -1338,6 +1506,7 @@ def perceive_panorama(data_root: Path, model_root: Path, image_path: Path, progr
         })
         instances = load_stage(data_root, "instances", instance_key)
         if instances is None:
+            _, torch, _, _ = _require_ml_dependencies()
             instance_map, detected_instances = segment_instances(panorama(), model_root, inference_device(torch), settings, progress)
             save_stage(data_root, "instances", instance_key, instance_map=instance_map, details=np.array(json.dumps(detected_instances)))
         else:
@@ -1375,23 +1544,29 @@ def associate_panorama(
     pose_target = buildings & (instance_map > 0) if instance_map is not None and instance_map.any() else buildings
     refined_pose = _refine_camera_pose(pose_target, features, inputs.latitude, inputs.longitude, inputs.heading)
     progress("Associating building masks with OpenStreetMap footprints...")
+    diagnostics: list[dict[str, Any]] = []
     assignments, facade_assignments, building_ids, instance_links = _assign_buildings_detailed(
         buildings, vegetation, features,
         float(refined_pose["latitude"]), float(refined_pose["longitude"]), float(refined_pose["heading_degrees"]),
         _sfm_depth_samples_from_payload(sfm_refinement, image_id) if sfm_refinement is not None
         else _sfm_depth_samples(data_root, dataset_id, image_id),
-        instance_map, coverage,
+        instance_map, coverage, diagnostics,
     )
+    if instance_map is not None:
+        diagnostics.extend(_instance_diagnostics(instance_map, instance_links, float(refined_pose["heading_degrees"])))
+    pose_diagnostic = _pose_diagnostic(inputs, refined_pose)
+    if pose_diagnostic is not None:
+        diagnostics.append(pose_diagnostic)
     links_by_instance = {link["instance"]: link for link in instance_links}
     visual_instances = [{**detected, **links_by_instance.get(detected["instance"], {"osm_ids": []})} for detected in perception.detected_instances]
     Image = importlib.import_module("PIL.Image")
     id_output, facade_output = io.BytesIO(), io.BytesIO()
-    Image.fromarray(assignments, mode="I;16").save(id_output, format="PNG")
-    Image.fromarray(facade_assignments, mode="I;16").save(facade_output, format="PNG")
+    Image.fromarray(assignments.astype("uint16")).save(id_output, format="PNG")
+    Image.fromarray(facade_assignments.astype("uint16")).save(facade_output, format="PNG")
     instance_output = None
     if instance_map is not None:
         instance_output = io.BytesIO()
-        Image.fromarray(instance_map.astype("uint16"), mode="I;16").save(instance_output, format="PNG")
+        Image.fromarray(instance_map.astype("uint16")).save(instance_output, format="PNG")
     metadata = {
         "version": ANALYSIS_VERSION,
         "image_id": image_id,
@@ -1405,13 +1580,17 @@ def associate_panorama(
         "device": perception.device,
         "input_sha256": input_sha256,
         "sfm_input_sha256": sfm_input_sha256(data_root, dataset_id, image_id),
+        "image_quality": panorama_quality(inputs.image_path),
         "heading_degrees": inputs.heading,
         "refined_pose": refined_pose,
         "footprint_sources": {
             "osm_candidates": len(features),
+            "corrected": sorted(str(feature["properties"]["osm_id"]) for feature in features if feature["properties"].get("footprint_correction")),
         },
+        "footprints_sha256": footprints_sha256(features),
         "building_ids": building_ids,
         "visual_instances": visual_instances,
+        "footprint_diagnostics": diagnostics,
     }
     metadata = publish_analysis_artifacts(
         data_root, dataset_id, image_id, metadata, id_output.getvalue(), facade_output.getvalue(),
@@ -1468,8 +1647,35 @@ def _encoded_building_mask(path: str, sha256: str, ordinal: int | None) -> bytes
     mask = np.where(values > 0 if ordinal is None else values == ordinal, 255, 0).astype("uint8")
     output = io.BytesIO()
     # Served to the browser only; fast compression keeps selection responsive.
-    Image.fromarray(mask, mode="L").save(output, format="PNG", compress_level=1)
+    Image.fromarray(mask).save(output, format="PNG", compress_level=1)
     return output.getvalue()
+
+
+@lru_cache(maxsize=16)
+def _encoded_instance_overlay(path: str, sha256: str) -> bytes:
+    """RGBA overlay with one stable color per visual instance (transparent elsewhere)."""
+    np = __import__("numpy")
+    Image = importlib.import_module("PIL.Image")
+    labels = _decoded_mask(path, sha256).astype(np.int64)
+    # Golden-angle hues keep neighboring labels visually distinct.
+    hues = (np.arange(int(labels.max()) + 1) * 137.508) % 360
+    palette = np.zeros((len(hues), 4), dtype=np.uint8)
+    for index, hue in enumerate(hues[1:], start=1):
+        sector, fraction = divmod(hue / 60.0, 1.0)
+        rising, falling = int(255 * fraction), int(255 * (1 - fraction))
+        palette[index, :3] = [(255, rising, 0), (falling, 255, 0), (0, 255, rising), (0, falling, 255), (rising, 0, 255), (255, 0, falling)][int(sector) % 6]
+        palette[index, 3] = 255
+    output = io.BytesIO()
+    Image.fromarray(palette[labels]).save(output, format="PNG", compress_level=1)
+    return output.getvalue()
+
+
+def instance_overlay(data_root: Path, dataset_id: str, image_id: str) -> bytes | None:
+    metadata = load_analysis(data_root, dataset_id, image_id)
+    digest = (metadata or {}).get("artifact_sha256", {}).get("instance_mask")
+    if not digest:
+        return None
+    return _encoded_instance_overlay(str(instance_path(data_root, dataset_id, image_id)), str(digest))
 
 
 def building_mask(data_root: Path, dataset_id: str, image_id: str, osm_id: str, inferred: bool = False) -> bytes | None:

@@ -1,12 +1,12 @@
-import base64
+import io
 import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from city_analyser.analysis_backend import ANALYSIS_VERSION, AnalysisBackend, analysis_backend_from_environment, run_analysis
-from city_analyser.building_analysis import analysis_configuration, analysis_paths, facade_path
+from city_analyser.analysis_backend import AnalysisBackend, analysis_backend_from_environment, perceive, run_analysis
+from city_analyser.building_analysis import Perception, perception_configuration, perception_to_arrays
 
 
 class _Response:
@@ -14,7 +14,7 @@ class _Response:
         self.payload = payload
 
     def read(self):
-        return json.dumps(self.payload).encode("utf-8")
+        return self.payload
 
     def __enter__(self):
         return self
@@ -39,7 +39,7 @@ class AnalysisBackendTests(unittest.TestCase):
         })
 
         self.assertEqual(backend.kind, "remote")
-        self.assertEqual(backend.remote_url, "https://gpu.example.test/worker/api/v1/building-analysis")
+        self.assertEqual(backend.remote_url, "https://gpu.example.test/worker/api/v2/perception")
         self.assertEqual(backend.timeout_seconds, 120)
 
     def test_remote_mode_requires_a_remote_url(self):
@@ -50,44 +50,53 @@ class AnalysisBackendTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "MODEL"):
             analysis_backend_from_environment({"BUILDING_ANALYSIS_BACKEND": "remote", "BUILDING_ANALYSIS_REMOTE_URL": "https://gpu.example.test"})
 
-    def test_remote_result_is_cached_without_sending_the_local_path(self):
-        png = b"\x89PNG\r\n\x1a\nmock"
-        metadata = {"version": ANALYSIS_VERSION, "image_id": "123", "building_ids": {}, "analysis_configuration": analysis_configuration()}
-        response = _Response({
-            "analysis": metadata,
-            "id_mask_png_base64": base64.b64encode(png).decode("ascii"),
-            "facade_mask_png_base64": base64.b64encode(png).decode("ascii"),
-        })
+    def test_remote_perception_is_cached_and_associated_locally(self):
+        np = __import__("numpy")
+        perception = Perception(
+            np.full((4, 8), 200, dtype=np.uint8), np.zeros((4, 8), dtype=np.uint8), "model", "rev", "cuda",
+            np.zeros((4, 8), dtype=np.uint16), [{"instance": 1}],
+        )
+        buffer = io.BytesIO()
+        np.savez_compressed(buffer, **perception_to_arrays(perception))
+        backend = AnalysisBackend("remote", "https://gpu.example.test/api/v2/perception", "secret")
         with tempfile.TemporaryDirectory() as directory:
             data_root = Path(directory)
             image_path = data_root / "sample" / "images" / "pano.jpg"
             image_path.parent.mkdir(parents=True)
             image_path.write_bytes(b"jpeg")
-            analysis_dir = data_root / "sample" / "analysis"
-            analysis_dir.mkdir()
-            sfm = {"version": 3, "depth_samples": [{"u": 0.5, "v": 0.5, "distance_m": 12.0}]}
-            (analysis_dir / "123-sfm.json").write_text(json.dumps(sfm), encoding="utf-8")
-            image = {
-                "id": "123",
-                "local_file": "images/pano.jpg",
-                "computed_compass_angle_deg": 10,
-                "computed_geometry": {"type": "Point", "coordinates": [4.9, 52.3]},
-            }
-            with patch("city_analyser.analysis_backend.urlopen", return_value=response) as urlopen:
-                result = run_analysis(AnalysisBackend("remote", "https://gpu.example.test/api/v1/building-analysis", "secret"), data_root, data_root / "models", "sample", image, lambda _: None)
+            with patch("city_analyser.analysis_backend.urlopen", return_value=_Response(buffer.getvalue())) as urlopen:
+                first = perceive(backend, data_root, data_root / "models", image_path, lambda _: None)
+                second = perceive(backend, data_root, data_root / "models", image_path, lambda _: None)
 
+            self.assertEqual(urlopen.call_count, 1)
             request = urlopen.call_args.args[0]
-            request_payload = json.loads(request.data.decode("utf-8"))
-            self.assertNotIn("local_file", request_payload["image"])
-            self.assertNotIn("sfm_refinement", request_payload)
+            self.assertEqual(request.data, b"jpeg")
             self.assertEqual(request.get_header("Authorization"), "Bearer secret")
-            self.assertEqual(result["version"], metadata["version"])
-            self.assertIn("input_sha256", result)
-            self.assertIn("artifact_sha256", result)
-            metadata_path, id_path = analysis_paths(data_root, "sample", "123")
-            self.assertEqual(json.loads(metadata_path.read_text(encoding="utf-8")), result)
-            self.assertEqual(id_path.read_bytes(), png)
-            self.assertEqual(facade_path(data_root, "sample", "123").read_bytes(), png)
+            self.assertEqual(json.loads(request.get_header("X-analysis-configuration")), perception_configuration())
+            for result in (first, second):
+                self.assertEqual((result.model_id, result.model_revision, result.device), ("model", "rev", "cuda"))
+                self.assertEqual(result.detected_instances, [{"instance": 1}])
+                self.assertTrue((result.building_confidence == 200).all())
+
+    def test_remote_run_associates_with_local_footprints(self):
+        np = __import__("numpy")
+        perception = Perception(np.zeros((4, 8), dtype=np.uint8), np.zeros((4, 8), dtype=np.uint8), "m", None, "cpu", None, [])
+        backend = AnalysisBackend("remote", "https://gpu.example.test/api/v2/perception")
+        image = {"id": "123", "local_file": "images/pano.jpg", "computed_compass_angle_deg": 10, "computed_geometry": {"type": "Point", "coordinates": [4.9, 52.3]}}
+        with tempfile.TemporaryDirectory() as directory:
+            data_root = Path(directory)
+            (data_root / "sample" / "images").mkdir(parents=True)
+            (data_root / "sample" / "images" / "pano.jpg").write_bytes(b"jpeg")
+            footprints = [{"id": "local-footprint"}]
+            with patch("city_analyser.analysis_backend.perceive", return_value=perception), \
+                    patch("city_analyser.analysis_backend.nearby_buildings", return_value=footprints) as nearby, \
+                    patch("city_analyser.analysis_backend.associate_panorama", return_value={"ok": True}) as associate:
+                result = run_analysis(backend, data_root, data_root / "models", "sample", image, lambda _: None)
+
+            self.assertEqual(result, {"ok": True})
+            nearby.assert_called_once_with(52.3, 4.9)
+            self.assertIs(associate.call_args.args[4], perception)
+            self.assertIs(associate.call_args.args[5], footprints)
 
 
 if __name__ == "__main__":

@@ -104,6 +104,26 @@ def perspective_tiles_torch(
     )
 
 
+def tile_visibility(width: int, height: int, yaw: float, pitch: float, field_of_view_degrees: float, aspect: float = 1.0) -> Any:
+    """NumPy twin of the ``visible`` mask of ``panorama_to_tile_grid``.
+
+    Association needs only this mask; computing it without PyTorch keeps a
+    cached re-association from importing it.
+    """
+    np = __import__("numpy")
+    latitude = (0.5 - (np.arange(height, dtype=np.float32) + 0.5) / height) * math.pi
+    longitude = ((np.arange(width, dtype=np.float32) + 0.5) / width - 0.5) * 2 * math.pi - yaw
+    cos_latitude = np.cos(latitude)[:, None]
+    world_x = cos_latitude * np.sin(longitude)[None, :]
+    world_y = np.broadcast_to(np.sin(latitude)[:, None], (height, width))
+    world_z = cos_latitude * np.cos(longitude)[None, :]
+    tile_y = math.cos(pitch) * world_y - math.sin(pitch) * world_z
+    tile_z = math.sin(pitch) * world_y + math.cos(pitch) * world_z
+    field = math.tan(math.radians(field_of_view_degrees) / 2)
+    safe_z = np.where(tile_z > 1e-6, tile_z, 1.0)
+    return (tile_z > 1e-6) & (np.abs(world_x / (safe_z * field)) <= 1) & (np.abs(tile_y / (safe_z * field * aspect)) <= 1)
+
+
 # Grids depend only on the geometry, and every panorama of one analysis
 # resolution reuses them. Callers must treat the returned tensors as read-only.
 @lru_cache(maxsize=32)

@@ -138,6 +138,23 @@ class BuildingInspectionTests(BuildingFixture, unittest.TestCase):
             self.assertIn('id="evidence-overlay"', html)
             self.assertIn("Technical details and limitations", html)
 
+    def test_report_declares_a_locally_corrected_footprint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset_dir, manifest = self.create_dataset(root)
+            for path in (dataset_dir / "analysis").glob("*.json"):
+                analysis = json.loads(path.read_text(encoding="utf-8"))
+                analysis["building_ids"]["1"].update(osm_version=7, footprint_correction={"revision": 2, "source": "manual", "base_version": 7, "reviewed_at": "2026-10-01T00:00:00+00:00"})
+                path.write_text(json.dumps(analysis), encoding="utf-8")
+
+            report = build_and_persist_report(root, "sample", manifest, "way/42", expected_analysis_version=ANALYSIS_VERSION)
+
+        check = next(item for item in report["assessment"]["checks"] if item["code"] == "footprint_correction")
+        self.assertEqual(check["status"], "caution")
+        self.assertEqual(check["facts"]["corrections"], [{"revision": 2, "source": "manual", "osm_version": 7}])
+        self.assertIn("not part of OpenStreetMap", " ".join(report["assessment"]["limitations"]))
+        self.assertEqual(report["ranked_views"][0]["evidence"]["footprint_correction"]["revision"], 2)
+
     def test_missing_building_evidence_is_explicit(self):
         with tempfile.TemporaryDirectory() as directory:
             dataset_dir, manifest = self.create_dataset(Path(directory), second_view=False)
@@ -227,7 +244,7 @@ class BuildingReportApiTests(BuildingFixture, unittest.TestCase):
                 thread.join(timeout=5)
 
         self.assertEqual(created["report"]["building"]["id"], "way/42")
-        self.assertEqual(loaded["schema_version"], 1)
+        self.assertEqual(loaded["schema_version"], 3)
         self.assertIn("text/html", response.headers.get_content_type())
         self.assertIn("Review in viewer", report_html)
 
@@ -247,7 +264,7 @@ class BuildingReportApiTests(BuildingFixture, unittest.TestCase):
                 legacy_dir = project_root / "data" / "sample" / "reports" / "buildings" / "microsoft" / "1"
                 legacy_dir.mkdir(parents=True)
                 (legacy_dir / "view-01-overlay-deadbeef.jpg").write_bytes(b"legacy")
-                for filename in ("report-v1.json", "report-v1.html"):
+                for filename in ("report-v2.json", "report-v2.html"):
                     with self.subTest(filename), self.assertRaises(HTTPError) as raised:
                         urlopen(f"{data_url}/{filename}", timeout=10)
                     self.assertEqual(raised.exception.code, HTTPStatus.NOT_FOUND)

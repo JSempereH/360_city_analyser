@@ -12,7 +12,7 @@ from .analysis_cache import canonical_json_sha256
 from .building_analysis import ANALYSIS_VERSION, load_analysis
 
 EARTH_RADIUS_M = 6_371_008.8
-MULTI_VIEW_ANALYSIS_VERSION = 1
+MULTI_VIEW_ANALYSIS_VERSION = 2
 MAX_NEARBY_PANORAMAS = 7
 NEARBY_PANORAMA_RADIUS_M = 45.0
 MINIMUM_INDEPENDENT_BASELINE_M = 3.0
@@ -142,6 +142,7 @@ def fuse_nearby_analyses(image_id: str, analyses: list[tuple[dict[str, Any], flo
                 {
                     "osm_id": osm_id,
                     "footprint_sources": set(),
+                    "footprint_correction_revisions": set(),
                     "panorama_ids": [],
                     "view_evidence": [],
                     "observed_pixels": 0,
@@ -153,6 +154,9 @@ def fuse_nearby_analyses(image_id: str, analyses: list[tuple[dict[str, Any], flo
             if coordinates is not None:
                 fused["view_evidence"].append((current_id, coordinates, float(building.get("confidence", 0))))
             fused["footprint_sources"].add(str(building.get("footprint_source", "osm")))
+            correction = building.get("footprint_correction")
+            if isinstance(correction, dict) and isinstance(correction.get("revision"), int):
+                fused["footprint_correction_revisions"].add(correction["revision"])
             fused["observed_pixels"] += pixels
             fused["inferred_pixels"] += int(building.get("inferred_pixels", 0))
     fused_buildings = []
@@ -164,6 +168,7 @@ def fuse_nearby_analyses(image_id: str, analyses: list[tuple[dict[str, Any], flo
         building["independent_panorama_ids"] = sorted({item[0] for item in independent})
         building["views"] = len(building["independent_panorama_ids"])
         building["footprint_sources"] = sorted(building["footprint_sources"])
+        building["footprint_correction_revisions"] = sorted(building["footprint_correction_revisions"])
         building["confidence"] = round(sum(item[2] for item in independent) / len(independent), 3) if independent else 0.0
         fused_buildings.append(building)
     fused_buildings.sort(key=lambda item: (-item["views"], -item["observed_pixels"], item["osm_id"]))

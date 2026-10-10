@@ -65,6 +65,16 @@ def _mask_frame(path: Path, ordinal: int, expected_width: int, expected_height: 
     return round(yaw_deg, 2), round(max(-75.0, min(75.0, pitch_deg)), 2), round(fov_deg, 2), len(columns)
 
 
+def _image_quality(value: object) -> dict[str, Any] | None:
+    """Quality facts as stored by the analysis, or ``None`` when absent or malformed."""
+    if not isinstance(value, dict) or not isinstance(value.get("flags"), list):
+        return None
+    sharpness, brightness = _number(value.get("sharpness")), _number(value.get("brightness"))
+    if sharpness is None or brightness is None or not all(isinstance(flag, str) for flag in value["flags"]):
+        return None
+    return {"sharpness": sharpness, "brightness": brightness, "file_bytes": value.get("file_bytes"), "flags": list(value["flags"])}
+
+
 def _valid_geometry(value: object) -> dict[str, Any] | None:
     if not isinstance(value, dict) or value.get("type") not in {"Polygon", "MultiPolygon"}:
         return None
@@ -127,7 +137,7 @@ def collect_building_evidence(
             invalid += 1
             issues.append(InputIssue("image_id_mismatch", image_id, "Analysis image_id does not match the manifest."))
             continue
-        if load_analysis(dataset_dir.parent, dataset_dir.name, image_id) is None:
+        if load_analysis(dataset_dir.parent, dataset_dir.name, image_id, image) is None:
             stale += 1
             issues.append(InputIssue("stale_analysis_inputs", image_id, "Analysis inputs changed after this artifact was generated."))
             continue
@@ -213,6 +223,8 @@ def collect_building_evidence(
             footprint_source=str(building.get("footprint_source", "osm")),
             alternative_footprint_id=str(building["alternative_footprint_id"]) if building.get("alternative_footprint_id") else None,
             footprint_geometry=geometry,
+            osm_version=building["osm_version"] if isinstance(building.get("osm_version"), int) else None,
+            footprint_correction=dict(building["footprint_correction"]) if isinstance(building.get("footprint_correction"), dict) else None,
             pose_facade_iou=_number(refined_pose.get("facade_iou")),
             pose_facade_iou_gain=_number(refined_pose.get("facade_iou_gain")),
             sfm_depth_samples=sfm_samples,
@@ -228,6 +240,7 @@ def collect_building_evidence(
             id_mask_sha256=id_mask_digest,
             inferred_mask_relative_path=f"analysis/{image_id}-facades.png",
             inferred_mask_sha256=inferred_mask_digest,
+            image_quality=_image_quality(analysis.get("image_quality")),
         ))
 
     manifest_digest = hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")).hexdigest()

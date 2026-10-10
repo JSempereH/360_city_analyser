@@ -19,7 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
-from .panorama_geometry import panorama_to_tile_grid, perspective_tiles_torch
+from .panorama_geometry import panorama_to_tile_grid, perspective_tiles_torch, tile_visibility
 
 
 DETECTOR_ID = "IDEA-Research/grounding-dino-tiny"
@@ -234,15 +234,19 @@ def _view_yaws(settings: InstanceSettings) -> list[float]:
 
 def instance_coverage(settings: InstanceSettings, width: int, height: int) -> Any:
     """Panorama pixels seen by at least one instance view (numpy bool array)."""
-    torch = importlib.import_module("torch")
-    covered = torch.zeros((height, width), dtype=torch.bool)
-    for yaw in _view_yaws(settings):
-        _, visible = panorama_to_tile_grid(
-            torch, width, height, yaw, math.radians(INSTANCE_PITCH_DEGREES), settings.field_of_view_degrees, "cpu",
+    return _coverage(settings.views, settings.field_of_view_degrees, width, height).copy()
+
+
+@lru_cache(maxsize=8)
+def _coverage(views: int, field_of_view_degrees: float, width: int, height: int) -> Any:
+    np = importlib.import_module("numpy")
+    covered = np.zeros((height, width), dtype=bool)
+    for index in range(views):
+        covered |= tile_visibility(
+            width, height, index * 2 * math.pi / views, math.radians(INSTANCE_PITCH_DEGREES), field_of_view_degrees,
             INSTANCE_TILE_HEIGHT / INSTANCE_TILE_SIZE,
         )
-        covered |= visible
-    return covered.numpy()
+    return covered
 
 
 def _detect_grounding(

@@ -1,15 +1,18 @@
 """Configurable local or remote execution for building analysis.
 
-The viewer owns the dataset and analysis cache. A remote worker only receives a
-single panorama and returns the generated analysis artifacts, so credentials and
-the worker endpoint never reach the browser.
+Only the model stages (``perceive_panorama``) can run remotely. A remote worker
+receives a single panorama and returns its semantic confidences and instance
+map; pose refinement, OpenStreetMap association and artifact publication always
+run here, next to the OSM cache, the footprint corrections and the SfM depth.
+Credentials and the worker endpoint never reach the browser.
 """
 
 from __future__ import annotations
 
-import base64
+import io
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -17,14 +20,27 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-from .analysis_cache import analysis_input_sha256, sfm_input_sha256
-from .building_analysis import ANALYSIS_VERSION, analysis_configuration, analyze_panorama, publish_analysis_artifacts
+from .analysis_cache import file_sha256
+from .building_analysis import (
+    Perception,
+    analyze_panorama,
+    associate_panorama,
+    nearby_buildings,
+    panorama_inputs,
+    perceive_panorama,
+    perception_configuration,
+    perception_from_arrays,
+    perception_to_arrays,
+)
+from .stage_cache import load_stage, save_stage, stage_key
 
 
-REMOTE_ANALYSIS_PATH = "/api/v1/building-analysis"
+REMOTE_PERCEPTION_PATH = "/api/v2/perception"
+PROTOCOL_VERSION = 2
 REMOTE_TIMEOUT_SECONDS = 900
 MAX_REMOTE_IMAGE_BYTES = 32 * 1024 * 1024
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+NPZ_SIGNATURE = b"PK"
+REMOTE_STAGE = "remote-perception"
 
 
 @dataclass(frozen=True)
@@ -43,7 +59,7 @@ def _remote_endpoint(value: str) -> str:
     parsed = urlparse(value)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.query or parsed.fragment:
         raise ValueError("BUILDING_ANALYSIS_REMOTE_URL must be an HTTP(S) base URL without query parameters")
-    return value.rstrip("/") + REMOTE_ANALYSIS_PATH
+    return value.rstrip("/") + REMOTE_PERCEPTION_PATH
 
 
 def analysis_backend_from_environment(environment: Mapping[str, str] | None = None) -> AnalysisBackend:
@@ -81,80 +97,61 @@ def _remote_error(error: HTTPError) -> RuntimeError:
     return RuntimeError(f"Remote analysis failed ({error.code}): {message or error.reason}")
 
 
-def _decode_png(value: object, name: str) -> bytes:
-    if not isinstance(value, str):
-        raise RuntimeError(f"Remote analysis returned no {name} mask.")
-    try:
-        content = base64.b64decode(value, validate=True)
-    except ValueError as error:
-        raise RuntimeError(f"Remote analysis returned an invalid {name} mask.") from error
-    if not content.startswith(PNG_SIGNATURE):
-        raise RuntimeError(f"Remote analysis returned an invalid {name} mask.")
-    return content
-
-
-def _run_remote_analysis(
-    backend: AnalysisBackend,
-    data_root: Path,
-    dataset_id: str,
-    image: dict[str, Any],
-    progress: Callable[[str], None],
-) -> dict[str, Any]:
+def _remote_perception(backend: AnalysisBackend, image_path: Path, progress: Callable[[str], None]) -> Perception:
     if backend.remote_url is None:
         raise RuntimeError("Remote analysis is not configured.")
-    local_file = image.get("local_file")
-    if not isinstance(local_file, str):
-        raise ValueError("The panorama has no local image file.")
-    image_path = (data_root / dataset_id / local_file).resolve()
-    if not image_path.is_file() or not image_path.is_relative_to((data_root / dataset_id).resolve()):
-        raise ValueError("The panorama image is unavailable.")
     image_bytes = image_path.read_bytes()
     if len(image_bytes) > MAX_REMOTE_IMAGE_BYTES:
         raise ValueError(f"The panorama exceeds the {MAX_REMOTE_IMAGE_BYTES // (1024 * 1024)} MB remote analysis limit.")
-    image_id = str(image.get("id", ""))
     progress("Uploading panorama to remote GPU...")
-    requested_configuration = analysis_configuration()
-    payload = {
-        "protocol_version": 1,
-        "dataset_id": dataset_id,
-        # The remote worker needs capture metadata, not the local storage path.
-        "image": {key: value for key, value in image.items() if key != "local_file"},
-        "image_jpeg_base64": base64.b64encode(image_bytes).decode("ascii"),
-        "analysis_configuration": requested_configuration,
+    # The body is the JPEG itself; the configuration travels in a header so
+    # the worker can reject a mismatch before decoding anything.
+    headers = {
+        "Content-Type": "image/jpeg",
+        "X-Analysis-Protocol": str(PROTOCOL_VERSION),
+        "X-Analysis-Configuration": json.dumps(perception_configuration(), sort_keys=True, separators=(",", ":")),
+        "User-Agent": "local-panorama-building-viewer/1.0",
     }
-    from .sfm_refinement import load_sfm_refinement, sfm_path
-
-    sfm_refinement = load_sfm_refinement(data_root, dataset_id, image_id)
-    if sfm_refinement is None:
-        sfm_path(data_root, dataset_id, image_id).unlink(missing_ok=True)
-    if sfm_refinement is not None:
-        payload["sfm_refinement"] = sfm_refinement
-    headers = {"Content-Type": "application/json", "User-Agent": "local-panorama-building-viewer/1.0"}
     if backend.token:
         headers["Authorization"] = f"Bearer {backend.token}"
-    request = Request(backend.remote_url, data=json.dumps(payload, separators=(",", ":")).encode("utf-8"), headers=headers, method="POST")
+    request = Request(backend.remote_url, data=image_bytes, headers=headers, method="POST")
     try:
         with urlopen(request, timeout=backend.timeout_seconds) as response:  # noqa: S310 - administrator-configured endpoint
-            result = json.loads(response.read().decode("utf-8"))
+            content = response.read()
     except HTTPError as error:
         raise _remote_error(error) from error
-    except (OSError, URLError, UnicodeDecodeError, json.JSONDecodeError) as error:
+    except (OSError, URLError) as error:
         raise RuntimeError(f"Remote analysis could not be reached: {error}") from error
-    if not isinstance(result, dict) or not isinstance(result.get("analysis"), dict):
+    if not content.startswith(NPZ_SIGNATURE):
         raise RuntimeError("Remote analysis returned an invalid response.")
-    metadata = result["analysis"]
-    if metadata.get("version") != ANALYSIS_VERSION or metadata.get("image_id") != image_id:
-        raise RuntimeError("Remote analysis result is incompatible with this viewer.")
-    if metadata.get("analysis_configuration") != requested_configuration:
-        raise RuntimeError("Remote analysis used a different model or inference configuration.")
-    id_mask = _decode_png(result.get("id_mask_png_base64"), "building ID")
-    facade_mask = _decode_png(result.get("facade_mask_png_base64"), "facade")
-    instance_mask = _decode_png(result["instance_mask_png_base64"], "instance") if "instance_mask_png_base64" in result else None
-    metadata["input_sha256"] = analysis_input_sha256(data_root, dataset_id, image, analysis_configuration())
-    metadata["sfm_input_sha256"] = sfm_input_sha256(data_root, dataset_id, image_id)
-    metadata = publish_analysis_artifacts(data_root, dataset_id, image_id, metadata, id_mask, facade_mask, instance_mask)
-    progress("Remote building analysis complete.")
-    return metadata
+    np = __import__("numpy")
+    try:
+        with np.load(io.BytesIO(content), allow_pickle=False) as stored:
+            arrays = {name: stored[name] for name in stored.files}
+        if not {"building", "vegetation", "model", "revision", "device", "details"} <= arrays.keys():
+            raise ValueError("missing arrays")
+        return perception_from_arrays(arrays)
+    except (ValueError, OSError, EOFError, KeyError) as error:
+        raise RuntimeError("Remote analysis returned an invalid response.") from error
+
+
+def perceive(
+    backend: AnalysisBackend, data_root: Path, model_root: Path, image_path: Path, progress: Callable[[str], None],
+) -> Perception:
+    """Model-stage outputs for one panorama from this machine or from the remote worker."""
+    if backend.kind != "remote":
+        return perceive_panorama(data_root, model_root, image_path, progress)
+    # A local copy of the worker's answer keeps re-association (new footprints,
+    # thresholds, corrections) from uploading the panorama again. Pin
+    # BUILDING_ANALYSIS_MODEL_REVISION to also invalidate it on a model update.
+    key = stage_key(REMOTE_STAGE, {"panorama_sha256": file_sha256(image_path), "configuration": perception_configuration()})
+    cached = load_stage(data_root, REMOTE_STAGE, key)
+    if cached is not None:
+        progress("Reusing cached remote perception...")
+        return perception_from_arrays(cached)
+    perception = _remote_perception(backend, image_path, progress)
+    save_stage(data_root, REMOTE_STAGE, key, **perception_to_arrays(perception))
+    return perception
 
 
 def run_analysis(
@@ -165,6 +162,14 @@ def run_analysis(
     image: dict[str, Any],
     progress: Callable[[str], None],
 ) -> dict[str, Any]:
-    if backend.kind == "remote":
-        return _run_remote_analysis(backend, data_root, dataset_id, image, progress)
-    return analyze_panorama(data_root, model_root, dataset_id, image, progress)
+    if backend.kind != "remote":
+        return analyze_panorama(data_root, model_root, dataset_id, image, progress)
+    inputs = panorama_inputs(data_root, dataset_id, image)
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="osm-footprints") as pool:
+        pending_features = pool.submit(nearby_buildings, inputs.latitude, inputs.longitude)
+        perception = perceive(backend, data_root, model_root, inputs.image_path, progress)
+        progress("Loading nearby OpenStreetMap building footprints...")
+        features = pending_features.result()
+    metadata = associate_panorama(data_root, dataset_id, image, inputs, perception, features, progress)
+    progress("Remote building analysis complete.")
+    return metadata

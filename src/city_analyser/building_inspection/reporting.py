@@ -23,20 +23,20 @@ from .ranking import RANKING_FORMULA_VERSION, rank_views
 from .screenshots import MAX_REPORT_SCREENSHOTS, render_screenshots
 
 
-REPORT_SCHEMA_VERSION = 1
-BUILDING_ID = re.compile(r"^(node|way|relation)/([1-9][0-9]*)$")
+REPORT_SCHEMA_VERSION = 3
+# OpenStreetMap elements, and parts of a reviewed split ("way/123/part-2").
+BUILDING_ID = re.compile(r"^(node|way|relation)/([1-9][0-9]*)(?:/(part-[1-9][0-9]*))?$")
 
 
-def _building_parts(building_id: str) -> tuple[str, str]:
+def _building_parts(building_id: str) -> tuple[str, ...]:
     match = BUILDING_ID.fullmatch(building_id)
     if not match:
         raise ValueError("building id must be an OpenStreetMap footprint identifier")
-    return match.group(1), match.group(2)
+    return tuple(part for part in match.groups() if part)
 
 
 def report_paths(dataset_dir: Path, building_id: str) -> tuple[Path, Path]:
-    osm_type, osm_number = _building_parts(building_id)
-    directory = dataset_dir / "reports" / "buildings" / osm_type / osm_number
+    directory = dataset_dir / "reports" / "buildings" / Path(*_building_parts(building_id))
     return directory / f"report-v{REPORT_SCHEMA_VERSION}.json", directory / f"report-v{REPORT_SCHEMA_VERSION}.html"
 
 
@@ -48,14 +48,12 @@ def _safe_source_url(value: object) -> str | None:
 
 
 def _report_links(dataset_id: str, building_id: str) -> dict[str, str]:
-    osm_type, osm_number = _building_parts(building_id)
-    base = f"/api/datasets/{quote(dataset_id, safe='')}/building-reports/{osm_type}/{osm_number}"
+    base = f"/api/datasets/{quote(dataset_id, safe='')}/building-reports/{'/'.join(_building_parts(building_id))}"
     return {"json": base, "html": f"{base}/html"}
 
 
 def _screenshot_url(dataset_id: str, building_id: str, filename: str) -> str:
-    osm_type, osm_number = _building_parts(building_id)
-    return f"/data/{quote(dataset_id, safe='')}/reports/buildings/{osm_type}/{osm_number}/{quote(filename, safe='')}"
+    return f"/data/{quote(dataset_id, safe='')}/reports/buildings/{'/'.join(_building_parts(building_id))}/{quote(filename, safe='')}"
 
 
 def _report_directory(dataset_dir: Path, building_id: str) -> Path:

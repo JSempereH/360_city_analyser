@@ -12,7 +12,7 @@ from ..multi_view_analysis import maximum_independent_indices
 from .models import AssessmentCheck, EvidenceCollection, RankedView
 
 
-ASSESSMENT_VERSION = 1
+ASSESSMENT_VERSION = 2
 MINIMUM_INDEPENDENT_BASELINE_M = 3.0
 
 
@@ -44,6 +44,11 @@ def assess_footprint(building_id: str, ranked_views: tuple[RankedView, ...], col
         conclusion_label = "Direct facade evidence is available in one panorama only."
 
     sources = sorted({view.evidence.footprint_source for view in ranked_views})
+    corrections = sorted(
+        {(view.evidence.footprint_correction["revision"], view.evidence.footprint_correction.get("source", ""), view.evidence.osm_version)
+         for view in ranked_views if view.evidence.footprint_correction},
+        key=lambda item: item[0],
+    )
     samples = sum(view.evidence.sfm_depth_samples for view in ranked_views)
     conflicts = sum(view.evidence.sfm_depth_conflicts for view in ranked_views)
     pose_ious = [view.evidence.pose_facade_iou for view in ranked_views if view.evidence.pose_facade_iou is not None]
@@ -65,6 +70,16 @@ def assess_footprint(building_id: str, ranked_views: tuple[RankedView, ...], col
             "informational",
             f"Geometry sources used by matching analyses: {', '.join(sources)}.",
             {"sources": sources},
+        ),
+        AssessmentCheck(
+            "footprint_correction",
+            "caution" if corrections else "informational",
+            (
+                "The footprint geometry is a reviewed local correction of the OpenStreetMap element "
+                f"(revision {', '.join(str(revision) for revision, _, _ in corrections)}), not the geometry OpenStreetMap serves."
+                if corrections else "The footprint geometry is the one OpenStreetMap serves."
+            ),
+            {"corrections": [{"revision": revision, "source": source, "osm_version": version} for revision, source, version in corrections]},
         ),
         AssessmentCheck(
             "pose_alignment",
@@ -98,6 +113,8 @@ def assess_footprint(building_id: str, ranked_views: tuple[RankedView, ...], col
             "fingerprint_sha256": fingerprint,
             "footprint_source": first.footprint_source,
             "alternative_footprint_id": first.alternative_footprint_id,
+            "osm_version": first.osm_version,
+            "footprint_correction": first.footprint_correction,
             "image_ids": [view.evidence.image_id for view in views],
             "geometry": first.footprint_geometry,
         })
@@ -113,6 +130,10 @@ def assess_footprint(building_id: str, ranked_views: tuple[RankedView, ...], col
             "Projection coverage is not a calibrated probability that the footprint is correct.",
             "Unanalyzed panoramas provide no positive or negative evidence.",
             "Street imagery cannot establish hidden structural properties.",
+            *(
+                ["A locally corrected footprint has been reviewed by a person but is not part of OpenStreetMap until someone maps it there."]
+                if corrections else []
+            ),
         ],
         "non_assessments": [{
             "code": "gem_structural_classification",

@@ -4,15 +4,20 @@ from __future__ import annotations
 
 from urllib.parse import urlencode
 
-from .models import RankedView, ViewEvidence
+from ..image_quality import rank_weight
+from .models import RANKING_FORMULA_VERSION, RankedView, ViewEvidence
+
+__all__ = ["RANKING_FORMULA_VERSION", "build_viewer_url", "rank_views", "view_evidence_score", "view_score"]
 
 
-RANKING_FORMULA_VERSION = "direct-facade-evidence-v1"
+def view_score(observed_fraction: float, projection_coverage: float, image_quality: dict | None) -> float:
+    """The one definition of a view's score, shared by reports and the building table."""
+    return observed_fraction * (0.25 + 0.75 * projection_coverage) * rank_weight(image_quality)
 
 
 def view_evidence_score(evidence: ViewEvidence) -> float:
     observed_fraction = evidence.observed_pixels / (evidence.analysis_width * evidence.analysis_height)
-    return observed_fraction * (0.25 + 0.75 * evidence.projection_coverage)
+    return view_score(observed_fraction, evidence.projection_coverage, evidence.image_quality)
 
 
 def build_viewer_url(dataset_id: str, building_id: str, evidence: ViewEvidence) -> str:
@@ -49,6 +54,9 @@ def rank_views(evidence: tuple[ViewEvidence, ...], dataset_id: str, building_id:
         ]
         if item.inferred_pixels:
             reasons.append(f"{item.inferred_pixels:,} vegetation-occluded pixels are reported separately and do not increase the rank.")
+        flags = (item.image_quality or {}).get("flags")
+        if flags:
+            reasons.append(f"Image quality flags ({', '.join(flags)}) halve its score; the view stays listed.")
         if item.sfm_depth_samples:
             reasons.append(f"SfM checked {item.sfm_depth_samples} sparse depth samples; {item.sfm_depth_conflicts} conflicted.")
         ranked.append(RankedView(
