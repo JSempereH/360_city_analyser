@@ -14,6 +14,7 @@ import os
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -187,7 +188,7 @@ def fetch_images(token: str, bbox: tuple[float, float, float, float], image_fiel
     next_params: dict[str, str] | None = params
     page = 1
     while next_url is not None and (max_pages is None or page <= max_pages):
-        status(f"Consultando Mapillary, pagina {page}{f'/{max_pages}' if max_pages is not None else ''}...")
+        status(f"Querying Mapillary, page {page}{f'/{max_pages}' if max_pages is not None else ''}...")
         payload = request_json(next_url, next_params)
         data = payload.get("data", [])
         if not isinstance(data, list):
@@ -219,6 +220,71 @@ def available_image_url(image: dict[str, Any], preferred_size: str) -> tuple[str
     return None
 
 
+class PanoramaSelector:
+    """Keeps panoramas at least ``min_spacing_m`` apart, earliest capture first, up to ``max_images``.
+
+    The positions kept so far live in a grid of cells one spacing wide, so each
+    candidate is compared with its neighbors only. The previous all-pairs check
+    took hours at city scale. It can be fed one tile of results at a time.
+    """
+
+    def __init__(self, center: tuple[float, float] | None, radius_m: float | None, min_spacing_m: float, max_images: int):
+        self.center, self.radius_m, self.min_spacing_m, self.max_images = center, radius_m, min_spacing_m, max_images
+        self.selected: list[dict[str, Any]] = []
+        self._seen: set[str] = set()
+        self._cells: dict[tuple[int, int], list[tuple[float, float]]] = {}
+        self._cell_deg = max(min_spacing_m, 0.001) / 111_320
+
+    def _cell(self, lat: float, lon: float) -> tuple[int, int]:
+        # Longitude cells are widened at the latitude of the point, so neighbors always cover the spacing.
+        lon_deg = self._cell_deg / max(math.cos(math.radians(min(abs(lat), 89.0))), 0.01)
+        return math.floor(lat / self._cell_deg), math.floor(lon / lon_deg)
+
+    def _too_close(self, lat: float, lon: float) -> bool:
+        if self.min_spacing_m <= 0:
+            return False
+        lat_cell, _ = self._cell(lat, lon)
+        # A wide latitude band may use a different longitude cell width; scan the nearby columns explicitly.
+        reach = 2 + int(1 / max(math.cos(math.radians(min(abs(lat), 89.0))), 0.01))
+        lon_deg = self._cell_deg / max(math.cos(math.radians(min(abs(lat), 89.0))), 0.01)
+        lon_cell = math.floor(lon / lon_deg)
+        for row in range(lat_cell - 1, lat_cell + 2):
+            for column in range(lon_cell - reach, lon_cell + reach + 1):
+                for other_lat, other_lon in self._cells.get((row, column), ()):
+                    if haversine_m(lat, lon, other_lat, other_lon) < self.min_spacing_m:
+                        return True
+        return False
+
+    def add(self, images: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Newly selected panoramas from ``images`` (already seen IDs and full selections add nothing)."""
+        candidates: list[dict[str, Any]] = []
+        for image in images:
+            if image.get("is_pano") is not True or str(image.get("id")) in self._seen:
+                continue
+            point = point_from_image(image)
+            if point is None:
+                continue
+            lon, lat = point
+            if self.center and self.radius_m and haversine_m(self.center[0], self.center[1], lat, lon) > self.radius_m:
+                continue
+            image = dict(image)
+            image["_selected_geometry"] = {"type": "Point", "coordinates": [lon, lat]}
+            candidates.append(image)
+        candidates.sort(key=lambda image: (image.get("captured_at", 0), image.get("id", "")))
+        added: list[dict[str, Any]] = []
+        for image in candidates:
+            if len(self.selected) >= self.max_images:
+                break
+            lon, lat = image["_selected_geometry"]["coordinates"]
+            self._seen.add(str(image.get("id")))
+            if self._too_close(lat, lon):
+                continue
+            self.selected.append(image)
+            self._cells.setdefault(self._cell(lat, lon), []).append((lat, lon))
+            added.append(image)
+        return added
+
+
 def select_panoramas(
     images: list[dict[str, Any]],
     center: tuple[float, float] | None,
@@ -226,34 +292,7 @@ def select_panoramas(
     min_spacing_m: float,
     max_images: int,
 ) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
-    for image in images:
-        if image.get("is_pano") is not True:
-            continue
-        point = point_from_image(image)
-        if point is None:
-            continue
-        lon, lat = point
-        if center and radius_m and haversine_m(center[0], center[1], lat, lon) > radius_m:
-            continue
-        image = dict(image)
-        image["_selected_geometry"] = {"type": "Point", "coordinates": [lon, lat]}
-        candidates.append(image)
-
-    candidates.sort(key=lambda image: (image.get("captured_at", 0), image.get("id", "")))
-    selected: list[dict[str, Any]] = []
-    for image in candidates:
-        lon, lat = image["_selected_geometry"]["coordinates"]
-        if any(
-            haversine_m(lat, lon, previous["_selected_geometry"]["coordinates"][1], previous["_selected_geometry"]["coordinates"][0])
-            < min_spacing_m
-            for previous in selected
-        ):
-            continue
-        selected.append(image)
-        if len(selected) >= max_images:
-            break
-    return selected
+    return PanoramaSelector(center, radius_m, min_spacing_m, max_images).add(images)
 
 
 def normalize_compass_heading(value: Any) -> float | None:
@@ -362,6 +401,57 @@ def download_image(url: str, destination: Path, overwrite: bool) -> tuple[bool, 
             temporary.unlink(missing_ok=True)
 
 
+TRANSIENT_HTTP_CODES = {429, 500, 502, 503, 504}
+MAX_TILE_AREA_DEG2 = 0.008
+DOWNLOAD_ATTEMPTS = 4
+# Seconds before the first retry; doubles each time. Tests set it to 0.
+DOWNLOAD_BACKOFF_S = 2.0
+CHECKPOINT_INTERVAL_S = 120.0
+
+
+def download_with_retries(url: str, destination: Path, overwrite: bool, attempts: int = DOWNLOAD_ATTEMPTS) -> tuple[bool, dict[str, Any]]:
+    """``download_image`` retried on network trouble; bad content (not an image, too large) is not retried."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return download_image(url, destination, overwrite)
+        except HTTPError as error:
+            if error.code not in TRANSIENT_HTTP_CODES or attempt == attempts:
+                raise
+        except (URLError, TimeoutError, ConnectionError):
+            if attempt == attempts:
+                raise
+        time.sleep(DOWNLOAD_BACKOFF_S * 2 ** (attempt - 1))
+    raise AssertionError("unreachable")
+
+
+def tile_bbox(bbox: tuple[float, float, float, float], max_area_deg2: float = MAX_TILE_AREA_DEG2) -> list[tuple[float, float, float, float]]:
+    """Split a bounding box into an equal grid of tiles, each below the Mapillary images endpoint's area limit."""
+    west, south, east, north = bbox
+    area = (east - west) * (north - south)
+    if area < max_area_deg2:
+        return [bbox]
+    across = math.ceil(math.sqrt(area / max_area_deg2 * (east - west) / (north - south)))
+    down = math.ceil(area / max_area_deg2 / across)
+    width, height = (east - west) / across, (north - south) / down
+    return [
+        (west + column * width, south + row * height, west + (column + 1) * width, south + (row + 1) * height)
+        for row in range(down) for column in range(across)
+    ]
+
+
+def parse_tiled_bbox(value: str) -> tuple[float, float, float, float]:
+    """Like ``parse_bbox`` but without the single-query area limit; the area is tiled."""
+    try:
+        min_lon, min_lat, max_lon, max_lat = (float(part.strip()) for part in value.split(","))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("bbox must be min_lon,min_lat,max_lon,max_lat") from error
+    validate_lat_lon(min_lat, min_lon)
+    validate_lat_lon(max_lat, max_lon)
+    if min_lon >= max_lon or min_lat >= max_lat:
+        raise argparse.ArgumentTypeError("bbox minimums must be smaller than maximums")
+    return min_lon, min_lat, max_lon, max_lat
+
+
 def write_manifest(output_dir: Path, records: list[dict[str, Any]], query: dict[str, Any]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "manifest.json").write_text(
@@ -390,6 +480,7 @@ def build_parser() -> argparse.ArgumentParser:
     area = parser.add_mutually_exclusive_group(required=True)
     area.add_argument("--center", type=parse_center, help="WGS84 latitude,longitude at the street center")
     area.add_argument("--bbox", type=parse_bbox, help="min_lon,min_lat,max_lon,max_lat around one street")
+    area.add_argument("--tiled-bbox", type=parse_tiled_bbox, help="min_lon,min_lat,max_lon,max_lat of any size, e.g. a city: queried tile by tile")
     parser.add_argument("--radius-m", type=float, default=150, help="search radius for --center queries (default: 150)")
     parser.add_argument("--output", type=Path, required=True, help="directory for JPEGs and manifests")
     parser.add_argument("--max-images", type=int, default=25, help="maximum panoramas to download (default: 25)")
@@ -398,8 +489,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--image-size", choices=("auto", *MAPILLARY_IMAGE_SIZES), default="auto", help="preferred Mapillary derivative; falls back to smaller available versions")
     parser.add_argument("--access-token", help="Mapillary token; defaults to MAPILLARY_ACCESS_TOKEN")
     parser.add_argument("--dry-run", action="store_true", help="write manifests but do not download JPEGs")
+    parser.add_argument("--workers", type=int, default=4, help="parallel downloads (default: 4)")
     parser.add_argument("--overwrite", action="store_true", help="replace existing JPEG files")
     return parser
+
+
+def _checkpoint(output_dir: Path, records: list[dict[str, Any]], query: dict[str, Any]) -> None:
+    write_manifest(output_dir, records, {**query, "panoramas_selected": len(records)})
 
 
 def main() -> int:
@@ -409,8 +505,8 @@ def main() -> int:
     if not token:
         print("Set MAPILLARY_ACCESS_TOKEN or pass --access-token.", file=sys.stderr)
         return 2
-    if args.max_images < 1 or args.min_spacing_m < 0 or args.max_api_pages < 1:
-        print("max-images and max-api-pages must be positive; min-spacing-m cannot be negative.", file=sys.stderr)
+    if args.max_images < 1 or args.min_spacing_m < 0 or args.max_api_pages < 1 or args.workers < 1:
+        print("max-images, max-api-pages and workers must be positive; min-spacing-m cannot be negative.", file=sys.stderr)
         return 2
 
     center = args.center
@@ -418,48 +514,23 @@ def main() -> int:
         if center:
             center_lat, center_lon = center
             bbox = bbox_from_center(center_lat, center_lon, args.radius_m)
+            tiles = [bbox]
+        elif args.tiled_bbox:
+            bbox = args.tiled_bbox
+            tiles = tile_bbox(bbox)
         else:
             bbox = args.bbox
-        images = fetch_images(token, bbox, MAPILLARY_IMAGE_FIELDS, args.max_api_pages)
-        status("Filtering 360 panoramas and spacing nearby positions...")
-        selected = select_panoramas(images, center, args.radius_m if center else None, args.min_spacing_m, args.max_images)
-    except (RuntimeError, ValueError) as error:
+            tiles = [bbox]
+    except ValueError as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
 
     image_dir = args.output / "images"
     records: list[dict[str, Any]] = []
-    if not selected:
-        status("No 360 panoramas found for this area. Try another point or a larger radius.")
-    for index, image in enumerate(selected, start=1):
-        image_id = str(image["id"])
-        try:
-            image["computed_compass_angle"] = normalize_compass_heading(image.get("computed_compass_angle"))
-        except ValueError as error:
-            print(f"Skipping {image_id}: {error}", file=sys.stderr)
-            continue
-        filename = f"pano-{image_id}.jpg"
-        destination = image_dir / filename
-        derivative = available_image_url(image, args.image_size)
-        if derivative is None:
-            print(f"Skipping {image_id}: Mapillary did not return a downloadable derivative.", file=sys.stderr)
-            continue
-        image_field, url = derivative
-        image["_download_image_field"] = image_field
-        local_metadata = None
-        if not args.dry_run:
-            image_dir.mkdir(parents=True, exist_ok=True)
-            try:
-                status(f"Downloading panorama {index}/{len(selected)} ({image_id})...")
-                downloaded, local_metadata = download_image(url, destination, args.overwrite)
-                status("  Saved." if downloaded else "  Already exists; keeping the local file.")
-            except (HTTPError, URLError, RuntimeError, TimeoutError) as error:
-                print(f"Skipping {image_id}: {error}", file=sys.stderr)
-                continue
-        else:
-            status(f"Selected panorama {index}/{len(selected)} ({image_id}); dry-run, not downloading.")
-        records.append(image_record(image, f"images/{filename}" if not args.dry_run else None, local_metadata))
-
+    selector = PanoramaSelector(center, args.radius_m if center else None, args.min_spacing_m, args.max_images)
+    api_images_seen = 0
+    truncated_tiles = 0
+    last_checkpoint = time.monotonic()
     query = {
         "provider": "Mapillary Graph API v4",
         "acquired_at": datetime.now(UTC).isoformat(),
@@ -470,12 +541,68 @@ def main() -> int:
         "min_camera_spacing_m": args.min_spacing_m,
         "preferred_image_size": args.image_size,
         "image_fields_requested": MAPILLARY_IMAGE_FIELDS,
-        "api_images_seen": len(images),
-        "panoramas_selected": len(records),
+        "tiles": len(tiles),
     }
+
+    def fetch_one(image: dict[str, Any]) -> dict[str, Any] | None:
+        image_id = str(image["id"])
+        try:
+            image["computed_compass_angle"] = normalize_compass_heading(image.get("computed_compass_angle"))
+        except ValueError as error:
+            print(f"Skipping {image_id}: {error}", file=sys.stderr)
+            return None
+        filename = f"pano-{image_id}.jpg"
+        derivative = available_image_url(image, args.image_size)
+        if derivative is None:
+            print(f"Skipping {image_id}: Mapillary did not return a downloadable derivative.", file=sys.stderr)
+            return None
+        image_field, url = derivative
+        image["_download_image_field"] = image_field
+        local_metadata = None
+        if not args.dry_run:
+            image_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                _, local_metadata = download_with_retries(url, image_dir / filename, args.overwrite)
+            except (HTTPError, URLError, RuntimeError, TimeoutError, ConnectionError) as error:
+                print(f"Skipping {image_id}: {error}", file=sys.stderr)
+                return None
+        return image_record(image, f"images/{filename}" if not args.dry_run else None, local_metadata)
+
+    for number, tile in enumerate(tiles, start=1):
+        if len(selector.selected) >= args.max_images:
+            break
+        try:
+            if len(tiles) > 1:
+                status(f"Tile {number}/{len(tiles)}: {len(records)} panoramas so far.")
+            images = fetch_images(token, tile, MAPILLARY_IMAGE_FIELDS, args.max_api_pages)
+        except (RuntimeError, ValueError) as error:
+            if len(tiles) == 1:
+                print(f"Error: {error}", file=sys.stderr)
+                return 1
+            print(f"Tile {number}/{len(tiles)} skipped: {error}", file=sys.stderr)
+            continue
+        api_images_seen += len(images)
+        if len(images) >= args.max_api_pages * 2_000:
+            truncated_tiles += 1
+        new = selector.add(images)
+        if not new and number == 1 and len(tiles) == 1:
+            status("No 360 panoramas found for this area. Try another point or a larger radius.")
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            for done, record in enumerate(pool.map(fetch_one, new), start=1):
+                if record is not None:
+                    records.append(record)
+                if done % 50 == 0 or done == len(new):
+                    status(f"  Downloaded {done}/{len(new)} of this tile ({len(records)} total).")
+        # A crash later keeps what was fetched so far (rerunning skips the files already on disk). Rewriting
+        # the manifest costs more as it grows, so it is saved at most every CHECKPOINT_INTERVAL_S.
+        if time.monotonic() - last_checkpoint >= CHECKPOINT_INTERVAL_S:
+            _checkpoint(args.output, records, {**query, "api_images_seen": api_images_seen})
+            last_checkpoint = time.monotonic()
+    if truncated_tiles:
+        status(f"Warning: {truncated_tiles} tile(s) reached --max-api-pages; raise it or use smaller tiles to see every panorama there.")
     status("Writing GeoJSON, JSON, and attribution manifests...")
-    write_manifest(args.output, records, query)
-    print(f"Selected {len(records)} georeferenced panoramas from {len(images)} API images.")
+    _checkpoint(args.output, records, {**query, "api_images_seen": api_images_seen, "tiles_truncated": truncated_tiles})
+    print(f"Selected {len(records)} georeferenced panoramas from {api_images_seen} API images.")
     print(f"Dataset manifest: {args.output / 'manifest.geojson'}")
     return 0
 

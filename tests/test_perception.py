@@ -228,11 +228,11 @@ class BatchAnalysisTests(unittest.TestCase):
                 associated.append((image["id"], perception, features))
                 return {"building_ids": {"way/1": {}}}
 
-            with patch.object(batch_analysis, "perceive_panorama", side_effect=lambda *args: f"perception-{args[2].stem}"), \
+            with patch.object(batch_analysis, "perceive", side_effect=lambda *args: f"perception-{args[3].stem}"), \
                     patch.object(batch_analysis, "associate_panorama", side_effect=associate), \
                     patch.object(batch_analysis, "nearby_buildings", return_value=["footprint"]), \
                     patch("builtins.print"):
-                report = batch_analysis.analyze_dataset(root, root / "models", "sample")
+                report = batch_analysis.analyze_dataset(root, root / "models", "sample", backend=batch_analysis.AnalysisBackend("local"))
 
         self.assertEqual([item[:2] for item in associated], [("1", "perception-1"), ("3", "perception-3")])
         self.assertEqual([row["image"] for row in report["rows"]], ["2", "1", "3"])

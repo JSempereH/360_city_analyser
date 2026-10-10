@@ -1,3 +1,4 @@
+import json
 import hashlib
 import io
 import math
@@ -6,6 +7,7 @@ import unittest
 from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from PIL import Image
 
@@ -157,3 +159,101 @@ class MapillaryStreetDownloadTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CityScaleDownloadTests(unittest.TestCase):
+    def test_tiles_cover_the_box_with_small_areas(self):
+        from city_analyser.mapillary_street_download import MAX_TILE_AREA_DEG2, tile_bbox
+
+        box = (-0.45, 39.40, -0.30, 39.55)
+        tiles = tile_bbox(box)
+        self.assertGreater(len(tiles), 1)
+        for west, south, east, north in tiles:
+            self.assertLess((east - west) * (north - south), MAX_TILE_AREA_DEG2 + 1e-12)
+        self.assertAlmostEqual(sum((e - w) * (n - s) for w, s, e, n in tiles), (box[2] - box[0]) * (box[3] - box[1]), places=9)
+        self.assertEqual((min(t[0] for t in tiles), min(t[1] for t in tiles), max(t[2] for t in tiles), max(t[3] for t in tiles)), box)
+        self.assertEqual(tile_bbox((0.0, 0.0, 0.05, 0.05)), [(0.0, 0.0, 0.05, 0.05)])
+
+    def test_grid_selection_matches_the_all_pairs_rule_and_deduplicates_across_tiles(self):
+        import random
+
+        from city_analyser.mapillary_street_download import PanoramaSelector, select_panoramas
+
+        rng = random.Random(7)
+        images = [
+            {"id": str(i), "is_pano": True, "captured_at": rng.randint(0, 20),
+             "computed_geometry": {"type": "Point", "coordinates": [4.9 + rng.random() * 0.004, 52.3 + rng.random() * 0.004]}}
+            for i in range(600)
+        ]
+        everything = [item["id"] for item in select_panoramas(images, None, None, 12, 10_000)]
+        expected, kept = [], []
+        for image in sorted(images, key=lambda item: (item["captured_at"], item["id"])):
+            lon, lat = image["computed_geometry"]["coordinates"]
+            if all(haversine_m(lat, lon, o[1], o[0]) >= 12 for o in kept):
+                kept.append((lon, lat))
+                expected.append(image["id"])
+        self.assertEqual(everything, expected)
+        selector = PanoramaSelector(None, None, 12, 10_000)
+        first = selector.add(images[:300])
+        again = selector.add(images[:300])  # tile borders return the same panoramas twice
+        self.assertEqual(again, [])
+        self.assertTrue(first)
+        self.assertEqual(len(PanoramaSelector(None, None, 0, 5).add(images)), 5)  # the cap applies
+
+    def test_downloads_retry_transient_errors_only(self):
+        from city_analyser import mapillary_street_download as module
+
+        calls = []
+
+        def flaky(url, destination, overwrite):
+            calls.append(url)
+            if len(calls) < 3:
+                raise HTTPError(url, 503, "busy", None, None)
+            return True, {"ok": True}
+
+        with patch.object(module, "download_image", flaky), patch.object(module, "DOWNLOAD_BACKOFF_S", 0.0):
+            self.assertEqual(module.download_with_retries("u", Path("x"), False), (True, {"ok": True}))
+        self.assertEqual(len(calls), 3)
+
+        def forbidden(url, destination, overwrite):
+            calls.append("403")
+            raise HTTPError(url, 403, "expired", None, None)
+
+        calls.clear()
+        with patch.object(module, "download_image", forbidden), patch.object(module, "DOWNLOAD_BACKOFF_S", 0.0), self.assertRaises(HTTPError):
+            module.download_with_retries("u", Path("x"), False)
+        self.assertEqual(calls, ["403"])
+
+    def test_tiled_run_downloads_in_parallel_and_writes_the_manifest(self):
+        import sys
+        import tempfile
+
+        from city_analyser import mapillary_street_download as module
+
+        def api_image(number: int, lon: float) -> dict:
+            return {
+                "id": str(number), "is_pano": True, "captured_at": number, "computed_compass_angle": 10.0, "creator": {"username": "u"},
+                "computed_geometry": {"type": "Point", "coordinates": [lon, 52.3]}, "thumb_2048_url": f"https://img.test/{number}.jpg",
+                "geometry": {"type": "Point", "coordinates": [lon, 52.3]}, "width": 2000, "height": 1000,
+            }
+
+        def fetch(token, tile, fields, pages):
+            # every tile also returns one panorama on the shared border, as the real endpoint does
+            return [api_image(1, 4.9), api_image(int(tile[0] * 1000) + 100, tile[0] + 0.01)]
+
+        def fake_download(url, destination, overwrite):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(b"jpeg")
+            return True, {"local_file_size_bytes": 4}
+
+        with tempfile.TemporaryDirectory() as directory:
+            argv = ["prog", "--tiled-bbox", "4.0,52.0,4.4,52.4", "--output", directory, "--min-spacing-m", "1", "--max-images", "100", "--workers", "3", "--access-token", "t"]
+            with patch.object(sys, "argv", argv), patch.object(module, "fetch_images", fetch), patch.object(module, "download_with_retries", fake_download), \
+                    patch.object(module, "image_record", lambda image, local, meta: {"id": image["id"], "local_file": local, "selected_geometry": image["_selected_geometry"], "creator": image["creator"], "source_page": "s"}), \
+                    patch.object(module, "status"):
+                self.assertEqual(module.main(), 0)
+            manifest = json.loads((Path(directory) / "manifest.json").read_text(encoding="utf-8"))
+        ids = [item["id"] for item in manifest["images"]]
+        self.assertEqual(ids.count("1"), 1)  # deduplicated across tiles
+        self.assertGreater(len(ids), 2)
+        self.assertGreater(manifest["query"]["tiles"], 1)
