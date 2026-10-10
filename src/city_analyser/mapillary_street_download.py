@@ -142,7 +142,7 @@ def request_json(url: str, params: dict[str, str] | None = None) -> dict[str, An
             last_error = error
         except (URLError, TimeoutError, json.JSONDecodeError) as error:
             last_error = error
-        status(f"  Consulta temporalmente fallida ({last_error}); reintentando {attempt + 1}/3...")
+        status(f"  Request failed for now ({last_error}); retrying {attempt + 1}/3...")
         time.sleep(2**attempt)
     raise RuntimeError(f"Mapillary API request failed after retries: {last_error}")
 
@@ -194,7 +194,7 @@ def fetch_images(token: str, bbox: tuple[float, float, float, float], image_fiel
         if not isinstance(data, list):
             raise RuntimeError("Mapillary API response did not contain an image list")
         images.extend(image for image in data if isinstance(image, dict))
-        status(f"  Recibidas {len(data)} imagenes; acumuladas: {len(images)}.")
+        status(f"  Received {len(data)} images; {len(images)} so far.")
         paging = payload.get("paging")
         next_url = paging.get("next") if isinstance(paging, dict) else None
         next_params = None

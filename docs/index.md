@@ -31,6 +31,6 @@ hide:
 - Reports are deterministic and do not run an LLM or GEM classifier.
 - The system abstains when its evidence is insufficient or ambiguous.
 
-## Licence
+## License
 
 Code under the [EUPL-1.2](https://github.com/JSempereH/360_city_analyser/blob/main/LICENSE). Imagery, OpenStreetMap data and model weights keep their own terms; see the end of the [user guide](guide.md#license-and-privacy).
