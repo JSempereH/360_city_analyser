@@ -39,7 +39,7 @@ Measured on the separation benchmark with the same SAM 2.1 small masks and assoc
 | YOLOE-11L | 0.10 | 0.790 | 0.920 | 0.943 | 0.085 | 4 |
 | YOLOE-11L, own masks (no SAM) | 0.10 | 0.799 | 0.940 | 0.949 | 0.102 | 4 |
 
-CPU time per panorama for the instance stage: Grounding DINO + SAM 2.1 ~95 s, YOLOE + SAM 2.1 ~22 s, YOLOE with its own masks ~6 s. YOLOE without SAM is therefore the practical fast mode on CPU (documented in the README as an opt-in AGPL extra); Grounding DINO + SAM remains the default for quality and licensing.
+CPU time per panorama for the instance stage: Grounding DINO + SAM 2.1 ~95 s, YOLOE + SAM 2.1 ~22 s, YOLOE with its own masks ~6 s. YOLOE without SAM is therefore the practical fast mode on CPU (documented in the [user guide](guide.md) as an opt-in AGPL extra); Grounding DINO + SAM remains the default for quality and licensing.
 
 The newer detectors score better on COCO/LVIS, but for "building." in street panoramas they detect fewer whole buildings and split facades into parts (LLMDet reaches 0.94 visual purity but 15 visual splits). Grounding DINO tiny stays the default; the detector is configurable (`BUILDING_ANALYSIS_INSTANCE_DETECTOR`, `BUILDING_ANALYSIS_INSTANCE_BOX_THRESHOLD`).
 
@@ -54,6 +54,10 @@ The pipeline projects OSM walls from the camera pose (exact ray/segment depth, o
 - **Negative result**: choosing the repaired GPS position by image fit over all street positions within 12 m made separation worse (F 0.813 to 0.764) and was 10-40x slower; silhouette IoU favors large, wrong shifts. It was removed.
 
 State of the art for this sub-problem is learned image-to-OSM localization: [OrienterNet](https://arxiv.org/abs/2304.02009) (CVPR 2023, sub-meter on its benchmark), [OSMLoc](https://arxiv.org/abs/2411.08665) (depth-guided BEV, 2025/26), and 2026 work such as coarse-to-fine OSM re-localization and AutoCompass. They match a bird's-eye feature map to rasterized OSM and would replace the silhouette search. Constraints: OrienterNet weights are CC BY-NC; they are trained on perspective images (a panorama must be split); a GPU is advisable. This is the most promising upgrade for attached-facade separation, because column splits inside a detected block are only as good as the pose.
+
+### Footprint diagnostics
+
+Each analysis now flags footprints the imagery contradicts (see [footprint-corrections.md](footprint-corrections.md)). On this benchmark, `merged_footprint` (one footprint naming several buildings) has precision 0.83 and recall 0.31 against the annotations, and `unexplained_instance` (a building without a footprint) has precision 0.67 on 3 flags. Most footprint errors here are blocks mapped as one polygon, which geometry-only corrections cannot fix; splitting footprints is the next step.
 
 ## 4. Depth
 

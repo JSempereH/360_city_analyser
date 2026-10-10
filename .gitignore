@@ -7,3 +7,4 @@ tests/__pycache__/
 .ruff_cache/
 docs/*.webm
 *.egg-info/
+site/

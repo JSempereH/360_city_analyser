@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="360 City Analyser">
+  <rect width="64" height="64" rx="14" fill="#14213d"/>
+  <!-- 360 degree ring, broken at the top so it reads as a panorama sweep -->
+  <path d="M32 6 A26 26 0 1 1 20.4 8.7" fill="none" stroke="#ff9f1c" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M14.5 5.5 L21.5 8.6 L16 14.2" fill="none" stroke="#ff9f1c" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- skyline -->
+  <g fill="#e8f1ff">
+    <rect x="15" y="31" width="9" height="19" rx="1"/>
+    <rect x="26" y="22" width="12" height="28" rx="1"/>
+    <rect x="40" y="29" width="9" height="21" rx="1"/>
+  </g>
+  <!-- windows -->
+  <g fill="#14213d">
+    <rect x="29" y="26" width="2.6" height="2.6"/><rect x="33.4" y="26" width="2.6" height="2.6"/>
+    <rect x="29" y="32" width="2.6" height="2.6"/><rect x="33.4" y="32" width="2.6" height="2.6"/>
+    <rect x="29" y="38" width="2.6" height="2.6"/><rect x="33.4" y="38" width="2.6" height="2.6"/>
+    <rect x="18" y="35" width="2.6" height="2.6"/><rect x="18" y="41" width="2.6" height="2.6"/>
+    <rect x="43" y="33" width="2.6" height="2.6"/><rect x="43" y="39" width="2.6" height="2.6"/>
+  </g>
+  <!-- footprint outline: the OSM polygon the facades are matched to -->
+  <path d="M12 54 H52" stroke="#4cc9f0" stroke-width="3" stroke-linecap="round"/>
+</svg>

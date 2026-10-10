@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 300" width="1280" height="300" role="img" aria-label="360 City Analyser">
+<rect width="1280" height="300" fill="#0b0b0b"/>
+<rect x="628" y="228" width="52" height="52" fill="#ffd500"/>
+<rect x="643.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="628" y="176" width="52" height="52" fill="#ffd500"/>
+<rect x="628" y="124" width="52" height="52" fill="#ffd500"/>
+<rect x="643.6" y="139.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<path d="M628 124 L654.0 72 L680 124 Z" fill="#ffd500"/>
+<rect x="680" y="228" width="52" height="52" fill="#3a3a36"/>
+<rect x="680" y="176" width="52" height="52" fill="#3a3a36"/>
+<rect x="695.6" y="191.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<path d="M732 176 V124 A52 52 0 0 0 680 176 Z" fill="#3a3a36"/>
+<rect x="732" y="228" width="52" height="52" fill="#f5f2e8"/>
+<rect x="747.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="732" y="176" width="52" height="52" fill="#f5f2e8"/>
+<rect x="732" y="124" width="52" height="52" fill="#f5f2e8"/>
+<rect x="747.6" y="139.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="732" y="72" width="52" height="52" fill="#f5f2e8"/>
+<rect x="747.6" y="87.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="732" y="20" width="52" height="52" fill="#f5f2e8"/>
+<rect x="784" y="228" width="52" height="52" fill="#ffd500"/>
+<rect x="799.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="784" y="176" width="52" height="52" fill="#ffd500"/>
+<rect x="784" y="124" width="52" height="52" fill="#ffd500"/>
+<rect x="784" y="72" width="52" height="52" fill="#ffd500"/>
+<rect x="799.6" y="87.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<path d="M784 72 L810.0 20 L836 72 Z" fill="#ffd500"/>
+<rect x="836" y="228" width="52" height="52" fill="#3a3a36"/>
+<rect x="851.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="836" y="176" width="52" height="52" fill="#3a3a36"/>
+<rect x="888" y="228" width="52" height="52" fill="#ffd500"/>
+<rect x="888" y="176" width="52" height="52" fill="#ffd500"/>
+<rect x="888" y="124" width="52" height="52" fill="#ffd500"/>
+<rect x="903.6" y="139.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="888" y="72" width="52" height="52" fill="#ffd500"/>
+<rect x="940" y="228" width="52" height="52" fill="#3a3a36"/>
+<rect x="992" y="228" width="52" height="52" fill="#f5f2e8"/>
+<rect x="1007.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="992" y="176" width="52" height="52" fill="#f5f2e8"/>
+<rect x="1007.6" y="191.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<path d="M992 176 L1018.0 124 L1044 176 Z" fill="#f5f2e8"/>
+<rect x="1044" y="228" width="52" height="52" fill="#3a3a36"/>
+<rect x="1059.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="1044" y="176" width="52" height="52" fill="#3a3a36"/>
+<rect x="1044" y="124" width="52" height="52" fill="#3a3a36"/>
+<path d="M1096 124 V72 A52 52 0 0 0 1044 124 Z" fill="#3a3a36"/>
+<rect x="1096" y="228" width="52" height="52" fill="#ffd500"/>
+<rect x="1096" y="176" width="52" height="52" fill="#ffd500"/>
+<path d="M1096 176 L1122.0 124 L1148 176 Z" fill="#ffd500"/>
+<rect x="1148" y="228" width="52" height="52" fill="#f5f2e8"/>
+<rect x="1163.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="1148" y="176" width="52" height="52" fill="#f5f2e8"/>
+<rect x="1163.6" y="191.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="1148" y="124" width="52" height="52" fill="#f5f2e8"/>
+<rect x="1163.6" y="139.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<path d="M1200 124 V72 A52 52 0 0 0 1148 124 Z" fill="#f5f2e8"/>
+<rect x="1200" y="228" width="52" height="52" fill="#3a3a36"/>
+<rect x="1215.6" y="243.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="1200" y="176" width="52" height="52" fill="#3a3a36"/>
+<rect x="1200" y="124" width="52" height="52" fill="#3a3a36"/>
+<rect x="1215.6" y="139.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<rect x="1200" y="72" width="52" height="52" fill="#3a3a36"/>
+<rect x="1215.6" y="87.6" width="20.8" height="20.8" fill="#0b0b0b"/>
+<path d="M1200 72 L1226.0 20 L1252 72 Z" fill="#3a3a36"/>
+<rect x="628" y="280" width="624" height="6" fill="#f5f2e8"/>
+<text x="48" y="150" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="132" font-weight="900" letter-spacing="-7" fill="#f5f2e8">360</text>
+<circle cx="276" cy="137" r="13" fill="#ffd500"/>
+<text x="48" y="228" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="62" font-weight="900" letter-spacing="-2.5" fill="#f5f2e8">City Analyser</text>
+<rect x="48" y="252" width="40" height="8" fill="#ffd500"/><rect x="88" y="252" width="40" height="8" fill="#8c8c84"/><rect x="128" y="252" width="40" height="8" fill="#ffd500"/>
+<text x="48" y="44" font-family="SFMono-Regular,Menlo,Consolas,DejaVu Sans Mono,monospace" font-size="13" letter-spacing="3" fill="#f5f2e8">OPEN SOURCE TOOLKIT</text>
+</svg>

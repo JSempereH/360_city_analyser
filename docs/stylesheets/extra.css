@@ -1,0 +1,52 @@
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #14213d;
+  --md-primary-fg-color--light: #2a3a63;
+  --md-primary-fg-color--dark: #0b1426;
+  --md-accent-fg-color: #e07b00;
+  --md-typeset-a-color: #0b6aa8;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #0b1426;
+  --md-default-bg-color: #0f1a30;
+  --md-accent-fg-color: #ff9f1c;
+  --md-typeset-a-color: #4cc9f0;
+}
+
+.md-header__button.md-logo img {
+  height: 2.2rem;
+  width: auto;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 1rem 0 2rem;
+}
+
+.hero img {
+  width: 96px;
+  min-width: 96px;
+  height: 96px;
+  flex: none;
+  background: #14213d;
+  border-radius: 22px;
+  padding: 10px;
+}
+
+.hero div {
+  font-size: 1.05rem;
+}
+
+@media (max-width: 40em) {
+  .hero { flex-direction: column; align-items: flex-start; }
+}
+
+.md-typeset img.demo {
+  display: block;
+  margin: 0 auto 2rem;
+  max-width: 100%;
+  border-radius: 8px;
+}

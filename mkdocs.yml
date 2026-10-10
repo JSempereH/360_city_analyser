@@ -1,0 +1,56 @@
+site_name: 360 City Analyser
+site_description: Local-first 360 panorama building analysis against OpenStreetMap footprints.
+site_url: https://jsempereh.github.io/360_city_analyser/
+repo_url: https://github.com/JSempereH/360_city_analyser
+repo_name: JSempereH/360_city_analyser
+edit_uri: edit/main/docs/
+copyright: Code under EUPL-1.2
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  # System fonts: no requests to Google Fonts from the published site.
+  font: false
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/weather-night, name: Switch to dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/weather-sunny, name: Switch to light mode}
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.follow
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - User guide: guide.md
+  - Remote inference: remote-inference.md
+  - Architecture: architecture.md
+  - Footprint corrections: footprint-corrections.md
+  - Scaling and attributes: scaling-and-attributes.md
+  - State of the art: state-of-the-art.md
+  - OpenFACADES reuse plan: openfacades-reuse-plan.md
+  - Roadmap: roadmap.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc: {permalink: true}
+  - pymdownx.superfences
+
+exclude_docs: |
+  *.webm
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn
