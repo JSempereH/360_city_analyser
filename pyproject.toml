@@ -22,6 +22,8 @@ dependencies = [
 # Pick exactly one: `uv sync --extra cpu` or `uv sync --extra cu126`.
 cpu = ["torch>=2.2", "torchvision>=0.17"]
 cu126 = ["torch>=2.2", "torchvision>=0.17"]
+# GeoParquet output of city-analyser-export.
+parquet = ["pyarrow>=15"]
 # Optional fast instance detector (YOLOE / YOLO-World). AGPL-3.0: opting in
 # brings its obligations to deployments that use it.
 # YOLOE text prompts tokenize with the CLIP package from the Ultralytics fork.
@@ -31,9 +33,15 @@ yolo = ["ultralytics>=8.4", "clip @ git+https://github.com/ultralytics/CLIP.git"
 city-analyser-viewer = "city_analyser.local_viewer:main"
 city-analyser-download = "city_analyser.mapillary_street_download:main"
 city-analyser-analyze = "city_analyser.batch_analysis:main"
+city-analyser-footprints = "city_analyser.footprint_cli:main"
 city-analyser-models = "city_analyser.download_models:main"
 city-analyser-worker = "city_analyser.remote_analysis_worker:main"
 city-analyser-benchmark = "city_analyser.benchmark_models:main"
+city-analyser-index = "city_analyser.building_index:main"
+city-analyser-export = "city_analyser.building_table:main"
+city-analyser-progress = "city_analyser.run_progress:main"
+city-analyser-crops = "city_analyser.building_inspection.crops:main"
+city-analyser-attributes = "city_analyser.attributes.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]
