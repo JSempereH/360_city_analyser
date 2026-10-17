@@ -11,7 +11,7 @@
 | 2. Robustness benchmark | Implemented: `evaluation/corruptions.py`, `--corruption`, `robustness` command | Unit-tested. **Not run on the annotated benchmark**: it needs the instance stage on 8 panoramas per corruption and severity (15 settings), which is hours on this CPU. Run it on a GPU worker |
 | 3. Building index | Implemented: `city-analyser-index`, `--only-buildings`, `--max-views-per-building` | On the analyzed local panoramas (57 matched buildings) the index contained all 57 once GPS repair was applied, and contained 0 of 16 without it for a camera recorded inside a footprint. Requiring a 10 degree angle of view kept only 19 of 57, so the selection default has no floor. The index also lists many buildings the analysis does not match, as intended |
 | 4. Crop export | Implemented: `city-analyser-crops` | Run on a real analysis of `sj-bench` (18 buildings, 33 crops). Neighboring attached buildings give near-identical crops, which is why `--mask-others` exists. Occluders (vegetation, vehicles) are not masked |
-| 5. Attribute provider | Interface, OSM-tag prior, vision-language client, fusion with abstention, scoring and CLI implemented and tested with fake model answers | **No model has been run and nothing has been fine-tuned or evaluated on a held-out city.** There was no GPU and no model server here. The prior scored against OSM tags agrees with itself by construction (on `sj-bench`, 14 of 18 buildings had a usable `building` tag and 10 had `building:levels`), so it only shows how sparse the tags are |
+| 5. Attribute provider | Interface, OSM-tag prior, vision-language client (server or in-process Transformers), GEM v3 structure (`gem_material`, `gem_llrs`), fusion with abstention, scoring, CLI and the `city-analyser-survey` agent implemented; tested with fake answers and run end to end with a tiny random-weight Qwen3-VL checkpoint | **No real model has been run and nothing has been fine-tuned or evaluated on a held-out city.** There was no GPU here; the Colab notebook is the first place to run one. The prior scored against OSM tags agrees with itself by construction (on `sj-bench`, 14 of 18 buildings had a usable `building` tag and 10 had `building:levels`), so it only shows how sparse the tags are |
 
 ### Repository review (step 0)
 
@@ -54,7 +54,7 @@ Other findings worth keeping:
 | Image-to-footprint association | Pose refinement, per-pixel instance masks (Grounding DINO tiny + SAM 2), occlusion, abstention. The paper uses GPS and heading only |
 | Ranked evidence per building | `building_inspection.ranking` and `screenshots` (up to 4 crops per report) |
 | Wall visibility from a camera position | `facade_geometry` (vectorized, occlusion-aware) |
-| Attribute stage | None. Planned as a separate GEM provider ([architecture](architecture.md), [scaling and attributes](scaling-and-attributes.md)) |
+| Attribute stage | At the time of the review, none; now the attribute providers and the survey agent (step 5) |
 | Image quality gate | None. Only panorama validity checks at download |
 | Robustness benchmark | None. `evaluation/` measures separation on clean images |
 

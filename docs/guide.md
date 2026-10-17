@@ -152,7 +152,7 @@ When the imagery shows that an OSM footprint is wrong, select it and click **Edi
 
 Select a matched OSM building and click **Generate report**. Reports contain ranked evidence, input checks, limitations, and artifact hashes. Only current OSM-based reports load; JSON and HTML are not exposed by the generic `/data/` route.
 
-Reports assess image-to-footprint association. They do not certify surveyed position, structural systems, foundations, reinforcement, code compliance, or GEM attributes.
+Reports assess image-to-footprint association. They do not certify surveyed position, structural systems, foundations, reinforcement, code compliance, or GEM attributes; GEM attributes from a vision-language model are a separate output (see [Survey agent](#survey-agent)).
 
 ## Image quality, building index, crops and attributes
 
@@ -164,9 +164,90 @@ These tools come from the [OpenFACADES reuse plan](openfacades-reuse-plan.md).
 
 **Crops.** `city-analyser-crops <dataset>` writes, for every analyzed building, its best `--per-building` views as 448 px perspective crops under `crops/<osm-type>/<id>/`, each with a JSON sidecar naming the panorama, OSM version, view angles, evidence, image quality and SHA-256 hashes. `--mask-others` paints other buildings gray (neighboring facades in a row otherwise give near-identical crops) and `--skip-flagged` omits flagged views.
 
-**Attributes.** `city-analyser-attributes <dataset>` writes `attributes/<osm-type>/<id>/attributes-<provider>.json`. The default `prior` provider reads OSM tags (`building`, `building:material`, `building:levels`, `start_date`) and abstains where a tag is missing or ambiguous; it is the baseline a visual provider must beat. `--provider vlm --vlm-url <server> --vlm-model <name>` asks a multimodal model behind an OpenAI-compatible chat endpoint (for example vLLM on a cloud GPU) one structured question per crop and pools the answers per building, weighting each by its ranking score. Predictions use the classes of the OpenFACADES taxonomy (10 building types, 7 surface materials, floors, construction year), keep the full distribution, and abstain when views are too few or disagree (`--min-views`, `--min-share`). Model answers are votes, not calibrated probabilities, and the file says so (`score_kind`). Score a provider against OSM tags with `uv run python -m evaluation.attributes --dataset <dataset> --provider <provider>`; it reports coverage, accuracy, macro-F1, the majority-class baseline and a risk-coverage curve. OSM tags are noisy and sparse, so this measures agreement with OSM, not accuracy.
+**Attributes.** `city-analyser-attributes <dataset>` writes `attributes/<osm-type>/<id>/attributes-<provider>.json`. The default `prior` provider reads OSM tags (`building`, `building:material`, `building:levels`, `start_date`) and abstains where a tag is missing or ambiguous; it is the baseline a visual provider must beat. `--provider vlm --vlm-url <server> --vlm-model <name>` asks a multimodal model behind an OpenAI-compatible chat endpoint (for example vLLM on a cloud GPU) one structured question per crop and pools the answers per building, weighting each by its ranking score. `--vlm-backend transformers --vlm-model Qwen/Qwen3-VL-4B-Instruct` loads the model in the same process instead (GPU recommended; `--vlm-cache-dir` sets where the weights go). Predictions use the classes of the OpenFACADES taxonomy (10 building types, 7 surface materials, floors, construction year) plus the structure in the [GEM Building Taxonomy v3](https://github.com/gem/gem_taxonomy): `gem_material`, the material of the lateral load-resisting system (`CR`, `MUR`, `MCF`, `S`, `W` and the other v3 codes), and `gem_llrs`, the type of that system (`LFM`, `LFINF`, `LWAL`, `LDUAL`, `LFLS` and others). The unknown codes `MAT99` and `L99` are never classes: they are abstentions. The model is asked to write what it observes (openings, columns, slab edges, wall thickness, storey lines) before answering, and those observations are stored with each view. Every file records the prompt version and a fingerprint of its inputs, so an unchanged building is not asked again. Predictions keep the full distribution, and abstain when views are too few or disagree (`--min-views`, `--min-share`). Model answers are votes, not calibrated probabilities, and the file says so (`score_kind`). Score a provider against OSM tags with `uv run python -m evaluation.attributes --dataset <dataset> --provider <provider>`; it reports coverage, accuracy, macro-F1, the majority-class baseline and a risk-coverage curve. OSM tags are noisy and sparse, so this measures agreement with OSM, not accuracy.
 
 **Robustness.** `evaluation/corruptions.py` degrades panoramas (occlusion, motion blur, Gaussian noise, brighter, darker; three severities each). Run the `semantic` and `instances` evaluation commands with `--corruption motion_blur:2` and a distinct `--variant`, associate and score with a tag named `<prefix>-motion_blur-2`, then `uv run python -m evaluation.run robustness --clean <tag> --prefix <prefix>` prints the separation error added by each corruption, and the relative mean corruption error against a reference configuration when one is given.
+
+## Survey agent
+
+`city-analyser-survey <dataset>` is the unattended version of the viewer workflow: it walks a downloaded dataset across the city and leaves a description of every building it sees. The panoramas are split into square tiles (`--tile-size`, default 250 m) visited in a serpentine order. In each tile it analyzes the panoramas with `city-analyser-analyze`, then picks the buildings whose every view in the geometric index has been visited, exports their best crops (other buildings painted gray), writes the OSM-tag prior and asks the vision-language model. A building at a tile border therefore waits for the next tile instead of being described twice.
+
+```bash
+uv run city-analyser-survey valencia-centro --vlm-model Qwen/Qwen3-VL-4B-Instruct                  # model in process (GPU)
+uv run city-analyser-survey valencia-centro --vlm-backend openai --vlm-url http://gpu:8000 --vlm-model Qwen/Qwen3-VL-8B-Instruct
+uv run city-analyser-survey valencia-centro --no-vlm                                                 # OSM-tag prior only
+```
+
+Every step is idempotent and the run can be stopped at any time (Ctrl+C or SIGTERM finish the current step). `survey-state.json` records the tiles and buildings already handled; a rerun continues there, and a building is described again only when one of its views changed. `--max-tiles` and `--max-buildings` bound a run for a small validation; `--max-views-per-building` analyzes only the best panoramas of each building to save GPU time; `--force` revisits everything but still reuses current analyses and model answers.
+
+In the viewer, clicking a footprint on the map or a building in the panorama opens a card with the GEM string (for example `CR/LFINF/HEX:5`; `MAT99`, `L99` and `H99` mark what could not be determined), each attribute with its source, and the model's observations next to the crops it saw. A human-entered OSM tag wins over the model, and the card says when the two disagree. `city-analyser-export <dataset> --provider vlm_<model>` writes the same attributes, GEM string included, to GeoJSON, CSV and GeoParquet.
+
+**Map colors.** Layers > Building colors paints the footprints by GEM material, GEM lateral system, floors or review status, with a legend of the classes on screen and their counts. Materials and systems are grouped into three families each (concrete, masonry, other; frame, wall, dual or other) so neighboring footprints stay distinguishable, including for color-blind readers; hovering a footprint shows its exact GEM string. Buildings the survey has not reached stay faint. The colors refresh every minute, so a survey running in the background fills the map as it goes.
+
+**Review.** The card's **Review** button opens a form that starts from what the card shows: pick the GEM material and lateral system (or "Cannot tell from the imagery"), the storey count, and an optional note. The review is stored as one more provider, `attributes-human-review.json`, and wins over OSM tags and the model; every decision, including a withdrawal, is appended to `reviews.jsonl` with the reviewer's name. Review > Show > **Structure to check** lists the model answers worth a look, weakest first: a split vote, a vote share below 60 % (a single confident view scores 67 %, because each view gives its second choice half a vote), a storey count that contradicts OSM, or views the model failed on. <kbd>A</kbd> (Confirm) records the values shown as your review, <kbd>E</kbd> opens the form, <kbd>N</kbd> moves on. Reviewed buildings are the labeled set to score the model against.
+
+`city-analyser-export <dataset> --provider merged` exports what the card shows; each `*_kind` column says where the value came from (`review`, `tag` or `vote_share`). `--provider human-review` exports only the reviews.
+
+The model's answers are uncalibrated votes from a general-purpose model, not surveyed structural data: check a sample against the crops, review what the queue flags, and score the model against reviewed buildings before using its answers in a risk model.
+
+## Assistant: analyze and talk in real time
+
+Start the viewer with a vision-language model and the **Assistant** tab comes alive for the selected building:
+
+```bash
+# A local model with Ollama (ollama pull qwen3.5:4b), or any OpenAI-compatible server (vLLM, LM Studio, a cloud API)
+ATTRIBUTES_VLM_URL=http://127.0.0.1:11434 ATTRIBUTES_VLM_MODEL=qwen3.5:4b \
+ATTRIBUTES_VLM_OPTIONS='{"reasoning_effort": "none"}' uv run city-analyser-viewer
+# Or the model in the viewer process (GPU): ATTRIBUTES_VLM_BACKEND=transformers ATTRIBUTES_VLM_MODEL=Qwen/Qwen3-VL-4B-Instruct
+```
+
+- **Analyze now** asks the model about every view of the building while the camera turns to the view it is reading; its field notes stream in, then the answer is saved like a survey's and the card shows it.
+- **Chat**: ask why it chose a structure, how it counted storeys, or whether a correction is supported. The model sees the building's best photos, its current record (with the source of each value and any review) and the region's construction history. It never changes the record.
+- **Edit values** (or Review on the card) corrects any attribute by hand: GEM material and lateral system, storeys, use, facade material and construction year. Your decision wins over OSM tags and any model, and stays when new model results are imported.
+
+`ATTRIBUTES_VLM_OPTIONS` passes extra request fields to the server. Reasoning models served by Ollama (Qwen3.5, for example) otherwise spend the answer budget thinking out of sight and return nothing; `{"reasoning_effort": "none"}` makes them write their reasoning as the visible field notes instead. On a CPU an answer takes one to two minutes per view; on a GPU a few seconds.
+
+**Regional knowledge.** Every question to the model carries the construction history of the region the camera is in (`attributes/regional.py`), as an engineer would bring it: for Spain, load-bearing masonry before about 1940, mixed systems in the 1940s and 1950s, concrete frames with brick infill from the 1960s and waffle or flat slabs (`LFLSINF`) from the 1970s, plus the rules to read a facade and to flag soft storeys. It is general knowledge, never the building's OSM tags.
+
+## Presentation mode
+
+The viewer can run the survey as a show: it walks the panorama sequence by itself, turns to a building, clicks it, looks at it from every view the survey kept, streams the assistant's reasoning (what it sees in each view, how it counts storeys, which GEM material and lateral system it settles on, and when it will not guess), fills in the building record, "saves" it, colors the footprint on the map and moves on, in a loop. Start it from Advanced > **Presentation mode**, or with `present=1` in the URL. <kbd>Space</kbd> pauses, <kbd>→</kbd> skips to the next building, <kbd>Esc</kbd> ends it.
+
+```bash
+uv run city-analyser-demo valencia-centro          # a presentation copy: valencia-centro-demo
+uv run city-analyser-viewer
+# http://127.0.0.1:8765/viewer/?dataset=valencia-centro-demo&present=1&then=madrid-centro-demo
+```
+
+`city-analyser-demo <dataset>` prepares a copy of an analyzed dataset (panoramas hard-linked, analyses copied, the original untouched): crops, OSM-tag priors and, for buildings without a real model answer, **simulated** answers built from the OSM tags, the analyzed height and the building's age and use, with some views disagreeing on purpose. They pass through the same fusion and card code as real answers, and the presentation shows a "Simulated answers" badge. A dataset surveyed with a real model (`city-analyser-survey`) is presented as it is, with its model named instead. The presentation writes nothing.
+
+For a public presentation, `demo/<dataset>.curation.json` holds a reviewed version: mask corrections checked by eye with `tools/mask_review.py --full` (keep a bearing range, trace a roof line, remove a view, drop views under `min_view_pixels`), buildings to `exclude`, and per-view `answers` written from the crops (provider `vlm:curated-demo`, shown as "Curated answers"). `make presentation-data` rebuilds both demo copies from it and `make presentation` serves them.
+
+With a model configured, the presentation runs **live**: the model analyzes each building as the camera reaches it, and the field notes on screen are its own, generated then. Without one, or with `live=0`, it replays the saved answers.
+
+URL options: `speed=1.5` (pace; 1 reads at about 330 words a minute, roughly a minute and a half per building with several views), `min-score=0.03` (leave out buildings whose best view shows only a sliver of facade), `then=other-demo,third-demo` (continue with other datasets after each lap).
+
+## From Colab (or any GPU machine) to the viewer
+
+Run the survey where there is a GPU, then bring the results to the viewer on your laptop:
+
+```bash
+uv run city-analyser-results export valencia-centro results.zip --with-images    # on Colab or the GPU machine
+uv run city-analyser-results import results.zip                                  # on the laptop
+```
+
+The archive holds the analyses, crops, model answers, index and survey state (and the panoramas with `--with-images`). Importing never overwrites a reviewer's decision (`attributes-human-review.json`, `reviews.jsonl`), so you can correct values in the viewer and import a later run without losing them. An analysis is only valid under the `BUILDING_ANALYSIS_*` settings it was made with: the import prints them so you can start the viewer with the same ones.
+
+## Experiments
+
+To know whether a model is worth using, score it against reference data: the Spanish cadastre (storeys, year, use), an evaluation set of buildings an engineer labeled in the viewer ("Use as ground truth" in the review form; the only reference for the structure) and OSM tags. An experiment file in `experiments/` names a dataset, the reference sources and the runs to compare (the OSM-tag prior, models with and without the regional guidance, answers already saved by a survey):
+
+```bash
+uv run city-analyser-groundtruth catastro valencia-ciutat-vella  # match footprints to the cadastre
+uv run city-analyser-experiment run experiments/valencia-pilot.toml
+```
+
+Runs go to `data/<dataset>/experiments/<name>/<run>/` and never change what the viewer shows; the report (`report.html`, `.md`, `.json`) compares coverage, accuracy, macro F1, error and bias per attribute and source. See [Experiments](experiments.md) for the plan, the caveats of each source and the next steps.
 
 ## Processing a whole city
 

@@ -96,11 +96,11 @@ License column: **P** means permissive (Apache or MIT); **NC** means non-commerc
 | Instances | Grounding DINO tiny + SAM 2.1 small (P) | Keep it: it is the best measured option (F 0.813). Test **SAM 3** on GPU as a single model that segments "building" and "tree" directly | SAM 3 has its own license: check it |
 | Pose against OSM | Silhouette search | OrienterNet or OSMLoc on GPU (next roadmap step) | OrienterNet is NC |
 | Depth | Optional SfM | Depth Anything V2 Small to mark building edges and occlusions | P |
-| **Attributes (GEM)** | **Not implemented** | See section 5: a supervised classifier (SigLIP 2 or DINOv3 with multi-view pooling) as the baseline, and a VLM (Qwen3-VL) to explain and act as a teacher | SigLIP 2 and Qwen3-VL: P; DINOv3 has its own license |
+| **Attributes (GEM)** | Zero-shot VLM provider (Qwen3-VL) answering GEM v3 codes, behind `city-analyser-survey`; uncalibrated | See section 5: a supervised classifier (SigLIP 2 or DINOv3 with multi-view pooling) as the baseline, and a VLM (Qwen3-VL) to explain and act as a teacher | SigLIP 2 and Qwen3-VL: P; DINOv3 has its own license |
 
 ## 5. Structural attributes with a VLM
 
-**Not integrated, on purpose.** The user guide states that reports "do not run an LLM or GEM classifier", and the roadmap lists LLM-generated structural attributes as out of scope. [the architecture page](architecture.md) already defines how one would be added: a **separate GEM provider** that consumes the ranked evidence and returns per-attribute distributions, evidence references, the taxonomy version and explicit abstentions.
+**Status (October 2026): a zero-shot provider is integrated.** `city-analyser-survey` asks an open VLM (Qwen3-VL, in process or through vLLM) for the GEM v3 material and lateral load-resisting system, storeys, use, facade and age of every building, with abstention and stored observations (see the [guide](guide.md#survey-agent)). Reports still do not run it, and its answers stay uncalibrated votes until the evaluation below shows they beat the prior; the supervised classifier and fine-tuning in the phases below remain to be done.
 
 What a facade shows, from most to least reliable:
 

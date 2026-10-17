@@ -34,7 +34,11 @@ uv run city-analyser-viewer                       # or: uv run city-analyser-ana
 
 ## Google Colab (or any notebook GPU)
 
-A ready notebook is in [`notebooks/colab_quickstart.ipynb`](https://github.com/JSempereH/360_city_analyser/blob/main/notebooks/colab_quickstart.ipynb): Drive for persistence, install, models, analysis, index, crops, attributes and an optional vLLM server. It has not been run on Colab yet.
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/JSempereH/360_city_analyser/blob/main/notebooks/colab_quickstart.ipynb)
+
+A ready notebook is in [`notebooks/colab_quickstart.ipynb`](https://github.com/JSempereH/360_city_analyser/blob/main/notebooks/colab_quickstart.ipynb): Drive for persistence, install, a small download, the survey agent with a vision-language model in process, a table of its answers with their crops, the viewer opened through Colab's proxy, exports and an optional vLLM server. Every command stops the notebook with its own error when it fails. This version has not been run on Colab yet.
+
+Bring the results back with `city-analyser-results export` on the GPU machine and `city-analyser-results import` on the laptop (see the [guide](guide.md#from-colab-or-any-gpu-machine-to-the-viewer)). The survey runs the same way on any GPU machine or cloud VM: `uv sync --extra cu126`, then `uv run city-analyser-survey <dataset>` (model in process), or start a vLLM server and pass `--vlm-backend openai --vlm-url`. With `BUILDING_ANALYSIS_BACKEND=remote` the analysis models run on a worker as above while the survey and the vision-language model run elsewhere.
 
 Colab is a good fit for a one-off batch. Instead of exposing a server, run only the model stages there and bring the cache back:
 

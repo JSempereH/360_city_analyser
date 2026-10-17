@@ -29,6 +29,7 @@ hide:
 - Refined poses only support image-to-footprint association.
 - SfM is optional depth evidence and never replaces the displayed GPS track.
 - Reports are deterministic and do not run an LLM or GEM classifier.
+- Building attributes from a vision-language model are a separate output: they carry their crops and the model's observations, abstain when views disagree, and are uncalibrated until scored against labeled data.
 - The system abstains when its evidence is insufficient or ambiguous.
 
 ## License

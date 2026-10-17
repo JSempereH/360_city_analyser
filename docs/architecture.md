@@ -10,7 +10,13 @@ src/city_analyser/          installable package (import name `city_analyser`)
   panorama_geometry.py      equirectangular <-> perspective projection
   image_quality.py          sharpness, brightness and file-size facts and flags per panorama
   building_index.py         city-analyser-index: which panoramas see which building (geometry only)
-  attributes/               attribute providers (OSM-tag prior, vision-language), fusion and abstention
+  attributes/               attribute providers (OSM-tag prior, vision-language via a server or in process),
+                            GEM v3 structure, fusion and abstention, and the merged card the viewer shows
+  survey.py                 city-analyser-survey: walks a dataset tile by tile, analyzes, then describes buildings
+  demo.py                   city-analyser-demo: presentation copy of a dataset, with simulated answers where none are real
+  results.py                city-analyser-results: export a survey's results (e.g. from Colab) and import them, keeping reviews
+  groundtruth/              city-analyser-groundtruth: reference data (Spanish cadastre, evaluation set, OSM tags)
+  experiments/              city-analyser-experiment: experiment files, isolated runs, metrics and comparison reports
   multi_view_analysis.py    evidence fusion across nearby captures
   sfm_refinement.py         optional PyCOLMAP sparse depth
   analysis_backend.py       local or remote perception (model stages) dispatch; association is always local
@@ -26,7 +32,7 @@ src/city_analyser/          installable package (import name `city_analyser`)
   building_inspection/      building-level reports and crop export (below)
   viewer/                   static web viewer served by local_viewer.py (app.js plus pure, tested
                             modules: deep links, map geometry, navigation, review queue, footprint
-                            editor, wall projection)
+                            editor, wall projection, building card, attribute map colors, presentation script)
   local_viewer.py           city-analyser-viewer
   mapillary_street_download.py  city-analyser-download
   download_models.py        city-analyser-models
@@ -110,13 +116,23 @@ The viewer state contract is implemented in `src/city_analyser/viewer/deep-link.
 
 ## Attribute providers
 
-`city_analyser.attributes` implements the provider interface this page describes. A provider takes ranked crops (or OSM tags) and returns, per attribute, a prediction that is either categorical (`scores` plus `score_kind`: `probability`, `vote_share` or `tag`) or numeric (`value` and `spread`), with `abstained` and `reason` set when evidence is insufficient, and a list of the crops it used. `fusion` pools per-view answers weighted by the view's ranking score and keeps the whole distribution. The OSM-tag `prior` is the baseline; the `vlm` provider reaches a multimodal model through an OpenAI-compatible endpoint and never loads model code in this process. Provider output lives under `attributes/` and never feeds the footprint assessment. Image quality facts recorded by the analysis (`image_quality`) halve the ranking score of flagged views (ranking formula `direct-facade-evidence-v2`, report schema 3).
+`city_analyser.attributes` implements the provider interface this page describes. A provider takes ranked crops (or OSM tags) and returns, per attribute, a prediction that is either categorical (`scores` plus `score_kind`: `probability`, `vote_share` or `tag`) or numeric (`value` and `spread`), with `abstained` and `reason` set when evidence is insufficient, and a list of the crops it used. `fusion` pools per-view answers weighted by the view's ranking score and keeps the whole distribution. The OSM-tag `prior` is the baseline; the `vlm` provider reaches a multimodal model through an OpenAI-compatible endpoint and never loads model code in this process. `local_vlm` runs the same checkpoints in process with Transformers (`trust_remote_code=False`), batching the views of a building. The structural attributes are `gem_material` and `gem_llrs`, whose classes are GEM Building Taxonomy v3 codes; `taxonomy.gem_taxonomy_string` composes them with the storey count into a GEM string such as `CR/LFINF/HEX:5`. Each result records `run.prompt_version` and `run.inputs_sha256` (provider, prompt, taxonomy, crop bytes, weights and context), and each view keeps the model's parsed answer, its observations, and any error. Provider output lives under `attributes/` and never feeds the footprint assessment. Image quality facts recorded by the analysis (`image_quality`) halve the ranking score of flagged views (ranking formula `direct-facade-evidence-v2`, report schema 3).
 
-## Scope and future GEM integration
+## Scope of the GEM attributes
 
-The current assessment concerns only association between direct image evidence and a footprint snapshot. Projection coverage is not a calibrated probability that the footprint is correct.
+The footprint assessment concerns only association between direct image evidence and a footprint snapshot. Projection coverage is not a calibrated probability that the footprint is correct.
 
-A future GEM provider should be added behind a separate interface and consume the ranked evidence. It must return per-attribute distributions, evidence references, taxonomy/specification versions, and explicit abstentions. It must not overwrite the footprint assessment or reuse its scores as structural probabilities.
+GEM attributes come from the attribute providers, which consume the ranked evidence and return per-attribute distributions, evidence references, taxonomy versions and explicit abstentions. They never overwrite the footprint assessment or reuse its scores as structural probabilities, and reports do not include them. A vision-language model's answers are vote shares across views, not calibrated probabilities.
+
+## Survey
+
+`survey.run_survey` drives the city-scale workflow. It plans square tiles over the panoramas (`plan_tiles`, serpentine order), calls `analyze_dataset(image_ids=...)` per tile, and describes a building once every panorama the geometric index expects to see it (within 50 m) has been visited. A building's record in `survey-state.json` keeps a key of its views that are done in the run ledger, so a view analyzed later (after a transient failure, or a new download) triggers a new description. A tile is marked done only when none of its panoramas failed. Buildings an analysis matched although the index did not expect them are described after the last tile.
+
+The viewer reads `GET /api/datasets/{dataset}/building-attributes/{building-id}`, built by `attributes.card.building_card` from every `attributes-*.json` of the building: an OSM tag wins, otherwise the newest model answer; other providers stay under `others`, and the card adds the GEM string, the meaning of each GEM code, and up to three observations with links to their crops.
+
+`attributes.cli.ModelSettings` is the one description of the model (backend, model, URL, token, request options), built from the command line for the survey and from `ATTRIBUTES_VLM_*` for the viewer. Clients implement `chat(messages)`, `stream(messages)` and `generate(images, prompt)`; `VLMProvider.predict(..., on_event)` streams each view's text when the client can. The prompt (`PROMPT_VERSION` 4) adds the region's construction history from `attributes.regional` (`GUIDANCE_VERSION`) and asks for field notes before the JSON answer; the notes are stored per view (`reasoning`) and both versions are part of the inputs fingerprint. `attributes.assistant.Assistant` runs one model call at a time for the viewer: `analyze` (live provider run, saved like a survey answer) and `chat` (photos, record summary and regional guidance as context; it never writes).
+
+`attributes.review` stores a reviewer's decision as the `human-review` provider, which the card prefers over everything else, including when the reviewer could not tell (an abstention that overrides a model's claim). A partial review keeps the attributes reviewed earlier, records the model answer it was based on (`run.based_on`), and every decision is appended to `reviews.jsonl`. `attribute_summary` condenses every card of a dataset into the values the map colors and the reason, if any, a model answer needs a reviewer; the server caches it under a signature of the attribute files' modification times, so a running survey is picked up without reloading. `building_table` exports either one provider's files or, with `--provider merged`, the card's chosen values.
 
 ## Analysis stages and caching
 
@@ -154,6 +170,12 @@ Besides analysis, reports and corrections, the viewer uses:
 ```text
 GET  /api/datasets/{dataset}/analysis-status                      current | stale | missing per panorama
 GET  /api/datasets/{dataset}/building-views/{building-id}         analyzed panoramas showing a building, best first
+GET  /api/datasets/{dataset}/building-attributes/{building-id}    merged attributes and GEM string (404 until surveyed)
+POST /api/datasets/{dataset}/building-attributes/{building-id}    {action: review, reviewer, note, values} or {action: withdraw, reviewer}
+GET  /api/datasets/{dataset}/building-attributes                  per-building summary for map colors and the review queue
+GET  /api/assistant                                               the configured model, or how to configure one
+POST /api/datasets/{dataset}/building-attributes/{id}/analyze     run the model now; server-sent events per view, then the saved card
+POST /api/datasets/{dataset}/building-attributes/{id}/chat        {messages}: answer about the building, streamed as server-sent events
 GET  /api/datasets/{dataset}/analysis/{image}/mask?layer=instances  RGBA overlay, one color per visual instance
 POST /api/datasets/{dataset}/analysis-batch                       {bbox?, force?}: background analysis job
 POST /api/jobs/{job-id}/cancel                                    stop a cancellable job after its current step

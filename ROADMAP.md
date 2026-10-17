@@ -11,6 +11,7 @@ The roadmap keeps these invariants:
 - Refined poses are internal to image-to-footprint association.
 - SfM supplies optional depth evidence and never moves the displayed capture track.
 - Reports are deterministic and do not run an LLM or GEM classifier.
+- Building attributes from a vision-language model are a separate output: they carry their crops and the model's observations, abstain when views disagree, and are uncalibrated until scored against labeled data.
 - Pre-production analysis artifacts are recalculated rather than migrated.
 
 ## Current baseline
@@ -221,8 +222,7 @@ A first separation benchmark exists (`evaluation/`, 8 panoramas, 52 buildings) a
 
 ## Explicitly out of scope
 
-- GEM structural classification without a separately calibrated labeled pipeline.
-- LLM-generated structural attributes.
+- Presenting GEM attributes from a vision-language model as calibrated or surveyed data before they beat the tag prior and the majority class on labeled buildings (they are produced, shown with their evidence and abstentions, and kept out of reports).
 - Silent fusion of non-OSM building footprints.
 - Using SfM coordinates for visible navigation.
 - Claims of universal city support based only on synthetic tests or a single-city demo.
