@@ -217,10 +217,13 @@ code{font-size:.85em;word-break:break-all}
 
 def _manifest_images(data_root: Path, dataset_id: str) -> list[dict[str, Any]]:
     # Read directly: this module must import in a bare notebook kernel without the ML or GIS stack.
+    path = data_root / dataset_id / "manifest.json"
+    if not path.is_file():
+        raise ValueError(f"no dataset at {path.parent}: download it first (city-analyser-download --output {path.parent}) or copy it there")
     try:
-        payload = json.loads((data_root / dataset_id / "manifest.json").read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"invalid manifest: {dataset_id}") from error
+        raise ValueError(f"invalid manifest: {path}") from error
     images = payload.get("images") if isinstance(payload, dict) else None
     if not isinstance(images, list):
         raise ValueError(f"manifest has no image list: {dataset_id}")
@@ -266,8 +269,12 @@ def progress_html(data_root: Path, dataset_id: str, refresh_seconds: int | None 
 </main></body></html>"""
 
 
-def watch(data_root: Path, dataset_id: str, every: float = 15.0, output: Path | None = None) -> None:
-    """Regenerate the page until the run stops; inside a notebook the page is shown in place."""
+def watch(data_root: Path, dataset_id: str, every: float = 15.0, output: Path | None = None, process: Any = None) -> None:
+    """Regenerate the page until the run stops; inside a notebook the page is shown in place.
+
+    ``process`` (a ``subprocess.Popen``) ends the watch when the run's process
+    exits, even if it died before writing any progress.
+    """
     try:
         from IPython.display import HTML, clear_output, display
     except ImportError:
@@ -281,6 +288,9 @@ def watch(data_root: Path, dataset_id: str, every: float = 15.0, output: Path | 
             display(HTML(page))
         state = (load_progress(data_root, dataset_id) or {}).get("state")
         if state in {"finished", "aborted", "interrupted"}:
+            return
+        if process is not None and process.poll() is not None:
+            print(f"The run's process exited with code {process.returncode}; its log has the details.")
             return
         time.sleep(every)
 

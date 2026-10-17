@@ -42,6 +42,11 @@ city-analyser-export = "city_analyser.building_table:main"
 city-analyser-progress = "city_analyser.run_progress:main"
 city-analyser-crops = "city_analyser.building_inspection.crops:main"
 city-analyser-attributes = "city_analyser.attributes.cli:main"
+city-analyser-survey = "city_analyser.survey:main"
+city-analyser-demo = "city_analyser.demo:main"
+city-analyser-results = "city_analyser.results:main"
+city-analyser-groundtruth = "city_analyser.groundtruth:main"
+city-analyser-experiment = "city_analyser.experiments:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]

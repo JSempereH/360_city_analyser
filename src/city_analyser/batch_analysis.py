@@ -18,7 +18,7 @@ import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, Collection
 
 from .analysis_backend import AnalysisBackend, analysis_backend_from_environment, perceive
 from .building_analysis import (
@@ -116,7 +116,7 @@ def analyze_dataset(
     skip_low_quality: bool = False, only_buildings: list[str] | None = None, max_views_per_building: int | None = None,
     min_aov_deg: float = 0.0, verify: bool = False, max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     max_consecutive_failures: int = DEFAULT_MAX_CONSECUTIVE_FAILURES, retry_failed: bool = False,
-    stop: threading.Event | None = None,
+    stop: threading.Event | None = None, image_ids: Collection[str] | None = None,
 ) -> dict[str, Any]:
     """Analyze a dataset's panoramas, resumably and without letting one bad panorama stop the run.
 
@@ -126,6 +126,7 @@ def analyze_dataset(
     analyses from the artifacts. Transient failures are retried, then recorded
     and left for the next run; permanent ones (bad input) are recorded and not
     retried. ``perception_only`` just fills the stage cache (no OSM, no artifacts).
+    ``image_ids`` restricts the run to those panoramas (e.g. one spatial tile).
     """
     backend = backend or analysis_backend_from_environment()
     # A remote worker serializes the GPU, but upload, download and the previous
@@ -141,6 +142,9 @@ def analyze_dataset(
     fingerprint = settings_fingerprint(stage, configuration)
     ledger = RunLedger(ledger_path(data_root, dataset_id))
     candidates = [image for image in dataset_manifest(data_root, dataset_id)["images"] if isinstance(image, dict) and image.get("local_file")]
+    if image_ids is not None:
+        wanted = {str(image_id) for image_id in image_ids}
+        candidates = [image for image in candidates if str(image.get("id")) in wanted]
     if only_buildings is not None or max_views_per_building is not None:
         candidates = select_images(data_root, dataset_id, candidates, only_buildings, max_views_per_building, min_aov_deg)
     rows: list[dict[str, Any]] = []
@@ -304,6 +308,11 @@ def analyze_dataset(
                     perception, perceive_s, cached_stages = perceptions.pop(index).result()
                 except Exception as error:  # noqa: BLE001
                     footprints.pop(index, None)
+                    # Settle the previous panorama first, so outcomes are counted in order and a
+                    # success still being associated resets the consecutive-failure count.
+                    if pending is not None:
+                        collect(pending)
+                        pending = None
                     rows.append({**row, "error": f"{type(error).__name__}: {error}"})
                     settle(image, rows[-1], error)
                     _print_row(rows[-1], len(rows), len(images), tracker.eta_seconds())
