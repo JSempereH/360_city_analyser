@@ -1,0 +1,38 @@
+# First experiment (docs/experiments.md): does a vision-language model beat the OSM-tag prior,
+# and does the regional construction history help? Ciutat Vella, 89 Mapillary panoramas. Run with:
+#   uv run city-analyser-download --tiled-bbox=-0.3800,39.4715,-0.3735,39.4770 --output data/valencia-ciutat-vella \
+#     --max-images 500 --min-spacing-m 10 --image-size 2048
+#   uv run city-analyser-analyze valencia-ciutat-vella
+#   uv run city-analyser-groundtruth catastro valencia-ciutat-vella
+#   uv run city-analyser-experiment run experiments/valencia-pilot.toml
+name = "valencia-pilot"
+dataset = "valencia-ciutat-vella"
+truth = ["catastro", "evaluation_set", "osm_tags"]
+buildings = "with_truth"
+
+[[runs]]
+id = "prior"
+kind = "prior"
+
+[[runs]]
+id = "qwen35-4b"
+kind = "vlm"
+backend = "openai"
+url = "http://127.0.0.1:11434"
+model = "qwen3.5:4b"
+options = { reasoning_effort = "none" }
+
+[[runs]]
+id = "qwen35-4b-no-region"
+kind = "vlm"
+backend = "openai"
+url = "http://127.0.0.1:11434"
+model = "qwen3.5:4b"
+options = { reasoning_effort = "none" }
+regional_guidance = false
+
+# Answers already in a dataset, e.g. a Colab survey imported with city-analyser-results:
+# [[runs]]
+# id = "colab-qwen3vl-8b"
+# kind = "saved"
+# provider = "vlm:Qwen/Qwen3-VL-8B-Instruct"

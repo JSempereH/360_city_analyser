@@ -1,0 +1,31 @@
+# Validation run on the demo copy: the curated answers, the prior and a local model, against the cadastre.
+name = "valencia-demo-check"
+dataset = "valencia-centro-demo"
+truth = ["catastro", "osm_tags"]
+buildings = "with_truth"
+
+[[runs]]
+id = "prior"
+kind = "prior"
+
+[[runs]]
+id = "curated"
+kind = "saved"
+provider = "vlm:curated-demo"
+
+[[runs]]
+id = "qwen35-4b"
+kind = "vlm"
+backend = "openai"
+url = "http://127.0.0.1:11434"
+model = "qwen3.5:4b"
+options = { reasoning_effort = "none" }
+
+[[runs]]
+id = "qwen35-4b-no-region"
+kind = "vlm"
+backend = "openai"
+url = "http://127.0.0.1:11434"
+model = "qwen3.5:4b"
+options = { reasoning_effort = "none" }
+regional_guidance = false

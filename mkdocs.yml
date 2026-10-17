@@ -35,6 +35,7 @@ nav:
   - Architecture: architecture.md
   - Footprint corrections: footprint-corrections.md
   - Scaling and attributes: scaling-and-attributes.md
+  - Experiments: experiments.md
   - State of the art: state-of-the-art.md
   - OpenFACADES reuse plan: openfacades-reuse-plan.md
   - Roadmap: roadmap.md
