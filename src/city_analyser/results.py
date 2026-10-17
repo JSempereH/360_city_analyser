@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
@@ -106,6 +107,8 @@ def main() -> None:
         if args.command == "export":
             summary = export_results(args.data_root, args.dataset, args.output, with_images=args.with_images)
             print(f"{args.output}: {summary['files']} files, {summary['attributes']} attribute files of {args.dataset}")
+            if not summary["attributes"]:
+                print("Warning: no building was described yet, so the archive holds no results; see the survey's output.", file=sys.stderr)
             return
         summary = import_results(args.archive, args.data_root, args.name)
     except (OSError, ValueError, zipfile.BadZipFile) as error:

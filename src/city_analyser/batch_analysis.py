@@ -89,6 +89,12 @@ def _is_permanent(error: BaseException) -> bool:
     return isinstance(error, ValueError)
 
 
+def _broken_weights(error: BaseException) -> bool:
+    """A model file in the cache that cannot be read: every panorama would fail the same way."""
+    text = str(error)
+    return type(error).__name__ == "SafetensorError" or any(sign in text for sign in ("header too large", "invalid load key", "PytorchStreamReader failed"))
+
+
 def _release_gpu_memory() -> None:
     import gc
 
@@ -103,7 +109,7 @@ def _retry(step: Any, attempts: int, stop: threading.Event | None, label: str) -
         try:
             return step()
         except Exception as error:  # noqa: BLE001 - classified below; KeyboardInterrupt is not an Exception
-            if _is_permanent(error) or attempt == attempts or (stop is not None and stop.is_set()):
+            if _is_permanent(error) or _broken_weights(error) or attempt == attempts or (stop is not None and stop.is_set()):
                 raise
             print(f"  {label}: attempt {attempt}/{attempts} failed ({type(error).__name__}: {error}); retrying", flush=True)
             _release_gpu_memory()
@@ -180,6 +186,7 @@ def analyze_dataset(
     state_lock = threading.Lock()
     consecutive_failures = [0]
     aborted = [False]
+    abort_reason: list[str | None] = [None]
     started = time.perf_counter()
 
     def settle(image: dict[str, Any], row: dict[str, Any], error: BaseException | None) -> None:
@@ -198,6 +205,14 @@ def analyze_dataset(
             permanent = _is_permanent(error)
             message = f"{type(error).__name__}: {error}"
             row["error"] = message
+            if _broken_weights(error):
+                # Not this panorama's fault: stop at once and keep its attempts for a fixed environment.
+                abort_reason[0] = (f"{message}. The model cache in {model_root} has a corrupted file (often an interrupted download, "
+                                   "or a cache on Google Drive): delete that folder and run city-analyser-models again.")
+                aborted[0] = True
+                stop.set()
+                tracker.finished_one(image_id, False, message, False)
+                return
             if permanent:
                 ledger.record(stage, image_id, SKIPPED, fingerprint, signature, error=message)
             else:
@@ -340,6 +355,7 @@ def analyze_dataset(
         "backend": backend.kind,
         "perception_only": perception_only,
         "state": final_state,
+        "abort_reason": abort_reason[0],
         "panoramas": len(images),
         "already_done": already_done,
         "already_resolved": already_resolved,
@@ -433,7 +449,7 @@ def main() -> None:
     if report["failed"] and report["state"] == "finished":
         print("Failed panoramas are retried by running the same command again.")
     if report["state"] == "aborted":
-        print(f"Aborted after {args.max_consecutive_failures} consecutive failures; see the errors above or in progress.html.", file=sys.stderr)
+        print(report.get("abort_reason") or f"Aborted after {args.max_consecutive_failures} consecutive failures; see the errors above or in progress.html.", file=sys.stderr)
         sys.exit(1)
     if report["state"] == "interrupted":
         sys.exit(130)

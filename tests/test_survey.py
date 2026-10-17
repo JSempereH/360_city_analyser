@@ -89,6 +89,16 @@ class SurveyTests(SurveyWorkspace):
         rest = self.survey()
         self.assertEqual((rest["state"], rest["buildings_described"], rest["buildings_described_total"]), ("finished", 3, 4))
 
+    def test_buildings_without_an_analyzed_view_wait_for_the_next_run(self):
+        # As on Colab with corrupted weights: no panorama is analyzed, so there is nothing to describe yet.
+        failed_report = {"state": "finished", "failed": 3}
+        with patch("city_analyser.survey.analyze_dataset", return_value=failed_report):
+            failed = self.survey(max_buildings=2)
+        state = json.loads(survey_state_path(self.root / "data", fixture.DATASET).read_text(encoding="utf-8"))
+        self.assertEqual((failed["buildings_described"], state["buildings"], self.calls), (0, {}, []))
+        # The next run analyzes them (here: validates the fixture's analyses) and describes every building.
+        self.assertEqual(self.survey()["buildings_described"], 4)
+
     def test_a_stop_request_ends_the_run_as_interrupted(self):
         stop = threading.Event()
         stop.set()

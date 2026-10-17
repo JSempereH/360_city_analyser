@@ -234,6 +234,8 @@ def run_survey(
             counts["tiles_analyzed"] += 1
             if report["state"] != "finished":
                 final_state = report["state"]
+                if report.get("abort_reason"):
+                    log(f"Stopped: {report['abort_reason']}")
                 break
             if not report["failed"]:
                 # A tile with failures is analyzed again by the next run; done panoramas are skipped in a second.
@@ -241,9 +243,12 @@ def run_survey(
         ledger = RunLedger(ledger_path(data_root, dataset_id))
         visited = {image_id for other in tiles[:number] for image_id in other["images"]}
         candidates = sorted({building_id for image_id in tile["images"] for building_id in by_image.get(image_id, ())})
+        # Ready: every expected view visited, at least one analyzed (a tile whose panoramas all failed
+        # describes nothing), and the analyzed views changed since the building was last described.
         ready = [
             building_id for building_id in candidates
-            if expected[building_id] <= visited and (state["buildings"].get(building_id) or {}).get("views") != _key(done_views(building_id, ledger))
+            if expected[building_id] <= visited and (views := done_views(building_id, ledger))
+            and (state["buildings"].get(building_id) or {}).get("views") != _key(views)
         ]
         if ready:
             log(f"Tile {number}/{len(tiles)} {tile['id']}: describing {len(ready)} buildings")
@@ -254,7 +259,7 @@ def run_survey(
     else:
         # Buildings an analysis matched although the geometric index did not expect them there.
         ledger = RunLedger(ledger_path(data_root, dataset_id))
-        rest = [building_id for building_id in analyzed_building_ids(dataset_dir) if building_id not in state["buildings"]]
+        rest = [building_id for building_id in analyzed_building_ids(dataset_dir) if not expected.get(building_id) and building_id not in state["buildings"]]
         if rest:
             log(f"Describing {len(rest)} buildings outside the geometric index")
             if not describe(rest, ledger):

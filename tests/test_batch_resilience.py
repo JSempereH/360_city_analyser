@@ -169,6 +169,26 @@ class FailureTests(unittest.TestCase):
         self.assertLess(len(harness.perceived), 6)
         self.assertEqual(progress["state"], "aborted")
 
+    def test_corrupted_model_weights_stop_the_run_at_once_and_keep_the_attempts(self):
+        class SafetensorError(Exception):
+            pass
+
+        class Corrupted(Harness):
+            def perceive(self, *args):
+                self.perceived.append(args[3].stem)
+                raise SafetensorError("Error while deserializing header: header too large")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _dataset(root, 6)
+            broken = Corrupted()
+            report = run(root, broken, concurrency=1)
+            fixed = Harness()
+            run(root, fixed)
+        self.assertEqual((report["state"], broken.perceived), ("aborted", ["0"]))  # no retries, no other panorama
+        self.assertIn("city-analyser-models", report["abort_reason"])
+        self.assertEqual(sorted(fixed.perceived), [str(n) for n in range(6)])  # nothing was counted against the panoramas
+
     def test_a_success_resets_the_consecutive_failure_count(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
