@@ -129,6 +129,7 @@ def export_building_crops(
     # One panorama decode serves every crop taken from it.
     tasks.sort(key=lambda item: (item[1].evidence.image_id, item[0]))
     written = 0
+    kept: dict[str, set[str]] = {building_id: set() for building_id in wanted}
     loaded_id, panorama, id_mask = None, None, None
     for building_id, view in tasks:
         if view.evidence.image_id != loaded_id:
@@ -143,7 +144,15 @@ def export_building_crops(
         atomic_write_bytes(directory / name, content)
         sidecar = _sidecar(dataset_id, building_id, view, name, hashlib.sha256(content).hexdigest(), size, mask_others)
         atomic_write_bytes((directory / name).with_suffix(".json"), (json.dumps(sidecar, indent=2) + "\n").encode("utf-8"))
+        kept[building_id].update((name, Path(name).with_suffix(".json").name))
         written += 1
+    # Crops of an earlier ranking (another rank, a panorama that lost the
+    # building) would otherwise be read as current evidence.
+    for building_id, names in kept.items():
+        directory = crops_directory(dataset_dir, building_id)
+        for stale in (*directory.glob("crop-*.jpg"), *directory.glob("crop-*.json")):
+            if stale.name not in names:
+                stale.unlink(missing_ok=True)
     return {"buildings": len(wanted) - len(missing), "crops": written, "buildings_without_evidence": missing}
 
 

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from .analysis_cache import atomic_write_bytes, atomic_write_json
+from .attributes.taxonomy import gem_taxonomy_string
 from .building_analysis import ANALYSIS_VERSION, analysis_configuration, analysis_paths, load_analysis
 from .building_index import build_building_index, index_path, load_building_index
 from .building_inspection.models import RANKING_FORMULA_VERSION
@@ -45,8 +46,12 @@ VIEW_COLUMNS = ("building_id", "image_id", "captured_at_ms", "observed_fraction"
 ATTRIBUTE_COLUMNS = (
     "attributes_provider", "building_type", "building_type_score", "building_type_kind", "building_type_abstained",
     "surface_material", "surface_material_score", "surface_material_kind", "surface_material_abstained",
+    "gem_material", "gem_material_score", "gem_material_kind", "gem_material_abstained",
+    "gem_llrs", "gem_llrs_score", "gem_llrs_kind", "gem_llrs_abstained",
     "floors", "floors_spread", "floors_abstained", "construction_year", "construction_year_spread", "construction_year_abstained",
+    "gem_taxonomy",
 )
+CATEGORICAL_COLUMNS = ("building_type", "surface_material", "gem_material", "gem_llrs")
 
 
 def _building_parts(building_id: str) -> tuple[str, str, str | None]:
@@ -159,6 +164,26 @@ def build_rows(buildings: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+MERGED_PROVIDER = "merged"
+
+
+def merged_payload(card: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The viewer card's chosen values (review, then OSM tag, then model) in the provider-file shape.
+
+    Each ``*_kind`` column then says where the value came from: ``review``, ``tag`` or ``vote_share``.
+    """
+    if card is None:
+        return None
+    predictions = {}
+    for name, entry in card["attributes"].items():
+        if "spread" in entry:  # numeric summaries carry a spread, categorical ones a share
+            predictions[name] = {"type": "numeric", "value": entry.get("value"), "spread": entry.get("spread"), "abstained": entry.get("abstained")}
+        else:
+            top = entry.get("value") if not entry.get("abstained") else entry.get("leaning")
+            predictions[name] = {"type": "categorical", "scores": {top: entry.get("share") or 0.0} if top else {}, "score_kind": entry.get("score_kind"), "abstained": entry.get("abstained")}
+    return {"provider": MERGED_PROVIDER, "predictions": predictions}
+
+
 def attribute_columns(payload: dict[str, Any] | None, provider: str | None) -> dict[str, Any]:
     """Flat columns for one building's attribute file; every column is present (``None`` when absent)."""
     columns: dict[str, Any] = dict.fromkeys(ATTRIBUTE_COLUMNS)
@@ -166,7 +191,7 @@ def attribute_columns(payload: dict[str, Any] | None, provider: str | None) -> d
         return columns
     columns["attributes_provider"] = payload.get("provider", provider)
     for name, prediction in (payload.get("predictions") or {}).items():
-        if prediction.get("type") == "categorical" and name in ("building_type", "surface_material"):
+        if prediction.get("type") == "categorical" and name in CATEGORICAL_COLUMNS:
             scores = prediction.get("scores") or {}
             top = max(scores, key=lambda key: scores[key]) if scores else None
             columns[name] = top if not prediction.get("abstained") else None
@@ -177,6 +202,8 @@ def attribute_columns(payload: dict[str, Any] | None, provider: str | None) -> d
             columns[name] = prediction.get("value")
             columns[f"{name}_spread"] = prediction.get("spread")
             columns[f"{name}_abstained"] = bool(prediction.get("abstained"))
+    # GEM v3 string of what this provider determined (MAT99, L99 and H99 for the rest).
+    columns["gem_taxonomy"] = gem_taxonomy_string(columns["gem_material"], columns["gem_llrs"], columns["floors"])
     return columns
 
 
@@ -253,6 +280,7 @@ def export_buildings(
     data_root: Path, dataset_id: str, *, provider: str | None = None, min_observed_fraction: float = DEFAULT_MIN_OBSERVED_FRACTION,
     verify: bool = False, use_index: bool = True, output_dir: Path | None = None,
 ) -> dict[str, Any]:
+    from .attributes.card import building_card
     from .attributes.cli import attributes_path
     from .local_viewer import dataset_manifest
 
@@ -262,7 +290,9 @@ def export_buildings(
     rows = build_rows(collect_buildings(analyses, min_observed_fraction))
     for row in rows:
         payload = None
-        if provider:
+        if provider == MERGED_PROVIDER:
+            payload = merged_payload(building_card(dataset_dir, dataset_id, row["building_id"]))
+        elif provider:
             try:
                 payload = json.loads(attributes_path(dataset_dir, row["building_id"], provider).read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
@@ -306,7 +336,7 @@ def main() -> None:
     parser.add_argument("dataset", help="dataset directory name under --data-root")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
     parser.add_argument("--output", type=Path, default=None, help="directory (default: <dataset>/exports)")
-    parser.add_argument("--provider", default=None, help="attributes provider whose files to join, e.g. osm-tag-prior or vlm_<model>")
+    parser.add_argument("--provider", default=None, help="attributes provider whose files to join, e.g. osm-tag-prior, vlm_<model> or human-review; merged takes what the viewer card shows (review, then OSM tag, then model)")
     parser.add_argument("--min-observed-fraction", type=float, default=DEFAULT_MIN_OBSERVED_FRACTION, help="share of the panorama a building must fill for a view to count as usable (default: %(default)s)")
     parser.add_argument("--verify", action="store_true", help="validate every analysis from its artifacts instead of trusting the run ledger (hashes files; slow on big datasets)")
     parser.add_argument("--no-index", action="store_true", help="skip the footprint index; coverage is then reported only for matched buildings")

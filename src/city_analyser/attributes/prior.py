@@ -25,6 +25,10 @@ def osm_prior(building_id: str, tags: Mapping[str, Any]) -> BuildingAttributes:
     predictions = {
         "building_type": _tag_prediction("building_type", BUILDING_TYPES, type_from_osm(tags.get("building")), "building"),
         "surface_material": _tag_prediction("surface_material", SURFACE_MATERIALS, material_from_osm(tags.get("building:material")), "building:material"),
+        # OSM has no established tag for the load-bearing structure, and wall
+        # material does not imply it (brick infill hides concrete frames).
+        "gem_material": abstain_categorical("gem_material", SOURCE, "OpenStreetMap has no structural material tag"),
+        "gem_llrs": abstain_categorical("gem_llrs", SOURCE, "OpenStreetMap has no structural system tag"),
         "floors": NumericPrediction("floors", floors, 0.0, SOURCE) if floors is not None else abstain_numeric("floors", SOURCE, "no building:levels tag"),
         "construction_year": NumericPrediction("construction_year", float(year), 0.0, SOURCE) if year is not None else abstain_numeric("construction_year", SOURCE, "no start_date tag"),
     }

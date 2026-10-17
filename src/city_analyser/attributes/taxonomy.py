@@ -1,14 +1,41 @@
-"""Attribute taxonomy (OpenFACADES classes) and OSM tag parsing."""
+"""Attribute taxonomy (OpenFACADES classes plus the GEM v3 structural system) and OSM tag parsing."""
 
 from __future__ import annotations
 
 import re
 from typing import Any
 
-TAXONOMY_VERSION = "openfacades-v1"
+TAXONOMY_VERSION = "openfacades-v1+gem-v3"
 BUILDING_TYPES = ("apartments", "house", "retail", "office", "hotel", "industrial", "religious", "education", "public", "garage")
 SURFACE_MATERIALS = ("brick", "wood", "concrete", "metal", "stone", "glass", "plaster")
-CATEGORICAL_ATTRIBUTES: dict[str, tuple[str, ...]] = {"building_type": BUILDING_TYPES, "surface_material": SURFACE_MATERIALS}
+# Structure in the GEM Building Taxonomy v3 (Brzev et al., GEM Technical Report 2013-02, and its v3
+# updates): the material of the lateral load-resisting system and the type of that system, by their
+# GEM codes. The unknown codes (MAT99, L99) and "other" (MATO, LO) are not classes: they are abstentions.
+# Facade material above is what covers the structure, not the structure.
+GEM_TAXONOMY_VERSION = "gem-building-taxonomy-v3"
+GEM_MATERIALS = {
+    "CR": "reinforced concrete", "CU": "unreinforced concrete", "C99": "concrete, reinforcement unknown",
+    "SRC": "composite steel and concrete", "S": "steel", "ME": "metal other than steel",
+    "MUR": "unreinforced masonry", "MCF": "confined masonry", "MR": "reinforced masonry", "M99": "masonry, reinforcement unknown",
+    "EU": "earth, unreinforced", "ER": "earth, reinforced", "E99": "earth, reinforcement unknown", "W": "wood",
+}
+GEM_LLRS = {
+    "LFM": "moment frame", "LFINF": "infilled frame", "LFBR": "braced frame", "LPB": "post and beam", "LWAL": "wall",
+    "LDUAL": "dual frame-wall system", "LFLS": "flat slab, plate or waffle slab", "LFLSINF": "infilled flat slab, plate or waffle slab",
+    "LH": "hybrid lateral load-resisting system", "LN": "no lateral load-resisting system",
+}
+CATEGORICAL_ATTRIBUTES: dict[str, tuple[str, ...]] = {
+    "building_type": BUILDING_TYPES, "surface_material": SURFACE_MATERIALS,
+    "gem_material": tuple(GEM_MATERIALS), "gem_llrs": tuple(GEM_LLRS),
+}
+
+
+def gem_taxonomy_string(material: str | None, llrs: str | None, floors: float | None) -> str:
+    """GEM v3 string of the attributes known here, e.g. ``CR/LFINF/HEX:5``; unknown parts use the GEM unknown codes."""
+    height = f"HEX:{int(round(floors))}" if floors is not None and floors >= 1 else "H99"
+    return f"{material or 'MAT99'}/{llrs or 'L99'}/{height}"
+
+
 NUMERIC_ATTRIBUTES = ("floors", "construction_year")
 ALL_ATTRIBUTES = (*CATEGORICAL_ATTRIBUTES, *NUMERIC_ATTRIBUTES)
 
