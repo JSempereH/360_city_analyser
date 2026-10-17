@@ -38,6 +38,10 @@ dataset = "valencia-ciutat-vella"
 truth = ["catastro", "evaluation_set", "osm_tags"]
 buildings = "with_truth"          # or "all"; limit = 200 for a quick check
 
+[analysis]                        # the BUILDING_ANALYSIS_* settings the dataset was analyzed with
+BUILDING_ANALYSIS_MODEL = "balanced"
+BUILDING_ANALYSIS_TILE_SIZE = "384"
+
 [[runs]]
 id = "prior"
 kind = "prior"                    # the OSM-tag baseline
@@ -65,7 +69,7 @@ kind = "saved"                    # answers already in the dataset, e.g. a Colab
 provider = "vlm:Qwen/Qwen3-VL-8B-Instruct"
 ```
 
-`city-analyser-experiment run experiments/valencia-pilot.toml` runs each run into `data/<dataset>/experiments/<name>/<run>/`, never into the dataset's own attributes, so experiments do not change what the viewer shows. A run is resumable: a building whose inputs did not change is not asked again. Each run records its configuration, the prompt, guidance and taxonomy versions, the code revision, timings and errors in `run.json`.
+Analyses only count under the settings they were made with, so `[analysis]` names them; an experiment whose settings match no analysis stops with that explanation instead of scoring empty runs. `city-analyser-experiment run experiments/valencia-pilot.toml` runs each run into `data/<dataset>/experiments/<name>/<run>/`, never into the dataset's own attributes, so experiments do not change what the viewer shows. A run is resumable: a building whose inputs did not change is not asked again. Each run records its configuration, the prompt, guidance and taxonomy versions, the code revision, timings and errors in `run.json`.
 
 `city-analyser-experiment report experiments/valencia-pilot.toml` scores every run against every reference source and writes `report.json`, `report.md` and `report.html` next to the runs: per attribute, the number of buildings with a reference value, coverage (answered share; abstentions lower coverage, not accuracy), accuracy, balanced accuracy and macro F1 for classes, mean absolute error and the share within one storey for storeys, mean absolute error and the share within ten years for years, the majority-class or median baseline, and the risk-coverage curve. Two more tables per attribute keep the comparison fair: the same buildings for every run (those answered by every run that answers at least half, so one run's abstentions do not change what the others are scored on), and, for the cadastre, residential and non-residential buildings apart (a cathedral's cadastral year and storeys do not measure what an apartment block's do). A run is only worth adopting if it beats both the baseline and the prior on the attributes it claims.
 

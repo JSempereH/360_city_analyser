@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -166,11 +167,23 @@ regional_guidance = false
         self.assertTrue(self.model.requests)
         self.assertTrue(all("before about 1940" not in json.dumps(request["body"]) for request in self.model.requests))
 
+    def test_analysis_settings_apply_during_the_run_and_a_mismatch_is_explained(self):
+        import shutil
+
+        shutil.rmtree(self.dataset_dir / "crops", ignore_errors=True)
+        config = self.config()
+        mismatched = replace(config, analysis={"BUILDING_ANALYSIS_MODEL": "b5"})  # the fixture was analyzed with b0
+        with self.assertRaisesRegex(ValueError, r"\[analysis\]"):
+            run_experiment(self.root / "data", mismatched, only={"model"}, log=lambda _: None)
+        self.assertEqual(os.environ["BUILDING_ANALYSIS_MODEL"], "b0")  # restored afterwards
+        self.assertEqual(run_experiment(self.root / "data", config, only={"model"}, log=lambda _: None)["model"]["statuses"], {"written": 2})
+
     def test_bad_experiment_files_are_refused(self):
         path = self.root / "bad.toml"
         for text in ('dataset = "x"', 'name = "a b"\ndataset = "x"\n[[runs]]\nid = "p"\nkind = "prior"',
                      'name = "a"\ndataset = "x"\n[[runs]]\nid = "m"\nkind = "vlm"', 'name = "a"\ndataset = "x"\ntruth = ["census"]\n[[runs]]\nid = "p"\nkind = "prior"',
-                     'name = "a"\ndataset = "x"\n[[runs]]\nid = "p"\nkind = "prior"\n[[runs]]\nid = "p"\nkind = "prior"'):
+                     'name = "a"\ndataset = "x"\n[[runs]]\nid = "p"\nkind = "prior"\n[[runs]]\nid = "p"\nkind = "prior"',
+                     'name = "a"\ndataset = "x"\n[analysis]\nHOME = "/tmp"\n[[runs]]\nid = "p"\nkind = "prior"'):
             path.write_text(text)
             with self.assertRaises(ValueError):
                 load_config(path)

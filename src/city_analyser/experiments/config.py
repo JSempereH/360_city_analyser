@@ -43,6 +43,8 @@ class ExperimentConfig:
     limit: int | None = None
     per_building: int = 3
     path: Path | None = None
+    # BUILDING_ANALYSIS_* settings the dataset was analyzed with: analyses made with others do not count.
+    analysis: dict[str, str] = field(default_factory=dict)
 
 
 def load_config(path: Path) -> ExperimentConfig:
@@ -75,5 +77,9 @@ def load_config(path: Path) -> ExperimentConfig:
     ids = [run.id for run in runs]
     if not runs or len(set(ids)) != len(ids):
         raise ValueError(f"{path}: an experiment needs runs with distinct ids")
+    analysis = {str(key): str(value) for key, value in (raw.get("analysis") or {}).items()}
+    wrong = [key for key in analysis if not key.startswith("BUILDING_ANALYSIS_")]
+    if wrong:
+        raise ValueError(f"{path}: [analysis] takes BUILDING_ANALYSIS_* settings, not {wrong}")
     limit = raw.get("limit")
-    return ExperimentConfig(name, dataset, truth, tuple(runs), buildings, int(limit) if limit else None, int(raw.get("per_building", 3)), path)
+    return ExperimentConfig(name, dataset, truth, tuple(runs), buildings, int(limit) if limit else None, int(raw.get("per_building", 3)), path, analysis)

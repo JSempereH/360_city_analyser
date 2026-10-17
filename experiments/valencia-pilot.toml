@@ -2,13 +2,20 @@
 # and does the regional construction history help? Ciutat Vella, 89 Mapillary panoramas. Run with:
 #   uv run city-analyser-download --tiled-bbox=-0.3800,39.4715,-0.3735,39.4770 --output data/valencia-ciutat-vella \
 #     --max-images 500 --min-spacing-m 10 --image-size 2048
-#   uv run city-analyser-analyze valencia-ciutat-vella
+#   BUILDING_ANALYSIS_MODEL=balanced BUILDING_ANALYSIS_TILE_SIZE=384 uv run city-analyser-analyze valencia-ciutat-vella
 #   uv run city-analyser-groundtruth catastro valencia-ciutat-vella
 #   uv run city-analyser-experiment run experiments/valencia-pilot.toml
 name = "valencia-pilot"
 dataset = "valencia-ciutat-vella"
 truth = ["catastro", "evaluation_set", "osm_tags"]
 buildings = "with_truth"
+limit = 40                      # first pass, about 2 h on CPU; remove it to finish (runs resume)
+
+# The settings the dataset was analyzed with (make presentation-data, city-analyser-analyze):
+# analyses made with other BUILDING_ANALYSIS_* settings do not count, so without these no building has crops.
+[analysis]
+BUILDING_ANALYSIS_MODEL = "balanced"
+BUILDING_ANALYSIS_TILE_SIZE = "384"
 
 [[runs]]
 id = "prior"

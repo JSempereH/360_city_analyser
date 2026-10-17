@@ -4,6 +4,12 @@ dataset = "valencia-centro-demo"
 truth = ["catastro", "osm_tags"]
 buildings = "with_truth"
 
+# The settings the dataset was analyzed with (make presentation-data, city-analyser-analyze):
+# analyses made with other BUILDING_ANALYSIS_* settings do not count, so without these no building has crops.
+[analysis]
+BUILDING_ANALYSIS_MODEL = "balanced"
+BUILDING_ANALYSIS_TILE_SIZE = "384"
+
 [[runs]]
 id = "prior"
 kind = "prior"

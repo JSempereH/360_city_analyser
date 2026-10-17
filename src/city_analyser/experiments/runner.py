@@ -8,11 +8,13 @@ Each run writes ``data/<dataset>/experiments/<name>/<run>/attributes/...``
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import statistics
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -109,8 +111,35 @@ def _run_vlm(dataset_dir: Path, run_dir: Path, run: RunConfig, buildings: list[s
         log(f"  [{number}/{len(buildings)}] {building}: {len(crops)} views in {time.perf_counter() - started:.1f} s")
 
 
+@contextmanager
+def analysis_settings(settings: dict[str, str]) -> Iterator[None]:
+    """The experiment's BUILDING_ANALYSIS_* settings for the length of the run, then the previous ones."""
+    previous = {key: os.environ.get(key) for key in settings}
+    os.environ.update(settings)
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+NO_EVIDENCE = ("no analysis of this dataset matches the current BUILDING_ANALYSIS_* settings, so no building has crops or tags. "
+               "Set the ones the dataset was analyzed with under [analysis] in the experiment file "
+               "(for example BUILDING_ANALYSIS_MODEL = \"balanced\"), or analyze it again with these.")
+
+
 def run_experiment(
     data_root: Path, config: ExperimentConfig, *, model_root: Path = Path("models"), only: set[str] | None = None, log: Callable[[str], None] = print,
+) -> dict[str, Any]:
+    with analysis_settings(config.analysis):
+        return _run_experiment(data_root, config, model_root=model_root, only=only, log=log)
+
+
+def _run_experiment(
+    data_root: Path, config: ExperimentConfig, *, model_root: Path, only: set[str] | None, log: Callable[[str], None],
 ) -> dict[str, Any]:
     dataset_dir = data_root / config.dataset
     if not (dataset_dir / "manifest.json").is_file():
@@ -121,7 +150,9 @@ def run_experiment(
     missing_crops = [building for building in buildings if not any(crops_directory(dataset_dir.resolve(), building).glob("crop-*.json"))]
     if missing_crops and any(run.kind == "vlm" for run in config.runs):
         log(f"Exporting crops for {len(missing_crops)} buildings...")
-        export_building_crops(data_root, config.dataset, missing_crops, per_building=config.per_building, mask_others=True)
+        exported = export_building_crops(data_root, config.dataset, missing_crops, per_building=config.per_building, mask_others=True)
+        if len(missing_crops) == len(buildings) and not exported["buildings"]:
+            raise ValueError(NO_EVIDENCE)
     summaries = {}
     for run in config.runs:
         if only and run.id not in only:
@@ -142,7 +173,7 @@ def run_experiment(
             _run_vlm(dataset_dir, run_dir, run, buildings, record, model_root, log)
         timed = [row["seconds"] for row in rows if row["seconds"] > 0]
         summary = {
-            "experiment": config.name, "dataset": config.dataset, "run": run.to_dict(), "started_at": started,
+            "experiment": config.name, "dataset": config.dataset, "run": run.to_dict(), "analysis": config.analysis, "started_at": started,
             "finished_at": datetime.now(UTC).isoformat(timespec="seconds"), "code_revision": code_revision(),
             "versions": {"prompt": PROMPT_VERSION, "guidance": GUIDANCE_VERSION, "taxonomy": TAXONOMY_VERSION, "analysis": ANALYSIS_VERSION},
             "buildings": len(buildings), "statuses": {status: sum(row["status"] == status for row in rows) for status in sorted({row["status"] for row in rows})},
@@ -152,6 +183,8 @@ def run_experiment(
         atomic_write_json(run_dir / "run.json", summary)
         summaries[run.id] = summary
         log(f"  {summary['statuses']}")
+        if rows and all(row["status"] in {"no_tags", "no_crops"} for row in rows) and run.kind != "saved":
+            log(f"  Warning: {NO_EVIDENCE}")
     return summaries
 
 
