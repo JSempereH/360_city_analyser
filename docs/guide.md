@@ -38,7 +38,7 @@ uv run city-analyser-download \
   --output data/san-jose-pilot
 ```
 
-Use `--bbox min_lon,min_lat,max_lon,max_lat` instead of `--center` when needed. `--image-size auto` selects the best available derivative.
+Use `--bbox=min_lon,min_lat,max_lon,max_lat` instead of `--center` when needed; keep the `=`, or a western longitude such as `-0.38` is read as an option. `--image-size auto` selects the best available derivative.
 
 The downloader requests panoramas at API level, limits each response to 50 MB, decodes the JPEG, requires an approximately 2:1 image, and records dimensions and SHA-256. A dataset contains `images/`, `manifest.json`, `manifest.geojson`, and `ATTRIBUTION.md`; manifest coordinates are camera locations.
 
@@ -253,7 +253,7 @@ Runs go to `data/<dataset>/experiments/<name>/<run>/` and never change what the 
 
 Everything below is built to be stopped and restarted: Colab disconnects, the laptop sleeps, a server answers 503. Nothing finished is redone.
 
-**Download.** `city-analyser-download --tiled-bbox min_lon,min_lat,max_lon,max_lat --output data/<city> --max-images 200000 --image-size 2048 --workers 8` queries the area tile by tile (the Mapillary images endpoint accepts at most 0.01 deg² per query), removes panoramas seen twice on a tile border, keeps cameras at least `--min-spacing-m` apart, downloads in parallel with retries on network errors, and saves the manifest as it goes. Rerunning the same command skips the files already on disk. `--image-size 2048` avoids downloading originals the analysis shrinks anyway. A tile that reaches `--max-api-pages` is reported, because panoramas beyond the cap in that tile were not seen.
+**Download.** `city-analyser-download --tiled-bbox=min_lon,min_lat,max_lon,max_lat --output data/<city> --max-images 200000 --image-size 2048 --workers 8` queries the area tile by tile (the Mapillary images endpoint accepts at most 0.01 deg² per query), removes panoramas seen twice on a tile border, keeps cameras at least `--min-spacing-m` apart, downloads in parallel with retries on network errors, and saves the manifest as it goes. Rerunning the same command skips the files already on disk. `--image-size 2048` avoids downloading originals the analysis shrinks anyway. A tile that reaches `--max-api-pages` is reported, because panoramas beyond the cap in that tile were not seen.
 
 **Analysis.** `city-analyser-analyze <city>` writes two small files next to the manifest:
 
