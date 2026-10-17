@@ -48,6 +48,10 @@
           <p id="status" role="status">Preparing viewer...</p>
           <div class="viewer-actions">
             <button id="search-mapillary-button" type="button">Search Mapillary</button>
+            <button id="presentation-button" class="play-button" type="button" aria-pressed="false" title="The assistant surveys the dataset by itself, building after building. Space pauses, → skips, Esc stops.">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="play-icon" d="M8 5v14l11-7z" /><path class="stop-icon" d="M7 7h10v10H7z" /></svg>
+              <span>Run survey</span>
+            </button>
             <button id="analyze-buildings-button" type="button" disabled>Analyze buildings</button>
             <details class="advanced-actions">
               <summary>Advanced</summary>
@@ -76,6 +80,12 @@
                   <label class="check"><input type="checkbox" data-layer="diagnostics" checked /> Footprint diagnostics</label>
                   <label class="check"><input type="checkbox" data-layer="coverage" /> Analysis coverage</label>
                 </fieldset>
+                <fieldset>
+                  <legend>Building colors</legend>
+                  <label class="field">Color footprints by
+                    <select id="attribute-color-select"></select>
+                  </label>
+                </fieldset>
               </div>
             </details>
             <button id="panel-toggle-button" class="panel-toggle-button" type="button" aria-controls="side-panel" aria-expanded="true">Details</button>
@@ -99,6 +109,7 @@
            <div id="canvas-wrap" class="canvas-wrap">
              <canvas id="panorama-canvas" aria-label="Interactive panorama"></canvas>
              <canvas id="projection-overlay" class="projection-overlay" aria-hidden="true"></canvas>
+             <canvas id="transition-canvas" class="transition-canvas" aria-hidden="true" hidden></canvas>
              <nav id="scene-navigation" class="scene-navigation" aria-label="Nearby panoramas" hidden></nav>
              <section id="map-panel" class="location-map" aria-label="Location mini-map">
                <header id="map-drag-handle" class="map-panel-header">
@@ -111,10 +122,64 @@
               <p id="map-message" class="map-message">Loading location...</p>
               <p id="map-direction" class="map-direction" hidden></p>
               <div id="location-map-canvas" aria-label="OpenStreetMap map of the panorama location"></div>
+              <section id="map-legend" class="map-legend" aria-label="Footprint colors" hidden>
+                <p id="map-legend-title" class="map-legend-title"></p>
+                <ul id="map-legend-items"></ul>
+              </section>
                 <p class="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a></p>
             </section>
             <div id="loading" class="loading">Loading panorama...</div>
              <div id="building-status" class="building-status" role="status" aria-live="polite" hidden></div>
+             <aside id="building-card" class="building-card" aria-labelledby="building-card-title" hidden>
+               <header class="building-card-header">
+                 <div>
+                   <p class="eyebrow">Selected building</p>
+                   <h2 id="building-card-title"></h2>
+                 </div>
+                 <button id="building-card-close" class="dialog-close" type="button" aria-label="Close building card">Close</button>
+               </header>
+               <p id="building-card-message" class="building-card-message" role="status"></p>
+               <p id="building-card-review-status" class="building-card-review-status" hidden></p>
+               <dl id="building-card-attributes" class="building-card-attributes"></dl>
+               <form id="building-card-review-form" class="building-card-review-form" hidden>
+                 <label class="field">GEM material
+                   <select id="review-gem-material"></select>
+                 </label>
+                 <label class="field">GEM lateral load-resisting system
+                   <select id="review-gem-llrs"></select>
+                 </label>
+                 <label class="field">Floors above ground
+                   <input id="review-floors" type="number" min="1" max="150" step="1" inputmode="numeric" placeholder="Cannot tell" />
+                 </label>
+                 <label class="field">Use
+                   <select id="review-building-type"></select>
+                 </label>
+                 <label class="field">Facade material
+                   <select id="review-surface-material"></select>
+                 </label>
+                 <label class="field">Construction year
+                   <input id="review-construction-year" type="number" min="1000" max="2100" step="1" inputmode="numeric" placeholder="Cannot tell" />
+                 </label>
+                 <label class="check" title="An evaluation label is kept as ground truth for experiments: choose the buildings first, then do not change the label after seeing a model's answers">
+                   <input id="review-evaluation" type="checkbox" /> Use as ground truth (evaluation set)
+                 </label>
+                 <label class="field">Note <textarea id="review-note" rows="2" maxlength="500" placeholder="What in the imagery decided it (optional)"></textarea></label>
+                 <p id="building-card-review-message" class="building-card-message" role="status"></p>
+                 <div class="building-card-actions">
+                   <button type="submit">Save review</button>
+                   <button id="building-card-review-cancel" type="button">Cancel</button>
+                   <button id="building-card-review-withdraw" type="button" hidden>Withdraw review</button>
+                 </div>
+               </form>
+               <details id="building-card-why" class="building-card-why" hidden>
+                 <summary>Why the model thinks so</summary>
+                 <ol id="building-card-observations"></ol>
+               </details>
+               <div class="building-card-actions">
+                 <button id="building-card-review" class="building-card-more" type="button" hidden>Review</button>
+                 <button id="building-card-more" class="building-card-more" type="button">More details</button>
+               </div>
+             </aside>
            <div id="error" class="error" hidden></div>
           </div>
 
@@ -143,6 +208,7 @@
         <div class="panel-tabs" role="tablist" aria-label="Details">
           <button id="tab-building" role="tab" type="button" aria-selected="true" aria-controls="panel-building">Building</button>
           <button id="tab-review" role="tab" type="button" aria-selected="false" aria-controls="panel-review" tabindex="-1">Review <span id="review-count" class="tab-count" hidden></span></button>
+          <button id="tab-assistant" role="tab" type="button" aria-selected="false" aria-controls="panel-assistant" tabindex="-1">Assistant</button>
           <button id="tab-jobs" role="tab" type="button" aria-selected="false" aria-controls="panel-jobs" tabindex="-1">Jobs <span id="jobs-count" class="tab-count" hidden></span></button>
           <button id="panel-close-button" class="panel-close-button" type="button" aria-label="Close details">Close</button>
         </div>
@@ -155,6 +221,7 @@
             <div class="panel-actions">
               <button id="generate-report-button" type="button" disabled>Generate report</button>
               <button id="building-best-view-button" type="button" hidden>Go to best view</button>
+              <button id="building-attributes-button" type="button" hidden>Show attributes</button>
               <button id="building-edit-button" class="needs-large-screen" type="button">Edit footprint</button>
               <button id="building-revert-button" type="button" hidden>Revert to OpenStreetMap</button>
               <a id="building-osm-link" target="_blank" rel="noreferrer">Open in OpenStreetMap</a>
@@ -172,6 +239,7 @@
                 <option value="merged_footprint">Several buildings in one footprint</option>
                 <option value="unsupported_footprint">No building in the imagery</option>
                 <option value="unexplained_instance">Buildings without a footprint</option>
+                <option value="attributes">Structure to check (model answers)</option>
               </select>
             </label>
             <label class="check"><input id="review-all-datasets" type="checkbox" /> All datasets</label>
@@ -216,6 +284,20 @@
             <button id="footprint-edit-button" class="needs-large-screen" type="button" aria-pressed="false" title="Correct an OpenStreetMap footprint that does not match the imagery">Edit a footprint on the map</button>
             <button id="footprint-refresh-button" type="button">Refresh</button>
           </div>
+        </section>
+
+        <section id="panel-assistant" class="panel-section assistant-panel" role="tabpanel" aria-labelledby="tab-assistant" hidden>
+          <p id="assistant-status" class="assistant-status" role="status">Checking the assistant...</p>
+          <h2 id="assistant-building" class="assistant-building">No building selected</h2>
+          <div class="panel-actions">
+            <button id="assistant-analyze-button" type="button" disabled title="Ask the model about every view of this building now and save its answer">Analyze now</button>
+            <button id="assistant-edit-button" type="button" disabled title="Correct any value by hand; your decision wins over the model and OpenStreetMap">Edit values</button>
+          </div>
+          <ol id="assistant-log" class="assistant-log" aria-live="polite"></ol>
+          <form id="assistant-form" class="assistant-form">
+            <textarea id="assistant-input" rows="3" maxlength="2000" placeholder="Ask about this building, e.g. why masonry and not a concrete frame?" disabled></textarea>
+            <button id="assistant-send-button" type="submit" disabled>Send</button>
+          </form>
         </section>
 
         <section id="panel-jobs" class="panel-section" role="tabpanel" aria-labelledby="tab-jobs" hidden>

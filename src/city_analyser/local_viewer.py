@@ -20,6 +20,10 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from .analysis_backend import analysis_backend_from_environment, analysis_backend_status, run_analysis
 from .analysis_cache import atomic_write_json
+from .attributes.assistant import Assistant, AssistantUnavailable
+from .attributes.card import building_card
+from .attributes.cli import model_settings_from_environment
+from .attributes.review import attribute_summary, attributes_signature, save_review
 from .building_analysis import ANALYSIS_VERSION, analysis_paths, building_mask, instance_overlay, load_analysis, nearby_buildings, osm_buildings, pick_building
 from .footprint_corrections import CorrectionError, all_records, load_record, propose, revert, review
 from .footprint_issues import affected_panoramas, analysis_status, building_views, footprint_issues
@@ -35,6 +39,10 @@ VIEWER_ROOT = Path(__file__).resolve().parent / "viewer"
 DATASET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]*$")
 FOOTPRINT_CORRECTION_ROUTE = re.compile(r"/api/footprint-corrections/((?:node|way|relation)/[1-9][0-9]*)")
 BUILDING_VIEWS_ROUTE = re.compile(r"/api/datasets/([^/]+)/building-views/((?:node|way|relation)/[1-9][0-9]*(?:/part-[1-9][0-9]*)?)")
+BUILDING_ATTRIBUTES_ROUTE = re.compile(r"/api/datasets/([^/]+)/building-attributes/((?:node|way|relation)/[1-9][0-9]*(?:/part-[1-9][0-9]*)?)")
+ATTRIBUTE_SUMMARY_ROUTE = re.compile(r"/api/datasets/([^/]+)/building-attributes")
+ASSISTANT_ROUTE = re.compile(r"/api/datasets/([^/]+)/building-attributes/((?:node|way|relation)/[1-9][0-9]*(?:/part-[1-9][0-9]*)?)/(analyze|chat)")
+MAX_CHAT_REQUEST_BYTES = 65_536
 # Corrected footprints are GeoJSON polygons and can be larger than other requests.
 MAX_FOOTPRINT_REQUEST_BYTES = 262_144
 BUILDING_REPORT_ROUTE = re.compile(
@@ -317,6 +325,29 @@ class ViewerServer(ThreadingHTTPServer):
         # Small GPUs cannot safely host concurrent transformer inference jobs.
         self.analysis_run_lock = threading.Lock()
         self.report_lock = threading.Lock()
+        settings = model_settings_from_environment(self.model_root)
+        self.assistant = Assistant(settings) if settings else None
+        self.attribute_summaries: dict[str, tuple[str, dict[str, Any]]] = {}
+        self.attribute_summary_lock = threading.Lock()
+        # Reviews of one building are read, merged and written as a unit.
+        self.attribute_review_lock = threading.Lock()
+
+    def has_dataset(self, dataset_id: str) -> bool:
+        return bool(DATASET_ID.fullmatch(dataset_id)) and (self.data_root / dataset_id / "manifest.json").is_file()
+
+    def images_by_id(self, dataset_id: str) -> dict[str, dict[str, Any]]:
+        return {str(image["id"]): image for image in dataset_manifest(self.data_root, dataset_id)["images"] if isinstance(image, dict) and "id" in image}
+
+    def attribute_summary(self, dataset_id: str) -> dict[str, Any]:
+        """The dataset's attribute summary, rebuilt only when an attribute file changed (a survey may be writing)."""
+        dataset_dir = self.data_root / dataset_id
+        signature = attributes_signature(dataset_dir)
+        with self.attribute_summary_lock:
+            cached = self.attribute_summaries.get(dataset_id)
+            if cached is None or cached[0] != signature:
+                cached = (signature, attribute_summary(dataset_dir, dataset_id))
+                self.attribute_summaries[dataset_id] = cached
+            return cached[1]
 
     def image_record(self, dataset_id: str, image_id: str) -> dict[str, Any]:
         manifest = dataset_manifest(self.data_root, dataset_id)
@@ -557,7 +588,7 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
         status_match = re.fullmatch(r"/api/datasets/([^/]+)/analysis-status", path)
         if status_match:
             dataset_id = unquote(status_match.group(1))
-            if not DATASET_ID.fullmatch(dataset_id) or not (server.data_root / dataset_id / "manifest.json").is_file():
+            if not server.has_dataset(dataset_id):
                 self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
             else:
                 self.send_json({"analysis_version": ANALYSIS_VERSION, "panoramas": analysis_status(server.data_root, dataset_id)})
@@ -565,10 +596,31 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
         views_match = BUILDING_VIEWS_ROUTE.fullmatch(path)
         if views_match:
             dataset_id = unquote(views_match.group(1))
-            if not DATASET_ID.fullmatch(dataset_id) or not (server.data_root / dataset_id / "manifest.json").is_file():
+            if not server.has_dataset(dataset_id):
                 self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
             else:
                 self.send_json(building_views(server.data_root, dataset_id, views_match.group(2)))
+            return
+        summary_match = ATTRIBUTE_SUMMARY_ROUTE.fullmatch(path)
+        if summary_match:
+            dataset_id = unquote(summary_match.group(1))
+            if not server.has_dataset(dataset_id):
+                self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_json(server.attribute_summary(dataset_id))
+            return
+        attributes_match = BUILDING_ATTRIBUTES_ROUTE.fullmatch(path)
+        if attributes_match:
+            dataset_id = unquote(attributes_match.group(1))
+            if not server.has_dataset(dataset_id):
+                self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
+                return
+            card = building_card(server.data_root / dataset_id, dataset_id, attributes_match.group(2))
+            if card is None:
+                # Expected until a survey or city-analyser-attributes reaches this building.
+                self.send_json({"error": "no attributes for this building yet"}, HTTPStatus.NOT_FOUND)
+            else:
+                self.send_json(card)
             return
         correction_match = FOOTPRINT_CORRECTION_ROUTE.fullmatch(path)
         if correction_match:
@@ -660,6 +712,13 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/health":
             self.send_json({"status": "ok", "time": datetime.now(UTC).isoformat(), "analysis_backend": analysis_backend_status(server.analysis_backend)})
             return
+        if path == "/api/assistant":
+            self.send_json(server.assistant.status() if server.assistant else {
+                "available": False,
+                "help": "Start the viewer with ATTRIBUTES_VLM_URL and ATTRIBUTES_VLM_MODEL (an OpenAI-compatible server such as Ollama or vLLM), "
+                        "or ATTRIBUTES_VLM_BACKEND=transformers, to analyze and chat in real time.",
+            })
+            return
         if path == "/api/analysis-backend":
             self.send_json(analysis_backend_status(server.analysis_backend))
             return
@@ -735,6 +794,25 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
             else:
                 self.send_json(result, HTTPStatus.ACCEPTED)
+            return
+        assistant_match = ASSISTANT_ROUTE.fullmatch(path)
+        if assistant_match:
+            self.assistant_request(server, unquote(assistant_match.group(1)), assistant_match.group(2), assistant_match.group(3))
+            return
+        attributes_match = BUILDING_ATTRIBUTES_ROUTE.fullmatch(path)
+        if attributes_match:
+            dataset_id = unquote(attributes_match.group(1))
+            if not server.has_dataset(dataset_id):
+                self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
+                return
+            try:
+                payload = self.read_json_body()
+                with server.attribute_review_lock:
+                    card = save_review(server.data_root / dataset_id, dataset_id, attributes_match.group(2), payload)
+            except ValueError as error:  # ReviewError, or a malformed body
+                self.send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+            else:
+                self.send_json(card)
             return
         correction_match = FOOTPRINT_CORRECTION_ROUTE.fullmatch(path)
         if correction_match:
@@ -841,6 +919,47 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
             # request_json already strips the upstream body to a short API error;
             # returning it makes rate limits and invalid credentials actionable.
             self.send_json({"error": f"Mapillary search failed: {error}"}, HTTPStatus.BAD_GATEWAY)
+
+    def assistant_request(self, server: ViewerServer, dataset_id: str, building_id: str, action: str) -> None:
+        """Analyze or chat about one building, streaming progress as server-sent events (one JSON object per event)."""
+        if not server.has_dataset(dataset_id):
+            self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
+            return
+        if server.assistant is None:
+            self.send_json({"error": "no model is configured for the assistant"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+        try:
+            payload = self.read_json_body(MAX_CHAT_REQUEST_BYTES) if int(self.headers.get("Content-Length", "0")) else {}
+        except ValueError as error:
+            self.send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        self.close_connection = True
+
+        def emit(event: dict[str, Any]) -> None:
+            self.wfile.write(f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode("utf-8"))
+            self.wfile.flush()
+
+        images = server.images_by_id(dataset_id)
+        try:
+            if action == "analyze":
+                card = server.assistant.analyze(server.data_root, dataset_id, building_id, images, emit)
+                emit({"type": "done", "card": card})
+            else:
+                text = server.assistant.chat(server.data_root, dataset_id, building_id, payload.get("messages") or [], images,
+                                             lambda chunk: emit({"type": "text", "text": chunk}))
+                emit({"type": "done", "text": text})
+        except (BrokenPipeError, ConnectionResetError):
+            return  # the viewer went away; the analysis that finished is saved
+        except (AssistantUnavailable, RuntimeError, ValueError, OSError) as error:
+            try:
+                emit({"type": "error", "error": str(error)})
+            except OSError:
+                pass
 
     def send_json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")

@@ -1,4 +1,4 @@
-.PHONY: viewer models test e2e lint worker-image evaluate demo-gif docs docs-build
+.PHONY: viewer models test e2e lint worker-image evaluate demo-gif docs docs-build presentation-data presentation
 
 # Override on CPU-only machines: make viewer TORCH=cpu
 TORCH ?= cu126
@@ -49,3 +49,19 @@ docs:
 # Static build into site/; broken links fail it, as in CI.
 docs-build:
 	$(MKDOCS) build --strict
+
+# Presentation: analyzed copies of valencia-centro and madrid-centro with the reviewed masks
+# and answers in demo/*.curation.json, then the viewer at the presentation URL.
+PRESENTATION_ENV = BUILDING_ANALYSIS_MODEL=balanced BUILDING_ANALYSIS_TILE_SIZE=384
+
+presentation-data:
+	for city in valencia-centro madrid-centro; do \
+	  $(PRESENTATION_ENV) uv run city-analyser-analyze $$city && \
+	  rm -rf data/$$city-demo && mkdir -p data/$$city-demo && \
+	  cp demo/$$city-demo.curation.json data/$$city-demo/curation.json && \
+	  $(PRESENTATION_ENV) uv run city-analyser-demo $$city || exit 1; \
+	done
+
+presentation:
+	@echo "Open http://127.0.0.1:8765/viewer/?dataset=valencia-centro-demo&present=1&then=madrid-centro-demo"
+	$(PRESENTATION_ENV) uv run city-analyser-viewer

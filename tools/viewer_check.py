@@ -174,7 +174,21 @@ def _default_states(base_url: str, dataset: str, image: str | None) -> list[tupl
             page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
         open_panel(page)
 
+    def building_review(page: Any) -> None:
+        # The card offers a review once the building has surveyed attributes. A details
+        # drawer (narrow screens) lies over the card, so it is closed first, as a person would.
+        close = page.locator("#panel-close-button")
+        if close.is_visible():
+            close.click()
+        button = page.locator("#building-card-review")
+        if button.is_visible():
+            button.click()
+            page.wait_for_timeout(300)
+
     def review_tab(page: Any) -> None:
+        cancel = page.locator("#building-card-review-cancel")
+        if cancel.is_visible():
+            cancel.click()
         open_panel(page)
         page.click("#tab-review")
         page.wait_for_timeout(800)
@@ -201,10 +215,25 @@ def _default_states(base_url: str, dataset: str, image: str | None) -> list[tupl
         page.click("#layers-menu summary")
         page.wait_for_timeout(300)
 
+    def building_colors(page: Any) -> None:
+        page.select_option("#attribute-color-select", "gem_material")
+        page.click("#layers-menu summary")
+        page.wait_for_timeout(800)
+
     def help_dialog(page: Any) -> None:
         if page.locator("#layers-menu").get_attribute("open") is not None:
             page.click("#layers-menu summary")
         page.keyboard.press("?")
+        page.wait_for_timeout(300)
+
+    def assistant_tab(page: Any) -> None:
+        if page.locator("#help-dialog").get_attribute("open") is not None:
+            page.click("#close-help-dialog-button")
+        open_panel(page)
+        cancel = page.locator("#footprint-cancel-button")
+        if cancel.is_visible():
+            cancel.click()
+        page.click("#tab-assistant")
         page.wait_for_timeout(300)
 
     def jobs_tab(page: Any) -> None:
@@ -217,8 +246,9 @@ def _default_states(base_url: str, dataset: str, image: str | None) -> list[tupl
         page.click("#tab-jobs")
 
     return [
-        ("loaded", open_viewer), ("building-selected", select_building), ("review-tab", review_tab),
-        ("review-current", review_current), ("footprint-edit", footprint_edit), ("layers-menu", layers_menu), ("help-dialog", help_dialog), ("jobs-tab", jobs_tab),
+        ("loaded", open_viewer), ("building-selected", select_building), ("building-review", building_review), ("review-tab", review_tab),
+        ("review-current", review_current), ("footprint-edit", footprint_edit), ("layers-menu", layers_menu), ("building-colors", building_colors),
+        ("help-dialog", help_dialog), ("assistant-tab", assistant_tab), ("jobs-tab", jobs_tab),
     ]
 
 

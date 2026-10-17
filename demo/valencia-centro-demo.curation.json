@@ -1,0 +1,481 @@
+{
+  "note": "Reviewed by eye with tools/mask_review.py --full (mask vs projected OSM footprint and map), October 2026.",
+  "exclude": [],
+  "masks": [
+    {
+      "image": "290195212605250",
+      "building": "way/1287108788",
+      "rename_to": "way/625039852"
+    },
+    {
+      "image": "290195212605250",
+      "building": "way/625039852",
+      "fill_bearings": [
+        119,
+        183.5
+      ],
+      "ground_line": [
+        [
+          119,
+          -22
+        ],
+        [
+          150,
+          -22
+        ],
+        [
+          170,
+          -17
+        ],
+        [
+          183.5,
+          -14
+        ]
+      ],
+      "roof_line": [
+        [
+          119,
+          46
+        ],
+        [
+          126,
+          46.5
+        ],
+        [
+          127,
+          49
+        ],
+        [
+          128.5,
+          53
+        ],
+        [
+          130,
+          58
+        ],
+        [
+          131.5,
+          61.5
+        ],
+        [
+          133,
+          64
+        ],
+        [
+          140,
+          65.6
+        ],
+        [
+          145,
+          67
+        ],
+        [
+          160,
+          66.8
+        ],
+        [
+          170,
+          65.1
+        ],
+        [
+          183,
+          62.4
+        ],
+        [
+          187,
+          62
+        ]
+      ]
+    },
+    {
+      "image": "2848753168681498",
+      "building": "way/1287108788",
+      "remove": true
+    },
+    {
+      "image": "214827346727115",
+      "building": "way/414793976",
+      "keep_bearings": [
+        262,
+        331
+      ]
+    },
+    {
+      "image": "214827346727115",
+      "building": "way/414793978",
+      "fill_bearings": [
+        86,
+        179
+      ],
+      "ground_line": [
+        [
+          86,
+          -11
+        ],
+        [
+          95,
+          -14
+        ],
+        [
+          105,
+          -17
+        ],
+        [
+          115,
+          -22
+        ],
+        [
+          122,
+          -27
+        ],
+        [
+          135,
+          -29
+        ],
+        [
+          150,
+          -28
+        ],
+        [
+          157,
+          -24
+        ],
+        [
+          165,
+          -17
+        ],
+        [
+          179,
+          -11
+        ]
+      ]
+    },
+    {
+      "image": "206326784388835",
+      "building": "way/814967846",
+      "keep_bearings": [
+        57,
+        182
+      ]
+    },
+    {
+      "image": "199282938701732",
+      "building": "way/414793978",
+      "fill_bearings": [
+        64,
+        121
+      ],
+      "ground_line": [
+        [
+          57,
+          -30
+        ],
+        [
+          121,
+          -30
+        ]
+      ],
+      "roof_line": [
+        [
+          57,
+          78
+        ],
+        [
+          121,
+          78
+        ]
+      ]
+    },
+    {
+      "image": "206326784388835",
+      "building": "way/492816277",
+      "keep_bearings": [
+        258,
+        52
+      ]
+    },
+    {
+      "image": "199282938701732",
+      "building": "way/814967849",
+      "keep_bearings": [
+        139,
+        207
+      ]
+    },
+    {
+      "image": "290195212605250",
+      "building": "way/492825579",
+      "keep_bearings": [
+        228.5,
+        279
+      ]
+    },
+    {
+      "image": "199282938701732",
+      "building": "way/814967847",
+      "claim_bearings": [
+        250,
+        320
+      ]
+    },
+    {
+      "image": "206326784388835",
+      "building": "way/492816277",
+      "claim_bearings": [
+        255,
+        40
+      ]
+    },
+    {
+      "image": "290195212605250",
+      "building": "way/809977111",
+      "rename_to": "way/135630267"
+    },
+    {
+      "image": "290195212605250",
+      "building": "way/135630267",
+      "claim_bearings": [
+        85,
+        118
+      ]
+    },
+    {
+      "image": "290195212605250",
+      "building": "way/814967853",
+      "keep_bearings": [
+        287,
+        25
+      ]
+    },
+    {
+      "image": "2848753168681498",
+      "building": "way/492825579",
+      "remove": true
+    },
+    {
+      "image": "2848753168681498",
+      "building": "way/625039852",
+      "add": true,
+      "claim_bearings": [
+        333,
+        37
+      ]
+    },
+    {
+      "image": "2848753168681498",
+      "building": "way/135630267",
+      "claim_bearings": [
+        37,
+        80
+      ]
+    },
+    {
+      "image": "199282938701732",
+      "building": "way/414793962",
+      "remove": true
+    },
+    {
+      "image": "199282938701732",
+      "building": "way/492816278",
+      "remove": true
+    },
+    {
+      "image": "199282938701732",
+      "building": "way/814967846",
+      "remove": true
+    },
+    {
+      "image": "214827346727115",
+      "building": "way/814967846",
+      "remove": true
+    },
+    {
+      "image": "214827346727115",
+      "building": "way/814967847",
+      "remove": true
+    },
+    {
+      "image": "199282938701732",
+      "building": "way/814967850",
+      "remove": true
+    }
+  ],
+  "answers": {
+    "way/414793976": {
+      "214827346727115": {
+        "observations": "Recent infill building: glazed bay windows over a perforated metal panel, thin slab edges at every level and no columns expressed on the facade. In Spain buildings of this period are usually reinforced concrete waffle or flat slabs on columns with brick infill; ground floor plus five window rows.",
+        "floors": 6,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFLSINF",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "surface_material": "stone",
+        "construction_year": 2005
+      }
+    },
+    "way/414793978": {
+      "830787757519930": {
+        "observations": "Bourgeois town house: thick rendered walls with rusticated base, an arched carved timber door and a stone bay balcony on corbels; openings are narrow relative to the piers. Ground floor plus two main floors and an attic.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1900
+      },
+      "214827346727115": {
+        "observations": "Same block from the side street: arched ground-floor openings with deep reveals, moulded string courses and wrought-iron balconies stacked exactly above each other, typical of load-bearing masonry; four storeys.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1905
+      },
+      "199282938701732": {
+        "observations": "Rear facade under a protective net: a heavy timber door set in a thick masonry jamb and an ornate cast-iron gallery above; no columns or slab edges visible.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1900
+      }
+    },
+    "way/492816277": {
+      "206326784388835": {
+        "observations": "Patterned brick facade on a stone base with a regular grid of identical shuttered windows and bands at every floor; ground floor plus five window rows. Post-war Spanish buildings of the 1940s and 1950s were built when steel was scarce: many are reinforced concrete frames with brick infill, some still load-bearing brick, so the material is less certain than in older blocks.",
+        "floors": 6,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "surface_material": "brick",
+        "construction_year": 1955
+      }
+    },
+    "way/492825579": {
+      "290195212605250": {
+        "observations": "Derelict corner building with a projecting timber gallery, blind ground floor and small irregular openings in thick walls; three storeys plus the gallery level.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "wood",
+        "construction_year": 1880
+      }
+    },
+    "way/814967846": {
+      "206326784388835": {
+        "observations": "Rusticated ground floor with a deep carved doorway and wrought-iron grilles; the upper floors repeat narrow balconies over solid piers, a load-bearing masonry facade of four storeys.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      }
+    },
+    "way/814967847": {
+      "199282938701732": {
+        "observations": "Corner building with banded render, tall narrow windows with iron grilles and small cantilevered balconies on stone slabs; walls are thick at the reveals; four storeys.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1905
+      }
+    },
+    "way/814967849": {
+      "199282938701732": {
+        "observations": "Facade under scaffolding net with ornate cast-iron balconies, a tiled ground floor and graffiti-covered shutters; bays are narrow between solid piers; four storeys.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": "M99",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1895
+      }
+    },
+    "way/625039852": {
+      "290195212605250": {
+        "observations": "Massive ashlar stone walls with a single narrow slit opening and a buttress at the corner; a Gothic tower or church body with no window rows, so storeys cannot be counted.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "religious",
+        "surface_material": "stone",
+        "alternate_surface_material": null,
+        "construction_year": 1450
+      },
+      "2848753168681498": {
+        "observations": "The Micalet bell tower seen from the cathedral square: an octagonal shaft of large ashlar blocks with buttresses and almost no openings; it has no storeys to count.",
+        "floors": null,
+        "gem_material": "MUR",
+        "gem_llrs": "LWAL",
+        "building_type": "religious",
+        "surface_material": "stone",
+        "construction_year": 1420
+      }
+    },
+    "way/135630267": {
+      "2848753168681498": {
+        "observations": "Baroque main portal of the cathedral (Puerta de los Hierros) against Gothic stone walls; massive ashlar masonry with no frame, typical of a medieval church.",
+        "floors": null,
+        "gem_material": "MUR",
+        "gem_llrs": "LWAL",
+        "building_type": "religious",
+        "surface_material": "stone",
+        "construction_year": 1703
+      },
+      "290195212605250": {
+        "observations": "Gothic stone apse and chapels of the cathedral with buttresses and tall narrow windows; load-bearing ashlar walls.",
+        "floors": null,
+        "gem_material": "MUR",
+        "gem_llrs": "LWAL",
+        "building_type": "religious",
+        "surface_material": "stone",
+        "construction_year": 1300
+      }
+    },
+    "way/814967853": {
+      "290195212605250": {
+        "observations": "Late nineteenth-century palace on Calle del Micalet: thick rendered brick walls on a stone base, deep window reveals, cast-iron balconies on carved corbels and a continuous cornice; openings stack exactly above each other between solid piers. Ground floor plus three floors.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1885
+      }
+    }
+  }
+}

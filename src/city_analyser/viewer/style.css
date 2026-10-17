@@ -636,6 +636,45 @@ kbd {
   font-size: 0.78rem;
 }
 
+/* What the footprint colors mean; only the classes on screen, with counts. */
+.map-legend {
+  padding: 6px 9px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.74rem;
+}
+
+.map-legend[hidden] {
+  display: none;
+}
+
+.map-legend-title {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+}
+
+.map-legend ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-soft);
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 1px solid rgb(0 0 0 / 35%);
+  border-radius: 2px;
+}
+
 .map-direction {
   margin: 0;
   padding: 5px 9px;
@@ -1220,6 +1259,225 @@ kbd {
   pointer-events: none;
 }
 
+/* Attributes of the selected building, over the panorama; the mini-map holds the other top corner. */
+.building-card {
+  position: absolute;
+  z-index: 20;
+  top: 16px;
+  left: 16px;
+  display: grid;
+  width: min(300px, calc(100% - 32px));
+  max-height: calc(100% - 72px);
+  gap: 8px;
+  overflow: auto;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px var(--shadow);
+  font-size: 0.8rem;
+}
+
+.building-card[hidden] {
+  display: none;
+}
+
+.building-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.building-card-header > div {
+  min-width: 0;
+}
+
+.building-card h2 {
+  margin: 2px 0 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.building-card .dialog-close {
+  min-height: 26px;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  font-size: 0.74rem;
+}
+
+.building-card-message {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.building-card-message:empty {
+  display: none;
+}
+
+.building-card-attributes {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 0;
+}
+
+.building-card-attributes:empty {
+  display: none;
+}
+
+.building-card-attributes dt {
+  color: var(--text-muted);
+}
+
+.building-card-attributes dd {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  margin: 0;
+}
+
+.building-card-attributes .value {
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.building-card-attributes .gem .value {
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.building-card-attributes .abstained .value {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.building-card-attributes .source,
+.building-card-attributes .note {
+  color: var(--text-faint);
+  font-size: 0.7rem;
+}
+
+.building-card-attributes .note {
+  color: var(--accent);
+}
+
+.building-card-why summary {
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.building-card-why ol {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.building-card-why li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--text-soft);
+}
+
+.building-card-why li.no-image {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.building-card-why img {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.building-card-why p {
+  margin: 0;
+}
+
+.building-card-review-status {
+  margin: 0;
+  padding: 4px 7px;
+  border-left: 3px solid #0ca30c;
+  background: var(--surface-hover);
+  color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+
+.building-card-review-form {
+  display: grid;
+  gap: 7px;
+}
+
+.building-card-review-form[hidden],
+.building-card-attributes[hidden],
+.building-card-review-status[hidden] {
+  display: none;
+}
+
+.building-card-review-form textarea {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  padding: 3px 6px;
+  resize: vertical;
+}
+
+.building-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.building-card-actions button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+
+.building-card-actions button[type="submit"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.building-card-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.building-card-more {
+  justify-self: start;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+
+.building-card-more:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .building-status.is-running,
 .loading.is-running,
 #status.is-running,
@@ -1577,6 +1835,17 @@ kbd {
     right: auto;
     left: 16px;
   }
+
+  .building-card,
+  .presentation .presentation-panel {
+    right: 16px;
+    left: auto;
+  }
+
+  /* Beside the mini-map, which holds the left corner at this width. */
+  .presentation .presentation-panel {
+    width: min(380px, calc(100% - 360px));
+  }
 }
 
 .phone-only {
@@ -1728,6 +1997,33 @@ kbd {
     height: 150px;
   }
 
+  /* A sheet along the bottom edge; it says more than the status line, which it replaces. */
+  .building-card {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-height: 55%;
+  }
+
+  .canvas-wrap.has-building-card .building-status,
+  .canvas-wrap:has(#map-panel:not([hidden])) .building-status {
+    display: none;
+  }
+
+  /* Reviewing needs room: the card becomes a sheet like the details drawer. */
+  .building-card.is-reviewing {
+    position: fixed;
+    z-index: 1100;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-height: min(75dvh, 640px);
+    border-radius: 10px 10px 0 0;
+    box-shadow: 0 -8px 24px var(--shadow);
+  }
+
   .metadata a {
     grid-column: 1 / -1;
   }
@@ -1742,4 +2038,503 @@ kbd {
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+/* The previous panorama during a move to the next one: same box as the panorama canvas. */
+.transition-canvas {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+
+.transition-canvas[hidden] {
+  display: none;
+}
+
+.canvas-wrap.gliding .loading {
+  display: none;
+}
+
+/* Survey mode runs inside the normal viewer; the assistant's panel takes the building card's place. */
+.app-shell.presenting .building-card,
+.app-shell.presenting .building-status {
+  display: none;
+}
+
+.play-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+.play-button svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.play-button .stop-icon,
+.play-button[aria-pressed="true"] .play-icon {
+  display: none;
+}
+
+.play-button[aria-pressed="true"] .stop-icon {
+  display: inline;
+}
+
+.presentation {
+  position: absolute;
+  z-index: 25;
+  inset: 0;
+  pointer-events: none;
+}
+
+.presentation-hud {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  max-width: calc(100% - 32px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--overlay);
+  box-shadow: 0 8px 24px var(--shadow);
+  color: var(--text);
+  font-size: 0.8rem;
+  transform: translateX(-50%);
+  backdrop-filter: blur(6px);
+}
+
+.presentation-hud strong {
+  color: var(--accent);
+}
+
+.presentation-progress {
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.presentation-bar {
+  width: 120px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--border-subtle);
+}
+
+.presentation-bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  transition: width 600ms ease;
+}
+
+.presentation-badge {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.presentation-badge[hidden] {
+  display: none;
+}
+
+.presentation-keys {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+}
+
+.presentation.paused .presentation-keys::before {
+  color: var(--accent);
+  content: "Paused · ";
+  font-weight: 700;
+}
+
+.presentation-panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 96px);
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px var(--shadow);
+  font-size: 0.86rem;
+}
+
+.presentation-panel:empty {
+  display: none;
+}
+
+.presentation-thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.presentation-spark::before {
+  display: inline-block;
+  color: var(--accent);
+  content: "✻";
+  font-size: 1.05rem;
+  animation: presentation-spin 2.4s linear infinite;
+}
+
+.presentation-thinking-header.done .presentation-spark::before {
+  animation: none;
+  opacity: 0.7;
+}
+
+@keyframes presentation-spin {
+  to { transform: rotate(360deg); }
+}
+
+.presentation-shimmer {
+  background: linear-gradient(90deg, var(--text-faint) 0%, var(--text-faint) 35%, var(--text) 50%, var(--text-faint) 65%, var(--text-faint) 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 600;
+  animation: presentation-shimmer 2s linear infinite;
+}
+
+@keyframes presentation-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+
+.presentation-clock {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.presentation-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.presentation-status[hidden] {
+  display: none;
+}
+
+.presentation-status::before {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 2px solid rgb(236 186 116 / 30%);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: analysis-spinner 0.8s linear infinite;
+  content: "";
+}
+
+.presentation-subject {
+  margin-left: auto;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+}
+
+.presentation-thinking-body {
+  max-height: 56vh;
+  overflow: auto;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-subtle);
+  color: var(--text-soft);
+  line-height: 1.5;
+  transition: max-height 700ms ease, opacity 700ms ease;
+}
+
+.presentation-thinking-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+.presentation-thinking-body p {
+  margin: 0 0 10px;
+  white-space: pre-line;
+}
+
+.presentation-step.view::first-line {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.presentation-caret {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: var(--accent);
+  animation: presentation-blink 900ms steps(1) infinite;
+}
+
+@keyframes presentation-blink {
+  50% { opacity: 0; }
+}
+
+.presentation-decision {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.presentation-decision h3 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.presentation-decision dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.presentation-decision dt {
+  color: var(--text-muted);
+}
+
+.presentation-decision dd {
+  min-height: 1.4em;
+  margin: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.presentation-decision dd.typing {
+  border-color: var(--accent);
+}
+
+.presentation-decision dd.filled {
+  animation: presentation-filled 900ms ease;
+}
+
+@keyframes presentation-filled {
+  from { background: var(--surface-active); }
+}
+
+.presentation-gem {
+  margin: 0;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.presentation-save {
+  margin: 0;
+  font-weight: 600;
+}
+
+.presentation-save.saving {
+  color: var(--text-muted);
+}
+
+.presentation-save.saved {
+  color: #0ca30c;
+}
+
+.presentation-save.flagged {
+  color: #c98500;
+}
+
+.presentation-cursor {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 2 L4 20 L9 15 L12.5 22 L15.5 20.6 L12 14 L19 14 Z' fill='white' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
+  transition: opacity 300ms ease;
+}
+
+.presentation-cursor.visible {
+  opacity: 1;
+}
+
+.presentation-cursor.clicking::after {
+  position: absolute;
+  top: -14px;
+  left: -14px;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  animation: presentation-click 600ms ease-out forwards;
+  content: "";
+}
+
+@keyframes presentation-click {
+  from { opacity: 1; transform: scale(0.3); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presentation-spark::before,
+  .presentation-shimmer,
+  .presentation-caret { animation-duration: 6s; }
+}
+
+@media (max-width: 760px) {
+  .presentation .presentation-panel {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-height: calc(100% - 16px);
+  }
+
+  /* The panorama is short on a phone: the assistant's panel gets it all. */
+  .presentation-hud {
+    display: none;
+  }
+
+  .presentation-keys,
+  .presentation-hud strong {
+    display: none;
+  }
+}
+
+/* Assistant tab: model status, the conversation about the selected building, and its input. */
+.assistant-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assistant-status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.assistant-status.unavailable {
+  padding: 6px 8px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-hover);
+  color: var(--text-soft);
+}
+
+.assistant-building {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.assistant-log {
+  display: grid;
+  min-height: 120px;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 8px;
+  margin: 0;
+  overflow: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.assistant-entry {
+  padding: 7px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.assistant-entry.user {
+  margin-left: 24px;
+  background: var(--surface-active);
+}
+
+.assistant-entry.failed {
+  border-color: var(--danger-border);
+}
+
+.assistant-entry-title {
+  margin: 0 0 3px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.assistant-entry-body {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.assistant-entry.pending .assistant-entry-body::after {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: var(--accent);
+  animation: presentation-blink 900ms steps(1) infinite;
+  content: "";
+}
+
+.assistant-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: end;
+}
+
+.assistant-form textarea {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 5px 7px;
+  resize: vertical;
 }

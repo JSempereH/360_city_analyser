@@ -4,6 +4,10 @@ import { coordinatesOf, destinationPoint, geometryCentroid, mergeBuildingFootpri
 import { editableRings, startFootprintEdit } from "./footprint-editor.mjs";
 import { bearingCenter, buildReviewQueue, preservedIndex, REVIEW_KINDS, stepIndex } from "./review-queue.mjs";
 import { wallHeight, wallPolylines } from "./wall-projection.mjs";
+import { attributeRows, gemRow, observationItems, reviewFormValues, reviewOptions, reviewStatus } from "./building-card.mjs";
+import { attributeClass, attributeLabel, COLOR_MODES, legendItems } from "./attribute-map.mjs";
+import { startPresentation } from "./presentation.mjs";
+import { answerLine, boldSpans, framingOf, streamEvents, visibleReasoning } from "./assistant.mjs";
 
 const elements = {
   analyzeBuildingsButton: document.querySelector("#analyze-buildings-button"),
@@ -11,6 +15,44 @@ const elements = {
   analyzeDatasetButton: document.querySelector("#analyze-dataset-button"),
   analyzeMapViewButton: document.querySelector("#analyze-map-view-button"),
   buildingStatus: document.querySelector("#building-status"),
+  buildingCard: document.querySelector("#building-card"),
+  buildingCardAttributes: document.querySelector("#building-card-attributes"),
+  buildingCardClose: document.querySelector("#building-card-close"),
+  buildingCardMessage: document.querySelector("#building-card-message"),
+  buildingCardMore: document.querySelector("#building-card-more"),
+  buildingCardObservations: document.querySelector("#building-card-observations"),
+  buildingCardTitle: document.querySelector("#building-card-title"),
+  buildingCardWhy: document.querySelector("#building-card-why"),
+  buildingCardReview: document.querySelector("#building-card-review"),
+  buildingCardReviewStatus: document.querySelector("#building-card-review-status"),
+  buildingCardReviewForm: document.querySelector("#building-card-review-form"),
+  buildingCardReviewMessage: document.querySelector("#building-card-review-message"),
+  buildingCardReviewCancel: document.querySelector("#building-card-review-cancel"),
+  buildingCardReviewWithdraw: document.querySelector("#building-card-review-withdraw"),
+  reviewGemMaterial: document.querySelector("#review-gem-material"),
+  reviewGemLlrs: document.querySelector("#review-gem-llrs"),
+  reviewFloors: document.querySelector("#review-floors"),
+  reviewNote: document.querySelector("#review-note"),
+  reviewEvaluation: document.querySelector("#review-evaluation"),
+  reviewBuildingType: document.querySelector("#review-building-type"),
+  reviewSurfaceMaterial: document.querySelector("#review-surface-material"),
+  reviewConstructionYear: document.querySelector("#review-construction-year"),
+  assistantStatus: document.querySelector("#assistant-status"),
+  assistantBuilding: document.querySelector("#assistant-building"),
+  assistantAnalyzeButton: document.querySelector("#assistant-analyze-button"),
+  assistantEditButton: document.querySelector("#assistant-edit-button"),
+  assistantLog: document.querySelector("#assistant-log"),
+  assistantForm: document.querySelector("#assistant-form"),
+  assistantInput: document.querySelector("#assistant-input"),
+  assistantSendButton: document.querySelector("#assistant-send-button"),
+  attributeColorSelect: document.querySelector("#attribute-color-select"),
+  mapLegend: document.querySelector("#map-legend"),
+  mapLegendTitle: document.querySelector("#map-legend-title"),
+  mapLegendItems: document.querySelector("#map-legend-items"),
+  buildingAttributesButton: document.querySelector("#building-attributes-button"),
+  canvasWrap: document.querySelector("#canvas-wrap"),
+  transitionCanvas: document.querySelector("#transition-canvas"),
+  presentationButton: document.querySelector("#presentation-button"),
   canvas: document.querySelector("#panorama-canvas"),
   projectionOverlay: document.querySelector("#projection-overlay"),
   footprintUndoButton: document.querySelector("#footprint-undo-button"),
@@ -108,7 +150,7 @@ const elements = {
   tabs: [...document.querySelectorAll('.panel-tabs [role="tab"]')],
 };
 
-const PANEL_TABS = ["building", "review", "jobs"];
+const PANEL_TABS = ["building", "review", "assistant", "jobs"];
 const PREFERENCES_KEY = "viewer-preferences";
 
 // Per-viewer conveniences: theme, panel state, open tab and map visibility.
@@ -194,14 +236,14 @@ const fragmentShaderSource = `
     // fill plus an outline, so one building stands out on dark facades too.
     float fillStrength = mix(0.26, 0.42, selectionEmphasis);
     vec4 color = mix(completedColor, vec4(1.0, 0.57, 0.12, 1.0), selected * fillStrength);
-    if (selectionEmphasis > 0.5 && selectionVisible > 0.5) {
+    if (selectionEmphasis > 0.5 && selectionVisible > 0.01) {
       vec2 texel = 1.5 / maskSize;
       float neighbors = texture2D(selectionMask, panoramaUv + vec2(texel.x, 0.0)).r
         + texture2D(selectionMask, panoramaUv - vec2(texel.x, 0.0)).r
         + texture2D(selectionMask, panoramaUv + vec2(0.0, texel.y)).r
         + texture2D(selectionMask, panoramaUv - vec2(0.0, texel.y)).r;
       float outline = selected * step(0.5, 4.0 - neighbors);
-      color = mix(color, vec4(1.0, 0.86, 0.55, 1.0), outline);
+      color = mix(color, vec4(1.0, 0.86, 0.55, 1.0), outline * selectionVisible);
     }
     gl_FragColor = color;
   }
@@ -225,12 +267,51 @@ const MAP_BEAM_DISTANCE_M = 20;
 const ASSUMED_CAMERA_HEIGHT_M = 2.1;
 let activeTexture = null;
 let selectionTexture = null;
+// A new selection mask fades in instead of appearing at once.
+let maskOpacity = 1;
+let maskFadeFrame = null;
+
+function fadeInMask(durationMs = 500) {
+  window.cancelAnimationFrame(maskFadeFrame);
+  const started = performance.now();
+  const step = (now) => {
+    maskOpacity = Math.min(1, (now - started) / durationMs);
+    render();
+    if (maskOpacity < 1) maskFadeFrame = window.requestAnimationFrame(step);
+  };
+  maskOpacity = 0;
+  maskFadeFrame = window.requestAnimationFrame(step);
+}
 let vegetationTexture = null;
 let selectionIsSingleBuilding = false;
 let selectionMaskSize = [2048, 1024];
 let currentAnalysis = null;
 let currentSfmRefinement = null;
 let selectedBuildingId = null;
+let buildingCardRequest = 0;
+// The card closed by the user stays closed for that building until it is reopened or another one is selected.
+let dismissedBuildingCard = null;
+let renderedBuildingCard = null;
+// The card on screen (for the review form) and the dataset's attribute summary (map colors, review queue).
+let currentBuildingCard = null;
+// A review form asked for before its building's card had loaded.
+let pendingReviewForm = null;
+let attributeSummary = null;
+let attributeSummaryRequest = 0;
+let attributeSummaryTimer = null;
+// A survey may be writing while the viewer is open: colors refresh this often.
+const ATTRIBUTE_SUMMARY_REFRESH_MS = 60_000;
+// The assistant (model status, one chat per building, the request in flight).
+let assistantStatus = null;
+const chatHistories = new Map();
+let assistantRequest = null;
+// Presentation mode: the running controller, and the buildings it has "saved" (only those are colored).
+let presentation = null;
+let presentationLive = null;
+// Resolved when the next panorama texture is on screen (smooth transitions wait for it).
+const textureWaiters = [];
+let presentationRevealed = null;
+let presentationRestore = null;
 const LAYER_DEFAULTS = { masks: true, vegetation: true, instances: false, footprints: true, captures: true, view: true, diagnostics: true, coverage: false };
 const LAYERS_KEY = "viewer-layers";
 const layers = { ...LAYER_DEFAULTS, ...storedLayers() };
@@ -309,7 +390,12 @@ function syncViewerUrl() {
     fovDeg: fov,
     reviewKey: !elements.sidePanel.hidden && currentPanelTab() === "review" ? reviewQueue[reviewIndex]?.key : null,
   });
-  window.history.replaceState(null, "", `${window.location.pathname}${search}`);
+  // A reload during a presentation resumes it.
+  const current = new URLSearchParams(window.location.search);
+  const presenting = presentation
+    ? `${search ? "&" : "?"}present=1${["speed", "min-score", "then"].map((name) => current.get(name) ? `&${name}=${encodeURIComponent(current.get(name))}` : "").join("")}`
+    : "";
+  window.history.replaceState(null, "", `${window.location.pathname}${search}${presenting}`);
 }
 
 function coordinateLabel(image) {
@@ -389,7 +475,7 @@ function render() {
   gl.uniform1f(uniforms.yaw, yaw);
   gl.uniform1f(uniforms.pitch, pitch);
   gl.uniform1f(uniforms.fov, fov);
-  gl.uniform1f(uniforms.selectionVisible, selectionTexture && layers.masks ? 1 : 0);
+  gl.uniform1f(uniforms.selectionVisible, selectionTexture && layers.masks ? maskOpacity : 0);
   gl.uniform1f(uniforms.vegetationVisible, vegetationTexture && layers.vegetation ? 1 : 0);
   gl.uniform1f(uniforms.instanceVisible, instanceTexture && layers.instances ? 1 : 0);
   gl.uniform1f(uniforms.selectionEmphasis, selectionIsSingleBuilding ? 1 : 0);
@@ -517,6 +603,7 @@ function uploadSelectionMask(source, singleBuilding = false) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   if (selectionTexture) gl.deleteTexture(selectionTexture);
   selectionTexture = texture;
+  fadeInMask();
   gl.activeTexture(gl.TEXTURE0);
   render();
 }
@@ -1473,14 +1560,32 @@ async function loadBuildingFootprints(coordinates) {
   return features;
 }
 
+function attributeColorMode() {
+  // The presentation colors by structure without changing the viewer's saved choice.
+  if (presentationRevealed) return "gem_material";
+  const mode = preferences().attributeColors;
+  return mode in COLOR_MODES ? mode : "none";
+}
+
+function attributeStyle(feature, selected) {
+  const mode = attributeColorMode();
+  if (mode === "none") return null;
+  const osmId = feature.properties?.osm_id;
+  const visible = !presentationRevealed || presentationRevealed.has(osmId);
+  const group = visible ? attributeClass(mode, attributeSummary?.buildings?.[osmId]) : null;
+  // Buildings the survey has not reached stay faint, so colored ones read as the result.
+  if (!group) return { color: selected ? "#fff" : "#898781", fillColor: "#898781", fillOpacity: 0.06, weight: selected ? 3 : 1 };
+  return { color: selected ? "#fff" : "#3d3d3a", fillColor: group.color, fillOpacity: group.key === "undetermined" ? 0.3 : 0.72, weight: selected ? 3 : 1 };
+}
+
 function buildingStyle(feature) {
   const selected = feature.properties?.osm_id === selectedBuildingId;
   const directlyVisible = !currentAnalysis || analysisHasBuilding(feature.properties?.osm_id);
-  const style = selected
+  const style = attributeStyle(feature, selected) || (selected
     ? { color: "#fff", fillColor: "#ff8a2a", fillOpacity: 0.58, weight: 3 }
     : !directlyVisible
       ? { color: "#59685f", fillColor: "#59685f", fillOpacity: 0.08, weight: 1 }
-      : { color: "#d47a36", fillColor: "#ecba74", fillOpacity: 0.28, weight: 1 };
+      : { color: "#d47a36", fillColor: "#ecba74", fillOpacity: 0.28, weight: 1 });
   // Dashed outlines mark geometry that differs from what OpenStreetMap serves.
   if (feature.properties?.footprint_correction) return { ...style, dashArray: "6 4", weight: Math.max(style.weight, 2) };
   if (feature.properties?.footprint_correction_stale) return { ...style, color: "#c0392b", dashArray: "2 4", weight: 2 };
@@ -1488,7 +1593,418 @@ function buildingStyle(feature) {
 }
 
 function refreshBuildingStyles() {
-  buildingLayer?.eachLayer((layer) => layer.setStyle(buildingStyle(layer.feature)));
+  const mode = attributeColorMode();
+  buildingLayer?.eachLayer((layer) => {
+    layer.setStyle(buildingStyle(layer.feature));
+    // Colors are below 3:1 on the tiles, so the value is also written: hover shows the GEM string.
+    const osmId = layer.feature?.properties?.osm_id;
+    if (mode === "none" || !osmId) layer.unbindTooltip();
+    else if (presentationRevealed && !presentationRevealed.has(osmId)) layer.unbindTooltip();
+    else layer.bindTooltip(attributeLabel(mode, osmId, attributeSummary?.buildings?.[osmId]), { sticky: true, direction: "top" });
+  });
+}
+
+function renderMapLegend() {
+  const mode = attributeColorMode();
+  // During a presentation the legend grows with the buildings the assistant has saved.
+  const shown = presentationRevealed && attributeSummary
+    ? { ...attributeSummary, buildings: Object.fromEntries(Object.entries(attributeSummary.buildings).filter(([osmId]) => presentationRevealed.has(osmId))) }
+    : attributeSummary;
+  const items = legendItems(mode, shown);
+  elements.mapLegend.hidden = mode === "none";
+  if (mode === "none") return;
+  const counts = presentationRevealed ? { buildings: presentationRevealed.size, reviewed: 0 } : attributeSummary?.counts;
+  elements.mapLegendTitle.textContent = counts
+    ? `${COLOR_MODES[mode]} · ${counts.buildings} ${presentationRevealed ? "saved" : "surveyed"}${counts.reviewed ? `, ${counts.reviewed} reviewed` : ""}`
+    : `${COLOR_MODES[mode]} · loading...`;
+  const empty = presentationRevealed ? "Colors appear as buildings are saved" : "No building surveyed yet: run city-analyser-survey";
+  elements.mapLegendItems.replaceChildren(...(items.length ? items : [{ label: counts ? empty : "", color: null }])
+    .filter((item) => item.label)
+    .map((item) => {
+      const entry = document.createElement("li");
+      if (item.color) {
+        const swatch = document.createElement("span");
+        swatch.className = "legend-swatch";
+        swatch.style.background = item.color;
+        entry.append(swatch);
+      }
+      const label = document.createElement("span");
+      label.textContent = item.count ? `${item.label} (${item.count})` : item.label;
+      entry.append(label);
+      return entry;
+    }));
+}
+
+async function loadAttributeSummary() {
+  window.clearTimeout(attributeSummaryTimer);
+  const requestId = ++attributeSummaryRequest;
+  const requestedDataset = datasetId;
+  if (!requestedDataset) return;
+  try {
+    const response = await fetch(`/api/datasets/${encodeURIComponent(requestedDataset)}/building-attributes`);
+    if (!response.ok) throw new Error(`status ${response.status}`);
+    const summary = await response.json();
+    if (requestId !== attributeSummaryRequest || requestedDataset !== datasetId) return;
+    attributeSummary = summary;
+  } catch (error) {
+    if (requestId === attributeSummaryRequest) console.warn(`Attribute summary unavailable: ${error.message}`);
+  }
+  if (requestId !== attributeSummaryRequest) return;
+  refreshBuildingStyles();
+  renderMapLegend();
+  rebuildReviewQueue();
+  if (attributeColorMode() !== "none") attributeSummaryTimer = window.setTimeout(loadAttributeSummary, ATTRIBUTE_SUMMARY_REFRESH_MS);
+}
+
+async function loadAssistantStatus() {
+  try {
+    const response = await fetch("/api/assistant");
+    assistantStatus = response.ok ? await response.json() : { available: false };
+  } catch {
+    assistantStatus = { available: false };
+  }
+  renderAssistant();
+}
+
+function chatKey(osmId = selectedBuildingId) {
+  return `${datasetId}|${osmId}`;
+}
+
+function logEntry(kind, title = "") {
+  const item = document.createElement("li");
+  item.className = `assistant-entry ${kind}`;
+  if (title) {
+    const heading = document.createElement("p");
+    heading.className = "assistant-entry-title";
+    heading.textContent = title;
+    item.append(heading);
+  }
+  const body = document.createElement("p");
+  body.className = "assistant-entry-body";
+  item.append(body);
+  elements.assistantLog.append(item);
+  elements.assistantLog.scrollTop = elements.assistantLog.scrollHeight;
+  return body;
+}
+
+// A model answer as text nodes, with **bold** shown as bold.
+function setRichText(element, text) {
+  element.replaceChildren(...boldSpans(text).map((span) => {
+    if (!span.bold) return document.createTextNode(span.text);
+    const strong = document.createElement("strong");
+    strong.textContent = span.text;
+    return strong;
+  }));
+}
+
+function renderAssistant() {
+  const available = Boolean(assistantStatus?.available);
+  const busy = Boolean(assistantRequest);
+  elements.assistantStatus.textContent = !assistantStatus ? "Checking the assistant..."
+    : available ? `Model: ${assistantStatus.model} (${assistantStatus.backend === "openai" ? "server" : "in this process"})`
+      : assistantStatus.help || "No model is configured.";
+  elements.assistantStatus.classList.toggle("unavailable", Boolean(assistantStatus) && !available);
+  elements.assistantBuilding.textContent = selectedBuildingId || "No building selected";
+  elements.assistantAnalyzeButton.disabled = !available || !selectedBuildingId || busy;
+  elements.assistantEditButton.disabled = !selectedBuildingId || !currentBuildingCard;
+  elements.assistantInput.disabled = !available || !selectedBuildingId;
+  elements.assistantSendButton.disabled = !available || !selectedBuildingId || busy;
+  elements.assistantSendButton.textContent = busy ? "Working..." : "Send";
+  if (busy) return;
+  const history = chatHistories.get(chatKey()) || [];
+  elements.assistantLog.replaceChildren();
+  // Analyses stay in the building's log; the server reads only the user and assistant turns.
+  const titles = { user: "You", assistant: "Assistant", analysis: "Analysis" };
+  history.forEach((message) => {
+    // An analysis transcript carries its own titles.
+    setRichText(logEntry(message.role === "user" ? "user" : "assistant", message.role === "analysis" ? "" : titles[message.role]), message.content);
+  });
+}
+
+async function sendChat(event) {
+  event.preventDefault();
+  const text = elements.assistantInput.value.trim();
+  const osmId = selectedBuildingId;
+  if (!text || !osmId || assistantRequest) return;
+  const key = chatKey(osmId);
+  const history = [...(chatHistories.get(key) || []), { role: "user", content: text }];
+  chatHistories.set(key, history);
+  elements.assistantInput.value = "";
+  renderAssistant();
+  assistantRequest = new AbortController();
+  renderAssistant();
+  const answer = logEntry("assistant pending", "Assistant");
+  let reply = "";
+  try {
+    await streamEvents(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}/chat`, { messages: history }, (message) => {
+      if (message.type === "text") {
+        reply += message.text;
+        setRichText(answer, reply);
+        elements.assistantLog.scrollTop = elements.assistantLog.scrollHeight;
+      }
+      if (message.type === "error") throw new Error(message.error);
+    }, { signal: assistantRequest.signal });
+    chatHistories.set(key, [...history, { role: "assistant", content: reply || "(no answer)" }]);
+  } catch (error) {
+    answer.textContent = `The assistant could not answer: ${error.message}`;
+    answer.closest("li").classList.add("failed");
+  } finally {
+    answer.closest("li").classList.remove("pending");
+    assistantRequest = null;
+    renderAssistant();
+  }
+}
+
+// Turn the camera smoothly (Street View style: pan, then tilt, then zoom).
+async function tweenCamera(target, durationMs = 900) {
+  const start = presentationCamera();
+  const delta = ((target.yawDeg - start.yawDeg + 540) % 360) - 180;
+  const begin = performance.now();
+  await new Promise((resolve) => {
+    const frame = (now) => {
+      const t = Math.min(1, (now - begin) / durationMs);
+      const ease = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+      setPresentationCamera({
+        yawDeg: start.yawDeg + delta * ease,
+        pitchDeg: start.pitchDeg + (target.pitchDeg - start.pitchDeg) * ease,
+        fov: start.fov + (target.fov - start.fov) * ease,
+      });
+      if (t < 1) window.requestAnimationFrame(frame);
+      else resolve();
+    };
+    window.requestAnimationFrame(frame);
+  });
+}
+
+
+/** Ask the model about the selected building now; the camera follows the view it reads and its notes stream in. */
+async function analyzeNow() {
+  const osmId = selectedBuildingId;
+  if (!osmId || assistantRequest || !assistantStatus?.available) return;
+  openPanelTab("assistant");
+  assistantRequest = new AbortController();
+  renderAssistant();
+  const status = logEntry("assistant pending", "Analysis");
+  status.textContent = "Preparing the views...";
+  let current = null;
+  let raw = "";
+  const cameraMoves = [];
+  const key = chatKey(osmId);
+  // The status entry above is the first entry of this analysis.
+  const firstEntry = elements.assistantLog.children.length - 1;
+  try {
+    await streamEvents(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}/analyze`, {}, (message) => {
+      if (message.type === "start") status.textContent = `${message.model} is reading ${message.views} view${message.views === 1 ? "" : "s"}.`;
+      if (message.type === "view") {
+        raw = "";
+        current = logEntry("assistant", `View ${message.index + 1}`);
+        current.textContent = "Looking...";
+        const reference = message.reference || {};
+        cameraMoves.push((async () => {
+          if (reference.image_id && String(reference.image_id) !== String(images[currentIndex]?.id)) await glideToImage(reference.image_id);
+          const framing = framingOf(reference.view);
+          if (framing) await tweenCamera(framing);
+        })());
+      }
+      if (message.type === "text" && current) {
+        raw += message.text;
+        current.textContent = visibleReasoning(raw) || "Looking...";
+        elements.assistantLog.scrollTop = elements.assistantLog.scrollHeight;
+      }
+      if (message.type === "answer" && current) {
+        const line = message.error ? `No usable answer: ${message.error}` : answerLine(message.answer);
+        if (line) current.textContent = `${visibleReasoning(raw) || ""}\n→ ${line}`.trim();
+      }
+      if (message.type === "done") {
+        status.textContent = `Saved: ${message.card.gem.string}. The card now shows this answer; correct it with Edit values if needed.`;
+        if (selectedBuildingId === osmId) fillBuildingCard(message.card);
+        loadAttributeSummary();
+      }
+      if (message.type === "error") throw new Error(message.error);
+    }, { signal: assistantRequest.signal });
+  } catch (error) {
+    status.textContent = `Analysis failed: ${error.message}`;
+    status.closest("li").classList.add("failed");
+  } finally {
+    status.closest("li").classList.remove("pending");
+    // Kept with the conversation, so the log survives the redraw and a later question can refer to it.
+    const transcript = [...elements.assistantLog.children].slice(firstEntry)
+      .map((entry) => [...entry.children].map((part) => part.textContent.trim()).filter(Boolean).join("\n")).join("\n\n");
+    chatHistories.set(key, [...(chatHistories.get(key) || []), { role: "analysis", content: transcript }]);
+    await Promise.allSettled(cameraMoves);
+    assistantRequest = null;
+    renderAssistant();
+  }
+}
+
+function editValues() {
+  if (!currentBuildingCard) return;
+  showBuildingCard();
+  window.setTimeout(openReviewForm, 0);
+}
+
+function presentationCamera() {
+  return { yawDeg: yaw * 180 / Math.PI, pitchDeg: pitch * 180 / Math.PI, fov };
+}
+
+function setPresentationCamera(view) {
+  yaw = (((view.yawDeg + 180) % 360 + 360) % 360 - 180) * Math.PI / 180;
+  pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, view.pitchDeg * Math.PI / 180));
+  fov = Math.max(30, Math.min(110, view.fov));
+  render();
+  scheduleViewIndicator();
+}
+
+// Yaw (degrees) that faces a footprint's centroid from the current panorama, when no crop framing is known.
+function yawToBuilding(osmId) {
+  const image = images[currentIndex];
+  const centroid = geometryCentroid(featureById(osmId)?.geometry);
+  const camera = coordinatesOf(image);
+  const heading = recordedHeading(image);
+  if (!centroid || !camera || heading === null) return null;
+  return signedDegrees(bearingDegrees(camera, centroid) - heading);
+}
+
+function headingOf(image) {
+  const heading = recordedHeading(image);
+  return heading === null ? 0 : heading;
+}
+
+function nextTexture(timeoutMs = 10_000) {
+  return new Promise((resolve) => {
+    textureWaiters.push(resolve);
+    window.setTimeout(resolve, timeoutMs);
+  });
+}
+
+// Street View style move to another capture: the view keeps its compass direction, and the old
+// panorama fades out while it grows a little, as if stepping forward into the new one.
+async function glideToImage(imageId) {
+  const index = images.findIndex((image) => String(image.id) === String(imageId));
+  if (index < 0 || index === currentIndex) return;
+  const bearing = yaw * 180 / Math.PI + headingOf(images[currentIndex]);
+  render();
+  const snapshot = elements.transitionCanvas;
+  snapshot.width = elements.canvas.width;
+  snapshot.height = elements.canvas.height;
+  snapshot.getContext("2d").drawImage(elements.canvas, 0, 0);
+  snapshot.style.transition = "none";
+  snapshot.style.opacity = "1";
+  snapshot.style.transform = "scale(1)";
+  snapshot.hidden = false;
+  elements.canvasWrap.classList.add("gliding");
+  const loaded = nextTexture();
+  yaw = signedDegrees(bearing - headingOf(images[index])) * Math.PI / 180;
+  selectImage(index);
+  await loaded;
+  await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+  snapshot.style.transition = "opacity 800ms ease-in-out, transform 1000ms ease-out";
+  snapshot.style.opacity = "0";
+  snapshot.style.transform = "scale(1.15)";
+  await new Promise((resolve) => window.setTimeout(resolve, 1000));
+  snapshot.hidden = true;
+  elements.canvasWrap.classList.remove("gliding");
+}
+
+// Yaw (degrees, relative to the current panorama) that faces another capture.
+function yawToImage(imageId) {
+  const target = images.find((image) => String(image.id) === String(imageId));
+  const here = images[currentIndex];
+  const from = coordinatesOf(here);
+  const to = coordinatesOf(target);
+  if (!from || !to || !target) return null;
+  return signedDegrees(bearingDegrees(from, to) - headingOf(here));
+}
+
+function startPresentationMode() {
+  if (presentation || !datasetId) return;
+  const parameters = new URLSearchParams(window.location.search);
+  const speed = Number(parameters.get("speed"));
+  const minScore = Number(parameters.get("min-score"));
+  const presentationDatasets = [datasetId];
+  presentation = startPresentation({
+    host: elements.canvasWrap,
+    datasetId: () => datasetId,
+    // ?then=a,b continues the presentation with other datasets, in a cycle that returns to the first.
+    nextDataset: async (go) => {
+      const cycle = [presentationDatasets[0], ...(parameters.get("then") || "").split(",").map((name) => name.trim()).filter((name) => datasets.some((item) => item.id === name))];
+      if (cycle.length < 2) return null;
+      const next = cycle[(cycle.indexOf(datasetId) + 1) % cycle.length];
+      if (go) {
+        elements.datasetSelect.value = next;
+        await loadDataset(next);
+        presentationRevealed = new Set();
+        renderMapLegend();
+      }
+      return next;
+    },
+    imageIds: () => images.map((image) => String(image.id)),
+    currentImageId: () => String(images[currentIndex]?.id),
+    showImage: (imageId) => glideToImage(imageId),
+    yawToImage,
+    selectBuilding: (osmId) => selectBuilding(osmId, true, false),
+    fetchSummary: async () => {
+      const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes`);
+      if (!response.ok) throw new Error(`attribute summary unavailable (${response.status})`);
+      attributeSummary = await response.json();
+      return attributeSummary;
+    },
+    fetchCard: async (osmId) => {
+      const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}`);
+      return response.ok ? response.json() : null;
+    },
+    // Live when a model is configured (unless the URL says live=0): the model analyzes each building now.
+    liveModel: () => (assistantStatus?.available && parameters.get("live") !== "0" ? assistantStatus.model : null),
+    analyzeLive: async (osmId, onEvent) => {
+      presentationLive = new AbortController();
+      try {
+        await streamEvents(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}/analyze`, {}, onEvent, { signal: presentationLive.signal });
+      } finally {
+        presentationLive = null;
+        loadAttributeSummary();
+      }
+    },
+    cancelLive: () => presentationLive?.abort(),
+    getCamera: presentationCamera,
+    setCamera: setPresentationCamera,
+    bearingToBuilding: yawToBuilding,
+    revealBuilding: (osmId) => {
+      presentationRevealed?.add(osmId);
+      refreshBuildingStyles();
+      renderMapLegend();
+    },
+    // The survey runs inside the normal viewer: only the building card and status line make room.
+    enter: () => {
+      presentationRestore = { map: !elements.mapPanel.hidden };
+      presentationRevealed = new Set();
+      elements.appShell.classList.add("presenting");
+      elements.presentationButton.setAttribute("aria-pressed", "true");
+      elements.presentationButton.querySelector("span").textContent = "Stop survey";
+      if (!PHONE_QUERY.matches) setMapPanelVisible(true, false);
+      refreshBuildingStyles();
+      renderMapLegend();
+    },
+    exit: () => {
+      presentation = null;
+      presentationRevealed = null;
+      elements.appShell.classList.remove("presenting");
+      elements.presentationButton.setAttribute("aria-pressed", "false");
+      elements.presentationButton.querySelector("span").textContent = "Run survey";
+      if (presentationRestore) setMapPanelVisible(presentationRestore.map, false);
+      refreshBuildingStyles();
+      renderMapLegend();
+      syncViewerUrl();
+    },
+  }, { speed: Number.isFinite(speed) && speed > 0 ? speed : 1, minScore: Number.isFinite(minScore) && parameters.has("min-score") ? minScore : 0.03 });
+  syncViewerUrl();
+}
+
+function setAttributeColorMode(mode) {
+  savePreference("attributeColors", mode in COLOR_MODES ? mode : "none");
+  elements.attributeColorSelect.value = attributeColorMode();
+  refreshBuildingStyles();
+  renderMapLegend();
+  loadAttributeSummary();
 }
 
 function applyAnalysisFootprints() {
@@ -1676,8 +2192,234 @@ function selectBuilding(osmId, broadcast = true, focus = false) {
   updateReportButton();
   updateMaskToggle();
   renderBuildingPanel();
+  renderBuildingCard();
+  renderAssistant();
   syncViewerUrl();
   if (broadcast) broadcastMapWindowState();
+}
+
+function setBuildingCardVisible(visible) {
+  elements.buildingCard.hidden = !visible;
+  elements.canvasWrap.classList.toggle("has-building-card", visible);
+}
+
+function fillBuildingCard(card) {
+  currentBuildingCard = card;
+  elements.assistantEditButton.disabled = false;
+  const status = reviewStatus(card);
+  elements.buildingCardReviewStatus.textContent = status;
+  elements.buildingCardReviewStatus.hidden = !status;
+  elements.buildingCardReview.hidden = false;
+  elements.buildingCardReview.textContent = card.review ? "Change review" : "Review";
+  if (pendingReviewForm === card.building) {
+    pendingReviewForm = null;
+    window.setTimeout(openReviewForm, 0);
+  }
+  const gem = gemRow(card);
+  const rows = attributeRows(card);
+  elements.buildingCardAttributes.replaceChildren(...(gem ? [{ ...gem, className: "gem" }] : []).concat(rows).flatMap((row) => {
+    const dt = document.createElement("dt");
+    dt.textContent = row.label;
+    const dd = document.createElement("dd");
+    dd.classList.toggle("abstained", Boolean(row.abstained));
+    if (row.className) dd.classList.add(row.className);
+    if (row.title) dd.title = row.title;
+    for (const [className, text] of [["value", row.value], ["source", row.source], ["note", row.note]]) {
+      if (!text) continue;
+      const span = document.createElement("span");
+      span.className = className;
+      span.textContent = text;
+      dd.append(span);
+    }
+    return [dt, dd];
+  }));
+  const observations = observationItems(card);
+  elements.buildingCardObservations.replaceChildren(...observations.map((item) => {
+    const li = document.createElement("li");
+    if (item.crop_url) {
+      const image = document.createElement("img");
+      image.src = item.crop_url;
+      image.alt = Number.isInteger(item.rank) ? `View ${item.rank} of the building` : "View of the building";
+      image.loading = "lazy";
+      // Crops are re-exported when better views arrive; a missing one just drops its thumbnail.
+      image.addEventListener("error", () => {
+        image.remove();
+        li.classList.add("no-image");
+      });
+      li.append(image);
+    } else {
+      li.classList.add("no-image");
+    }
+    const text = document.createElement("p");
+    text.textContent = item.text;
+    li.append(text);
+    return li;
+  }));
+  elements.buildingCardWhy.hidden = !observations.length;
+  elements.buildingCardMessage.textContent = rows.length ? "" : "No attribute could be determined for this building.";
+}
+
+// Attributes written by city-analyser-survey or city-analyser-attributes, for the selected building.
+async function renderBuildingCard() {
+  const osmId = selectedBuildingId;
+  const requestId = ++buildingCardRequest;
+  const key = osmId && `${datasetId}|${osmId}`;
+  elements.buildingAttributesButton.hidden = !osmId || dismissedBuildingCard !== osmId;
+  setBuildingCardVisible(Boolean(osmId) && dismissedBuildingCard !== osmId);
+  if (!osmId) {
+    renderedBuildingCard = null;
+    return;
+  }
+  if (renderedBuildingCard !== key) {
+    // Reloading the same building (another panorama) keeps its card instead of flashing a loading state.
+    closeReviewForm();
+    currentBuildingCard = null;
+    elements.buildingCardReview.hidden = true;
+    elements.buildingCardReviewStatus.hidden = true;
+    elements.buildingCardTitle.textContent = osmId;
+    elements.buildingCardMessage.textContent = "Loading attributes...";
+    elements.buildingCardAttributes.replaceChildren();
+    elements.buildingCardWhy.hidden = true;
+    elements.buildingCardWhy.open = false;
+  }
+  try {
+    const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}`);
+    if (requestId !== buildingCardRequest) return;
+    renderedBuildingCard = key;
+    if (response.status === 404) {
+      currentBuildingCard = null;
+      elements.buildingCardReview.hidden = true;
+      elements.buildingCardReviewStatus.hidden = true;
+      elements.buildingCardAttributes.replaceChildren();
+      elements.buildingCardWhy.hidden = true;
+      elements.buildingCardMessage.textContent = "Not surveyed yet. Run city-analyser-survey on this dataset to describe its structure, floors and use.";
+      return;
+    }
+    if (!response.ok) throw new Error(`status ${response.status}`);
+    const card = await response.json();
+    if (requestId !== buildingCardRequest) return;
+    fillBuildingCard(card);
+  } catch (error) {
+    if (requestId !== buildingCardRequest) return;
+    renderedBuildingCard = null;
+    elements.buildingCardMessage.textContent = `Attributes unavailable: ${error.message}`;
+  }
+}
+
+function fillSelect(select, options, value) {
+  const cannotTell = document.createElement("option");
+  cannotTell.value = "";
+  cannotTell.textContent = "Cannot tell from the imagery";
+  select.replaceChildren(cannotTell, ...options.map(([code, label]) => {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = label;
+    return option;
+  }));
+  select.value = value;
+}
+
+function openReviewForm() {
+  if (!currentBuildingCard) return;
+  const values = reviewFormValues(currentBuildingCard);
+  const options = reviewOptions(currentBuildingCard);
+  fillSelect(elements.reviewGemMaterial, options.gem_material, values.gem_material);
+  fillSelect(elements.reviewGemLlrs, options.gem_llrs, values.gem_llrs);
+  fillSelect(elements.reviewBuildingType, options.building_type, values.building_type);
+  fillSelect(elements.reviewSurfaceMaterial, options.surface_material, values.surface_material);
+  elements.reviewFloors.value = values.floors;
+  elements.reviewConstructionYear.value = values.construction_year;
+  elements.reviewEvaluation.checked = Boolean(currentBuildingCard.review?.evaluation);
+  // The earlier note stays visible in the status line; a new decision gets its own.
+  elements.reviewNote.value = "";
+  elements.buildingCardReviewMessage.textContent = "Starts from what the card shows; change what the imagery contradicts.";
+  elements.buildingCardReviewWithdraw.hidden = !currentBuildingCard.review;
+  elements.buildingCardReviewForm.hidden = false;
+  elements.buildingCard.classList.add("is-reviewing");
+  elements.buildingCardAttributes.hidden = true;
+  elements.buildingCardReview.hidden = true;
+  setBuildingCardVisible(true);
+  elements.reviewGemMaterial.focus();
+}
+
+function closeReviewForm() {
+  elements.buildingCardReviewForm.hidden = true;
+  elements.buildingCard.classList.remove("is-reviewing");
+  elements.buildingCardAttributes.hidden = false;
+  if (currentBuildingCard) elements.buildingCardReview.hidden = false;
+}
+
+async function sendAttributeReview(body, osmId = selectedBuildingId) {
+  if (!osmId) return null;
+  const reviewer = requireReviewerName();
+  if (!reviewer) {
+    elements.buildingCardReviewMessage.textContent = "Enter your name in the Review tab first; it is recorded with the review.";
+    return null;
+  }
+  const card = await footprintRequest(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}`, { ...body, reviewer });
+  if (selectedBuildingId === osmId) {
+    closeReviewForm();
+    fillBuildingCard(card);
+  }
+  loadAttributeSummary();
+  return card;
+}
+
+async function submitAttributeReview(event) {
+  event.preventDefault();
+  const number = (input) => (input.value.trim() === "" ? null : Number(input.value));
+  // An empty field records that the imagery cannot tell, like the model's own abstentions.
+  const values = {
+    gem_material: elements.reviewGemMaterial.value || null,
+    gem_llrs: elements.reviewGemLlrs.value || null,
+    floors: number(elements.reviewFloors),
+    building_type: elements.reviewBuildingType.value || null,
+    surface_material: elements.reviewSurfaceMaterial.value || null,
+    construction_year: number(elements.reviewConstructionYear),
+  };
+  try {
+    const card = await sendAttributeReview({ action: "review", values, note: elements.reviewNote.value, evaluation: elements.reviewEvaluation.checked });
+    if (card) showBuildingStatus(`Review saved: ${card.gem.string}`);
+  } catch (error) {
+    elements.buildingCardReviewMessage.textContent = `Review not saved: ${error.message}`;
+  }
+}
+
+async function withdrawAttributeReview() {
+  if (!window.confirm("Withdraw this review? It stays in the building's review history.")) return;
+  try {
+    const card = await sendAttributeReview({ action: "withdraw", note: elements.reviewNote.value });
+    if (card) showBuildingStatus("Review withdrawn; the card shows the model and OSM again.");
+  } catch (error) {
+    elements.buildingCardReviewMessage.textContent = `Not withdrawn: ${error.message}`;
+  }
+}
+
+// Confirm the values a queue item shows, without opening the form.
+async function confirmAttributeValues(osmId, values) {
+  const determined = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== null && value !== undefined));
+  if (!Object.keys(determined).length) {
+    // Nothing to confirm (a split vote): the reviewer has to choose.
+    reviewCurrentAction("edit");
+    return;
+  }
+  try {
+    const card = await sendAttributeReview({ action: "review", values: determined, note: "Confirmed from the review queue" }, osmId);
+    if (card) elements.footprintReviewMessage.textContent = `Confirmed ${card.building}: ${card.gem.string}`;
+  } catch (error) {
+    elements.footprintReviewMessage.textContent = `Not confirmed: ${error.message}`;
+  }
+}
+
+function dismissBuildingCard() {
+  dismissedBuildingCard = selectedBuildingId;
+  setBuildingCardVisible(false);
+  elements.buildingAttributesButton.hidden = !selectedBuildingId;
+}
+
+function showBuildingCard() {
+  dismissedBuildingCard = null;
+  renderBuildingCard();
 }
 
 async function updateMap(image) {
@@ -1759,7 +2501,8 @@ function centerMapOnCurrentCamera() {
   if (!coordinates) return;
   const [longitude, latitude] = coordinates;
   locationMap.invalidateSize({ pan: false });
-  locationMap.setView([latitude, longitude], 18, { animate: false });
+  // During a survey the map glides to the next capture with the camera, instead of jumping.
+  locationMap.setView([latitude, longitude], 18, presentation ? { animate: true, duration: 0.8 } : { animate: false });
 }
 
 function storedFootprintAuthor() {
@@ -1958,7 +2701,7 @@ async function refreshFootprintReview(announce = true) {
 
 function rebuildReviewQueue() {
   const previous = reviewQueue[reviewIndex];
-  reviewQueue = buildReviewQueue(reviewData.corrections, reviewData.issues, reviewFilters());
+  reviewQueue = buildReviewQueue(reviewData.corrections, reviewData.issues, reviewFilters(), attributeSummary?.dataset === datasetId ? attributeSummary : null);
   reviewIndex = preservedIndex(reviewQueue, previous?.key, reviewIndex);
   const pending = reviewData.corrections.reduce((total, record) => total + record.revisions.filter((revision) => revision.status === "proposed").length, 0);
   elements.reviewCount.textContent = String(pending);
@@ -1977,9 +2720,15 @@ function renderReviewQueue() {
     elements.reviewCurrentKind.textContent = REVIEW_KINDS[current.kind] || current.kind;
     elements.reviewCurrentLabel.textContent = current.label;
     elements.reviewCurrentDetail.textContent = current.detail;
-    elements.reviewAcceptButton.hidden = current.kind !== "proposal";
+    const structure = current.kind === "attributes";
+    elements.reviewAcceptButton.hidden = current.kind !== "proposal" && !structure;
+    elements.reviewAcceptButton.textContent = structure ? "Confirm" : "Accept";
+    elements.reviewAcceptButton.title = structure ? "Confirm the values shown as your review" : "";
     elements.reviewRejectButton.hidden = current.kind !== "proposal";
     elements.reviewEditButton.hidden = !current.osmId;
+    // Reviewing a structure needs no footprint editor, so it also works on a phone.
+    elements.reviewEditButton.classList.toggle("needs-large-screen", !structure);
+    elements.reviewEditButton.textContent = structure ? "Review" : "Edit footprint";
   }
   elements.reviewList.replaceChildren(...reviewQueue.map((item, index) => {
     const entry = document.createElement("li");
@@ -2026,6 +2775,10 @@ async function openReviewItem(item) {
   if (!item) return;
   endFootprintEdit();
   if (item.dataset && item.image) await showPanorama(item.dataset, item.image);
+  else if (item.kind === "attributes") {
+    await goToBestView(item.osmId);
+    return;
+  }
   if (item.osmId) {
     selectBuilding(item.osmId, true, true);
     const feature = featureById(item.osmId);
@@ -2075,6 +2828,19 @@ async function openLinkedReviewItem(key) {
 function reviewCurrentAction(action) {
   const current = reviewQueue[reviewIndex];
   if (!current) return;
+  if (current.kind === "attributes") {
+    if (action === "accept") confirmAttributeValues(current.osmId, current.values);
+    if (action === "edit") {
+      if (currentBuildingCard?.building === current.osmId && selectedBuildingId === current.osmId) {
+        openReviewForm();
+      } else {
+        pendingReviewForm = current.osmId;
+        if (selectedBuildingId !== current.osmId) openReviewItem(current);
+      }
+    }
+    if (action === "show") openReviewItem(current);
+    return;
+  }
   if (action === "accept" || action === "reject") {
     if (current.kind === "proposal") reviewFootprintCorrection(current.osmId, current.revision, action === "accept" ? "accepted" : "rejected");
     return;
@@ -2439,6 +3205,8 @@ function selectImage(index, reset = false) {
     if (loadId !== activeLoad) return;
     try {
       const texture = uploadTexture(textureImage);
+      render();
+      textureWaiters.splice(0).forEach((resolve) => resolve());
       elements.loading.hidden = true;
       setActivity(elements.loading, false);
       if (texture.reduced) {
@@ -2491,6 +3259,10 @@ async function loadDataset(nextDatasetId, target = null) {
     fov = Number.isFinite(target?.fovDeg) ? target.fovDeg : DEFAULT_FOV;
     selectedBuildingId = target?.buildingId || null;
     updateReportButton();
+    renderBuildingCard();
+    attributeSummary = null;
+    renderMapLegend();
+    loadAttributeSummary();
     const ready = selectImage(requestedIndex);
     refreshFootprintReview(false);
     loadCoverageStatus();
@@ -2630,6 +3402,31 @@ function bindInteraction() {
   elements.analyzeDatasetButton.addEventListener("click", () => startBatchAnalysis(false));
   elements.analyzeMapViewButton.addEventListener("click", () => startBatchAnalysis(true));
   elements.generateReportButton.addEventListener("click", generateBuildingReport);
+  elements.buildingCardClose.addEventListener("click", dismissBuildingCard);
+  elements.buildingCardMore.addEventListener("click", () => openPanelTab("building"));
+  elements.buildingAttributesButton.addEventListener("click", showBuildingCard);
+  elements.buildingCardReview.addEventListener("click", openReviewForm);
+  elements.assistantForm.addEventListener("submit", sendChat);
+  elements.assistantInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      elements.assistantForm.requestSubmit();
+    }
+  });
+  elements.assistantAnalyzeButton.addEventListener("click", analyzeNow);
+  elements.assistantEditButton.addEventListener("click", editValues);
+  elements.presentationButton.addEventListener("click", () => (presentation ? presentation.stop() : startPresentationMode()));
+  elements.buildingCardReviewCancel.addEventListener("click", closeReviewForm);
+  elements.buildingCardReviewWithdraw.addEventListener("click", withdrawAttributeReview);
+  elements.buildingCardReviewForm.addEventListener("submit", submitAttributeReview);
+  elements.attributeColorSelect.replaceChildren(...Object.entries(COLOR_MODES).map(([value, label]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    return option;
+  }));
+  elements.attributeColorSelect.value = attributeColorMode();
+  elements.attributeColorSelect.addEventListener("change", () => setAttributeColorMode(elements.attributeColorSelect.value));
   elements.footprintEditButton.addEventListener("click", () => setFootprintEditMode(!footprintEditMode));
   elements.footprintCancelButton.addEventListener("click", () => setFootprintEditMode(false));
   elements.footprintEditForm.addEventListener("submit", submitFootprintCorrection);
@@ -2721,6 +3518,10 @@ function bindInteraction() {
         return;
       }
     }
+    if (event.key === "Escape" && !elements.buildingCard.hidden && !document.querySelector("dialog[open]")) {
+      dismissBuildingCard();
+      return;
+    }
     if (event.key === "ArrowLeft") { event.preventDefault(); selectImage(currentIndex - 1); }
     if (event.key === "ArrowRight") { event.preventDefault(); selectImage(currentIndex + 1); }
     if (event.key.toLowerCase() === "r") resetView();
@@ -2733,6 +3534,8 @@ function bindInteraction() {
 }
 
 async function start() {
+  // Read before loading: loading a dataset rewrites the URL.
+  const presentRequested = new URLSearchParams(window.location.search).get("present") === "1";
   try {
     initializeRenderer();
     bindInteraction();
@@ -2744,6 +3547,8 @@ async function start() {
     if (PHONE_QUERY.matches || saved.map === false) setMapPanelVisible(false, false);
     setActivity(elements.loading, true);
     await loadAnalysisBackend();
+    // Awaited: a presentation started from the URL needs to know whether it can run live.
+    await loadAssistantStatus();
     const response = await fetch("/api/datasets");
     if (!response.ok) throw new Error("The local library could not be read.");
     const catalog = await response.json();
@@ -2761,6 +3566,7 @@ async function start() {
     elements.datasetSelect.value = first;
     await loadDataset(first, first === target.datasetId ? target : null);
     if (target.reviewKey) await openLinkedReviewItem(target.reviewKey);
+    if (presentRequested) startPresentationMode();
   } catch (error) {
     showError(`${error.message} Run uv run city-analyser-viewer and open http://127.0.0.1:8765/viewer/.`);
   }

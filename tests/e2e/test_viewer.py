@@ -164,14 +164,19 @@ class ViewerTests(unittest.TestCase):
         self.assertTrue(page.locator("#building-revert-button").is_visible())
         page.click("#building-revert-button")
         page.wait_for_function("document.querySelector('#building-status').textContent.includes('reverted') || document.querySelector('#building-status').textContent.includes('matched buildings')", timeout=60_000)
-        page.wait_for_timeout(1500)
-
         record = self.api("/api/footprint-corrections/way/102")
         self.assertEqual(record["revisions"][0]["status"], "reverted")
         self.assertEqual(record["revisions"][0]["revert_note"], "GPS error, not the footprint")
-        analysis = self.api(f"/api/datasets/{DATASET}/analysis/{FIRST}")
-        self.assertNotIn("way/102", analysis["footprint_sources"]["corrected"])
-        self.assertTrue(page.locator("#building-revert-button").is_hidden())
+        # Re-association runs as a background job: wait for its result, not for a fixed time.
+        import time
+
+        for _ in range(300):
+            if "way/102" not in self.api(f"/api/datasets/{DATASET}/analysis/{FIRST}")["footprint_sources"]["corrected"]:
+                break
+            time.sleep(0.1)
+        else:
+            self.fail("the re-association did not drop the reverted correction")
+        page.wait_for_function("document.querySelector('#building-revert-button').hidden", timeout=30_000)
 
     def test_split_turns_one_footprint_into_part_buildings(self) -> None:
         page = self.new_page()
@@ -223,6 +228,133 @@ class ViewerTests(unittest.TestCase):
         page.wait_for_function("[...document.querySelectorAll('#job-list li')].some((item) => item.dataset.status === 'complete')", timeout=60_000)
         page.wait_for_function(f"({STATUS_DOTS}).every((status) => status === 'current')", timeout=20_000)
         self.assertTrue(page.locator("#job-list progress").is_visible())
+
+    def test_clicking_a_footprint_shows_the_surveyed_attributes(self) -> None:
+        from city_analyser.attributes.vlm import VLMProvider
+        from city_analyser.survey import run_survey
+
+        answer = json.dumps({"observations": "Slab edges and columns at every storey.", "floors": 3, "gem_material": "CR", "gem_llrs": "LFINF"})
+        run_survey(self.root / "data", self.root / "models", DATASET, provider_factory=lambda: VLMProvider(lambda images, prompt: answer, "vlm:e2e"), tile_m=20, log=lambda _: None)
+        page = self.new_page()
+        self.open_viewer(page)
+        footprint = page.locator('#location-map-canvas path.leaflet-interactive[fill="#ecba74"]').first
+        box = footprint.bounding_box()
+        page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        page.wait_for_function("document.querySelector('#building-card-attributes').children.length > 0", timeout=20_000)
+        card = page.text_content("#building-card")
+        self.assertIn("CR/LFINF/HEX:3", card)
+        self.assertIn("Reinforced concrete (CR)", card)
+        page.click("#building-card-why summary")
+        self.assertIn("Slab edges", page.text_content("#building-card-observations"))
+        page.keyboard.press("Escape")
+        self.assertTrue(page.locator("#building-card").is_hidden())
+        page.click("#panel-toggle-button") if page.locator("#building-attributes-button").is_hidden() else None
+        page.click("#building-attributes-button")
+        self.assertTrue(page.locator("#building-card").is_visible())
+
+    def test_footprints_colored_by_structure_and_a_review_from_the_card(self) -> None:
+        from city_analyser.attributes.vlm import VLMProvider
+        from city_analyser.survey import run_survey
+
+        answer = json.dumps({"floors": 3, "gem_material": "CR", "gem_llrs": "LFINF"})
+        run_survey(self.root / "data", self.root / "models", DATASET, provider_factory=lambda: VLMProvider(lambda images, prompt: answer, "vlm:e2e"), tile_m=20, log=lambda _: None)
+        page = self.new_page()
+        self.open_viewer(page, query="&building=way%2F104")
+        page.click("#layers-menu summary")
+        page.select_option("#attribute-color-select", "gem_material")
+        page.click("#layers-menu summary")
+        page.wait_for_function("document.querySelectorAll('#map-legend-items li').length > 0", timeout=20_000)
+        self.assertIn("Concrete", page.text_content("#map-legend"))
+        concrete = 'path.leaflet-interactive[fill="#2a78d6"]'
+        colored = page.locator(f"#location-map-canvas {concrete}").count()
+        self.assertGreater(colored, 0)
+        page.wait_for_function("!document.querySelector('#building-card-review').hidden", timeout=20_000)
+        page.click("#building-card-review")
+        page.select_option("#review-gem-material", "MUR")
+        page.fill("#review-note", "Load-bearing brick walls")
+        page.click("#building-card-review-form button[type=submit]")
+        page.wait_for_function("document.querySelector('#building-card-review-status').textContent.includes('E2E reviewer')", timeout=20_000)
+        self.assertIn("MUR/LFINF/HEX:3", page.text_content("#building-card"))
+        page.wait_for_function(f"document.querySelectorAll('#location-map-canvas {concrete}').length === {colored - 1}", timeout=20_000)
+        self.assertIn("1 reviewed", page.text_content("#map-legend"))
+        review = json.loads((self.root / "data" / DATASET / "attributes" / "way" / "104" / "attributes-human-review.json").read_text())
+        self.assertEqual((review["run"]["reviewer"], review["predictions"]["gem_material"]["score_kind"]), ("E2E reviewer", "review"))
+
+    def test_presentation_mode_surveys_by_itself_and_exits_cleanly(self) -> None:
+        from city_analyser.demo import prepare_demo
+
+        prepare_demo(self.root / "data", DATASET, log=lambda _: None)
+        page = self.new_page()
+        page.goto(f"{self.base}/viewer/?dataset={DATASET}&image={FIRST}&present=1&speed=20")
+        page.wait_for_selector(".presentation-thinking-body", timeout=60_000)
+        # It runs inside the normal viewer: the sidebar stays, the play button turns into stop.
+        self.assertTrue(page.locator(".sidebar").is_visible())
+        self.assertEqual(page.get_attribute("#presentation-button", "aria-pressed"), "true")
+        self.assertIn("Demo dataset", page.text_content(".presentation-hud"))
+        page.wait_for_selector(".presentation-save.saved, .presentation-save.flagged", timeout=90_000)
+        self.assertRegex(page.text_content(".presentation-gem"), r"^(MUR|CR|S|MAT99)/")
+        self.assertIn("Thought for", page.text_content(".presentation-thinking-header"))
+        page.wait_for_function("document.querySelector('#map-legend-title').textContent.includes('1 saved')", timeout=30_000)
+        self.assertIn("present=1", page.url)
+        page.keyboard.press(" ")
+        self.assertIn("paused", page.get_attribute(".presentation", "class"))
+        page.keyboard.press("Escape")
+        page.wait_for_function("!document.querySelector('.presentation') && !document.querySelector('.app-shell').classList.contains('presenting')", timeout=10_000)
+        self.assertEqual(page.get_attribute("#presentation-button", "aria-pressed"), "false")
+        self.assertNotIn("present=1", page.url)
+        # The play button starts it again.
+        page.click("#presentation-button")
+        page.wait_for_selector(".presentation-thinking-body", timeout=30_000)
+        page.click("#presentation-button")
+        page.wait_for_function("!document.querySelector('.presentation')", timeout=10_000)
+        # Nothing was written: a presentation only shows what the attribute files hold.
+        self.assertFalse(list((self.root / "data" / DATASET / "attributes").rglob("attributes-human-review.json")))
+
+    def test_assistant_chats_analyzes_live_and_drives_a_live_presentation(self) -> None:
+        sys.path.insert(0, str(HERE.parents[0]))
+        from test_assistant import NOTES, FakeModelServer
+
+        from city_analyser.demo import prepare_demo
+        from city_analyser.local_viewer import ViewerServer
+
+        prepare_demo(self.root / "data", DATASET, log=lambda _: None)
+        model = FakeModelServer()
+        self.addCleanup(model.close)
+        with patch.dict(os.environ, {"ATTRIBUTES_VLM_URL": model.url, "ATTRIBUTES_VLM_MODEL": "fake-vl"}):
+            server = ViewerServer(("127.0.0.1", 0), self.root)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(timeout=5)))
+        self.base = f"http://127.0.0.1:{server.server_port}"
+        page = self.new_page()
+        self.open_viewer(page, query="&building=way%2F103")
+        page.click("#tab-assistant")
+        page.wait_for_function("document.querySelector('#assistant-status').textContent.includes('fake-vl')", timeout=20_000)
+        page.fill("#assistant-input", "Why masonry?")
+        page.keyboard.press("Enter")
+        page.wait_for_function(f"document.querySelector('#assistant-log').textContent.includes({json.dumps(NOTES[:30])})", timeout=30_000)
+        self.assertIn("Why masonry?", page.text_content("#assistant-log"))
+        page.click("#assistant-analyze-button")
+        page.wait_for_function("document.querySelector('#assistant-log').textContent.includes('Saved:')", timeout=60_000)
+        # The log survives the end of the request (it used to be redrawn from the chat alone).
+        page.wait_for_function("!document.querySelector('#assistant-send-button').disabled", timeout=30_000)
+        analysis = page.text_content("#assistant-log").split("Analysis", 1)[1]
+        self.assertIn("Saved: MUR/LWAL", analysis)
+        self.assertIn("View 1", analysis)
+        self.assertIn("→ 4 storeys · MUR · LWAL", analysis)
+        self.assertNotIn('"gem_material"', analysis)  # the model's JSON stays out of sight
+        page.click("#assistant-edit-button")
+        page.wait_for_selector("#building-card-review-form:not([hidden])", timeout=10_000)
+        page.select_option("#review-building-type", "office")
+        page.fill("#review-construction-year", "1905")
+        page.click("#building-card-review-form button[type=submit]")
+        page.wait_for_function("document.querySelector('#building-card-review-status').textContent.includes('E2E reviewer')", timeout=20_000)
+        self.assertIn("Office", page.text_content("#building-card-attributes"))
+        page.goto(f"{self.base}/viewer/?dataset={DATASET}&image={FIRST}&present=1&speed=20")
+        page.wait_for_function("document.querySelector('.presentation-badge')?.textContent.startsWith('Live')", timeout=60_000)
+        page.wait_for_function(f"document.querySelector('.presentation-thinking-body')?.textContent.includes({json.dumps(NOTES[:30])})", timeout=90_000)
+        page.wait_for_selector(".presentation-save.saved, .presentation-save.flagged", timeout=120_000)
+        self.assertTrue(any(request["body"].get("stream") for request in model.requests))
 
     def test_layers_projection_and_undo(self) -> None:
         page = self.new_page()

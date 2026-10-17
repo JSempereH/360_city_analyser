@@ -1,12 +1,14 @@
-// One ordered queue for footprint review: proposals waiting for a decision
-// first, then suspected problems by how many panoramas support them, then
-// buildings the imagery shows without a footprint.
+// One ordered queue for review: footprint proposals waiting for a decision
+// first, then suspected footprint problems by how many panoramas support them,
+// then buildings the imagery shows without a footprint, then model answers
+// about a building's structure that deserve a human look (weakest first).
 
 export const REVIEW_KINDS = {
   proposal: "Proposed correction",
   merged_footprint: "Several buildings in one footprint",
   unsupported_footprint: "No building in the imagery",
   unexplained_instance: "Building without a footprint",
+  attributes: "Structure to check",
 };
 
 function proposalItems(records) {
@@ -60,14 +62,35 @@ function unexplainedItems(instances) {
   }));
 }
 
+// Buildings of the attribute summary whose model answer is split, weak or contradicts OSM.
+function attributeItems(summary) {
+  if (!summary?.buildings) return [];
+  return Object.entries(summary.buildings)
+    .filter(([, entry]) => entry.needs_review && !entry.reviewed)
+    .map(([osmId, entry]) => ({
+      key: `attributes:${summary.dataset}:${osmId}`,
+      kind: "attributes",
+      osmId,
+      dataset: summary.dataset,
+      image: entry.image ? String(entry.image) : null,
+      urgency: Number.isFinite(entry.urgency) ? entry.urgency : 1,
+      values: { gem_material: entry.gem_material, gem_llrs: entry.gem_llrs, floors: entry.floors },
+      label: osmId,
+      detail: `${entry.gem} · ${entry.needs_review}`,
+    }))
+    .sort((first, second) => first.urgency - second.urgency || first.label.localeCompare(second.label));
+}
+
 // filters: { kind: "all" | one of REVIEW_KINDS, dataset: id or null for all,
 // unresolvedOnly: hide problems whose building already has an accepted correction }
-export function buildReviewQueue(corrections, issues, filters = {}) {
+// attributeSummary: the current dataset's attribute summary, or null.
+export function buildReviewQueue(corrections, issues, filters = {}, attributeSummary = null) {
   const { kind = "all", dataset = null, unresolvedOnly = true } = filters;
   const items = [
     ...proposalItems(corrections || []),
     ...buildingItems(issues?.buildings || []),
     ...unexplainedItems(issues?.unexplained_instances || []),
+    ...attributeItems(attributeSummary),
   ];
   return items.filter((item) => (kind === "all" || item.kind === kind)
     && (!dataset || !item.dataset || item.dataset === dataset)

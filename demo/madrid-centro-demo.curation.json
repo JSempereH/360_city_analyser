@@ -1,0 +1,480 @@
+{
+  "note": "Reviewed by eye with tools/mask_review.py --full (mask vs projected OSM footprint and map), October 2026.",
+  "exclude": [],
+  "masks": [
+    {
+      "image": "1140032839847675",
+      "building": "way/254289955",
+      "remove": true
+    },
+    {
+      "image": "1140032839847675",
+      "building": "way/254439962",
+      "claim_bearings": [
+        37,
+        79
+      ]
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254439962",
+      "remove": true
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254528177",
+      "keep_bearings": [
+        252,
+        303
+      ]
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254528188",
+      "keep_bearings": [
+        352,
+        34
+      ]
+    },
+    {
+      "image": "758109061572354",
+      "building": "way/254528187",
+      "keep_bearings": [
+        324.5,
+        351
+      ],
+      "roof_line": [
+        [
+          324.5,
+          52.7
+        ],
+        [
+          330,
+          54.5
+        ],
+        [
+          335,
+          56.3
+        ],
+        [
+          342,
+          57.2
+        ],
+        [
+          345,
+          55
+        ],
+        [
+          350,
+          51.2
+        ],
+        [
+          351,
+          50.5
+        ]
+      ]
+    },
+    {
+      "image": "1140032839847675",
+      "building": "way/254289940",
+      "remove": true
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254289955",
+      "keep_bearings": [
+        70,
+        150
+      ]
+    },
+    {
+      "image": "536652140657971",
+      "building": "way/254439962",
+      "remove": true
+    },
+    {
+      "image": "758109061572354",
+      "building": "way/254289940",
+      "claim_bearings": [
+        86,
+        160
+      ]
+    },
+    {
+      "image": "758109061572354",
+      "building": "way/254528160",
+      "claim_bearings": [
+        207,
+        260
+      ]
+    },
+    {
+      "image": "536652140657971",
+      "building": "way/254289945",
+      "remove": true
+    },
+    {
+      "image": "758109061572354",
+      "building": "way/254439983",
+      "remove": true
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254439983",
+      "remove": true
+    },
+    {
+      "image": "1140032839847675",
+      "building": "way/254439983",
+      "remove": true
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254439933",
+      "remove": true
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254289954",
+      "remove": true
+    },
+    {
+      "image": "364366455011230",
+      "building": "way/254528189",
+      "claim_bearings": [
+        34,
+        66
+      ]
+    },
+    {
+      "image": "1140032839847675",
+      "building": "way/254439920",
+      "keep_bearings": [
+        121,
+        150
+      ]
+    },
+    {
+      "image": "1140032839847675",
+      "building": "way/254439933",
+      "claim_bearings": [
+        185,
+        226
+      ]
+    },
+    {
+      "image": "758109061572354",
+      "building": "way/1484171988",
+      "remove": true
+    }
+  ],
+  "answers": {
+    "way/1430833798": {
+      "758109061572354": {
+        "observations": "Corner block with a rusticated quoin, regular vertical alignment of balconied openings in solid wall piers and a moulded cornice; ground floor with shops plus five floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      }
+    },
+    "way/254289940": {
+      "758109061572354": {
+        "observations": "Rounded corner building with a cast-iron and glazed bay at the corner, continuous balconies and a shop front of large openings on the ground floor; ground, mezzanine and four upper floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1900
+      }
+    },
+    "way/254289955": {
+      "364366455011230": {
+        "observations": "Narrow building with deep window reveals, wrought-iron balconies stacked above each other and a fully glazed shop front; ground floor plus four floors.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      }
+    },
+    "way/254289962": {
+      "1140032839847675": {
+        "observations": "Narrow corner building with a bank on the ground and mezzanine floors, then balconied openings in solid piers; ground, mezzanine and three floors above.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1895
+      }
+    },
+    "way/254439962": {
+      "1140032839847675": {
+        "observations": "Narrow bay on Calle Montera: one opening per floor between thick piers, balconies stacked vertically above a shop front; six levels.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1905
+      }
+    },
+    "way/254528160": {
+      "758109061572354": {
+        "observations": "Sharp corner building on Calle de Postas: pink render with pale pilasters, narrow balconies stacked above each other and a stone ground floor; ground floor plus four floors.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1880
+      }
+    },
+    "way/254528177": {
+      "364366455011230": {
+        "observations": "Yellow bands mark every slab edge and the windows run as continuous horizontal strips between them, with brick infill on the side; a reinforced concrete frame from the 1960s; ground floor plus four floors.",
+        "floors": 5,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "apartments",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1965
+      }
+    },
+    "way/254528187": {
+      "758109061572354": {
+        "observations": "Small rendered building: shuttered ground floor, a brick band at the first floor line and plain punched windows in solid walls; only three storeys. Its size and the narrow openings point to load-bearing brick, common in small Madrid infill until the 1960s.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1950
+      }
+    },
+    "way/254528188": {
+      "364366455011230": {
+        "observations": "Ornate cornice and stacked wrought-iron balconies in narrow bays between solid piers, stone-clad shop fronts on the ground floor; ground floor plus four floors.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "relation/4098953": {
+      "927828031327111": {
+        "observations": "Real Casa de Correos (1768): brick walls framed in granite, a stone ground floor and a clock tower added later; thick load-bearing masonry with regular openings. Ground floor and two upper floors.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "surface_material": "brick",
+        "construction_year": 1768
+      }
+    },
+    "way/1328336085": {
+      "927828031327111": {
+        "observations": "One of the uniform blocks of the Puerta del Sol rebuilt in the 1850s and 1860s: rendered load-bearing brick walls, a ground floor of shops and an arched mezzanine, then floors of stacked balconied windows between solid piers under a cornice; ground floor, mezzanine and four floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1860
+      }
+    },
+    "way/1484171988": {
+      "927828031327111": {
+        "observations": "One of the uniform blocks of the Puerta del Sol rebuilt in the 1850s and 1860s: rendered load-bearing brick walls, a ground floor of shops and an arched mezzanine, then floors of stacked balconied windows between solid piers under a cornice; ground floor, mezzanine and four floors. The corner is curved, as the 1860 plan of the square required.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1860
+      }
+    },
+    "way/254289950": {
+      "364366455011230": {
+        "observations": "Calle de la Montera: rendered nineteenth-century facade with wrought-iron balconies stacked in narrow bays between thick piers; the ground floor has been opened for shop fronts, which weakens the ground storey of a masonry building. Ground floor plus four floors.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1880
+      }
+    },
+    "way/254289956": {
+      "1140032839847675": {
+        "observations": "Calle de la Montera: rendered nineteenth-century facade with wrought-iron balconies stacked in narrow bays between thick piers; the ground floor has been opened for shop fronts, which weakens the ground storey of a masonry building. Ground floor plus five floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1880
+      }
+    },
+    "way/254329236": {
+      "800286414209467": {
+        "observations": "Plaza de la Provincia block: rendered walls with balconied windows stacked in regular narrow bays, a continuous cornice and shops behind a stone ground floor; the openings are small relative to the piers, typical of nineteenth-century load-bearing brick. Glazed miradors on the upper floors were added to an older wall. Ground floor plus five floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1870
+      }
+    },
+    "way/254329240": {
+      "800286414209467": {
+        "observations": "Plaza de la Provincia block: rendered walls with balconied windows stacked in regular narrow bays, a continuous cornice and shops behind a stone ground floor; the openings are small relative to the piers, typical of nineteenth-century load-bearing brick. Ground floor, mezzanine and four floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1870
+      }
+    },
+    "way/254329257": {
+      "800286414209467": {
+        "observations": "Plaza de la Provincia block: rendered walls with balconied windows stacked in regular narrow bays, a continuous cornice and shops behind a stone ground floor; the openings are small relative to the piers, typical of nineteenth-century load-bearing brick. Ground floor, mezzanine and four floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1870
+      }
+    },
+    "way/254439892": {
+      "800286414209467": {
+        "observations": "Plaza de la Provincia block: rendered walls with balconied windows stacked in regular narrow bays, a continuous cornice and shops behind a stone ground floor; the openings are small relative to the piers, typical of nineteenth-century load-bearing brick. Ground floor, mezzanine and four floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1870
+      }
+    },
+    "way/254439920": {
+      "1140032839847675": {
+        "observations": "Calle de la Montera: rendered nineteenth-century facade with wrought-iron balconies stacked in narrow bays between thick piers; the ground floor has been opened for shop fronts, which weakens the ground storey of a masonry building. Carved stone pilasters frame the shop fronts. Ground floor plus five floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "way/254439933": {
+      "1140032839847675": {
+        "observations": "Grey-rendered facade with shop windows on the ground floor and plain punched windows in solid walls above; ground floor plus four floors.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1890
+      }
+    },
+    "way/254439943": {
+      "1140032839847675": {
+        "observations": "Calle de la Montera: rendered nineteenth-century facade with wrought-iron balconies stacked in narrow bays between thick piers; the ground floor has been opened for shop fronts, which weakens the ground storey of a masonry building. A narrow ornate building with a carved cornice. Ground floor plus five floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1890
+      }
+    },
+    "way/254528189": {
+      "364366455011230": {
+        "observations": "Calle de la Montera: rendered nineteenth-century facade with wrought-iron balconies stacked in narrow bays between thick piers; the ground floor has been opened for shop fronts, which weakens the ground storey of a masonry building. Stone-faced pilasters on the ground floor. Ground floor plus five floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "retail",
+        "surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "way/254532451": {
+      "758109061572354": {
+        "observations": "Narrow salmon-rendered building on Calle de Postas: stacked balconies between solid piers and a shop front on the ground floor; ground floor plus five floors.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "surface_material": "plaster",
+        "construction_year": 1880
+      }
+    }
+  }
+}
