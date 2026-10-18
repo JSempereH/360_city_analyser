@@ -14,6 +14,7 @@ from PIL import Image
 from city_analyser.mapillary_street_download import (
     available_image_url,
     bbox_from_center,
+    camera_up,
     download_image,
     fetch_images,
     haversine_m,
@@ -159,6 +160,17 @@ class MapillaryStreetDownloadTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CameraTiltTests(unittest.TestCase):
+    def test_world_up_in_the_panorama_frame_from_the_computed_rotation(self):
+        # Mapillary 1986345691512470, Valencia: its 3D reconstruction has the camera tilted 18.5 degrees.
+        up = camera_up([0.40423832881247, 1.6357406040857, -2.2891004430312])
+        self.assertEqual([round(value, 3) for value in up], [-0.054, 0.948, 0.313])
+        # A camera rotated a quarter turn about its right axis from looking straight up looks at the horizon, level.
+        self.assertEqual([round(value, 6) + 0.0 for value in camera_up([1.5707963267948966, 0, 0])], [0.0, 1.0, 0.0])
+        self.assertIsNone(camera_up(None))
+        self.assertIsNone(camera_up([1, "x", 0]))
 
 
 class CityScaleDownloadTests(unittest.TestCase):

@@ -70,16 +70,47 @@ export function gemRow(card) {
   };
 }
 
+// Reference attributes the cadastre records, and how far an answer may be from it and still agree.
+const CADASTRE_ATTRIBUTES = { floors: 0.5, construction_year: 10, building_type: null };
+
 /**
- * One row per attribute: `{ attribute, label, value, source, note, abstained, title }`.
- * `note` names a disagreeing provider ("AI says 4") or what a split vote leaned to.
+ * The cadastre's value for one attribute: `{ text, disagrees, title }`, or null.
+ * The cadastre counts storeys a street view may not show (a mezzanine, a set-back attic), and its
+ * year can be a refurbishment, so a disagreement is something to look at, not an error.
+ */
+export function referenceFor(card, attribute, entry = card?.attributes?.[attribute]) {
+  const cadastre = card?.references?.catastro;
+  const reference = cadastre?.[attribute];
+  if (!cadastre || reference === null || reference === undefined || !(attribute in CADASTRE_ATTRIBUTES)) return null;
+  const text = `Cadastre ${attribute === "building_type" ? valueLabel(reference).toLowerCase() : Math.round(Number(reference))}`;
+  const answered = entry && !entry.abstained && entry.value !== null && entry.value !== undefined;
+  const tolerance = CADASTRE_ATTRIBUTES[attribute];
+  const disagrees = Boolean(answered) && (tolerance === null ? entry.value !== reference : Math.abs(Number(entry.value) - Number(reference)) > tolerance);
+  const title = attribute === "construction_year" ? "The cadastral year may be a refurbishment." : attribute === "floors" ? "Storeys above ground in the cadastre, including any the street does not show." : "";
+  return { text, disagrees, title };
+}
+
+/** The cadastre row of the card, with the parcel reference and its page, or null without a match. */
+export function referenceRow(card) {
+  const cadastre = card?.references?.catastro;
+  if (!cadastre?.reference) return null;
+  const parcel = String(cadastre.reference).slice(0, 14);
+  return { label: "Cadastre", value: parcel, url: cadastre.url || null, title: `${cadastre.note || ""} Footprint overlap ${Math.round(Number(cadastre.iou) * 100)}%.`.trim() };
+}
+
+/**
+ * One row per attribute: `{ attribute, label, value, source, note, abstained, title, reference }`.
+ * `note` names a disagreeing provider ("AI says 4") or what a split vote leaned to; `reference` is the
+ * cadastre's value (see referenceFor). An attribute only the cadastre records gets a row too.
  */
 export function attributeRows(card) {
   const attributes = card?.attributes || {};
-  return CARD_ATTRIBUTES.filter(([attribute]) => attributes[attribute]).map(([attribute, label]) => {
+  return CARD_ATTRIBUTES.filter(([attribute]) => attributes[attribute] || referenceFor(card, attribute)).map(([attribute, label]) => {
     const entry = attributes[attribute];
+    const reference = referenceFor(card, attribute);
+    if (!entry) return { attribute, label, value: "Not surveyed", source: "", note: "", abstained: true, title: "", reference };
     const value = shownValue(attribute, entry, card);
-    const row = { attribute, label, value, source: value ? sourceLabel(entry) : "", note: "", abstained: !value, title: "" };
+    const row = { attribute, label, value, source: value ? sourceLabel(entry) : "", note: "", abstained: !value, title: "", reference };
     if (!value) {
       row.value = "Not determined";
       row.title = entry.reason || "";

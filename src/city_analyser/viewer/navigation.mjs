@@ -70,3 +70,33 @@ export function projectGroundPanoramaToView(bearing, distance, viewHeading, pitc
   if (Math.abs(normalizedX) > 1 || Math.abs(normalizedY) > 1) return null;
   return { left: (normalizedX + 1) * 50, top: (1 - normalizedY) * 50 };
 }
+
+// Panoramas taken with a tilted camera show a slanted horizon. ``up`` is world up in the
+// panorama's frame (x right, y up, z toward the image center; manifest ``camera_up``): this
+// rotation takes a direction in the level view to the panorama's frame, turning (0, 1, 0)
+// onto ``up`` by the smallest rotation, so the image center keeps its heading. Row-major.
+export const LEVEL_IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+
+export function levelMatrix(up) {
+  if (!Array.isArray(up) || up.length !== 3 || !up.every(Number.isFinite)) return LEVEL_IDENTITY;
+  const length = Math.hypot(...up);
+  if (length < 1e-9) return LEVEL_IDENTITY;
+  const [x, y, z] = up.map((value) => value / length);
+  // A camera looking almost straight up or down has no meaningful horizon to restore.
+  if (y < 0.5) return LEVEL_IDENTITY;
+  // Rodrigues from (0, 1, 0) to (x, y, z): v = (z, 0, -x), R = I + [v] + [v]^2 / (1 + y).
+  const k = 1 / (1 + y);
+  return [
+    1 - x * x * k, x, -x * z * k,
+    -x, y, -z,
+    -x * z * k, z, 1 - z * z * k,
+  ];
+}
+
+export function applyMatrix(matrix, [x, y, z]) {
+  return [
+    matrix[0] * x + matrix[1] * y + matrix[2] * z,
+    matrix[3] * x + matrix[4] * y + matrix[5] * z,
+    matrix[6] * x + matrix[7] * y + matrix[8] * z,
+  ];
+}

@@ -1366,6 +1366,26 @@ kbd {
   color: var(--accent);
 }
 
+/* The cadastre's value next to the answer: quiet when they agree, marked when they differ. */
+.building-card-attributes .reference {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.building-card-attributes .reference.disagrees {
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.building-card-attributes .cadastre .value {
+  color: var(--text-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 400;
+}
+
 .building-card-why summary {
   color: var(--text-soft);
   cursor: pointer;

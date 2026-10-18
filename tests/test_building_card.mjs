@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { attributeRows, gemRow, observationItems, sourceLabel, valueLabel } from "../src/city_analyser/viewer/building-card.mjs";
+import { attributeRows, gemRow, observationItems, referenceFor, referenceRow, sourceLabel, valueLabel } from "../src/city_analyser/viewer/building-card.mjs";
 
 const card = {
   gem: { string: "CR/L99/HEX:5", complete: false, codes: { CR: "reinforced concrete", LFINF: "infilled frame", LDUAL: "dual frame-wall system" } },
@@ -48,3 +48,24 @@ test("labels, sources and observations", () => {
   assert.deepEqual(observationItems(card).map((item) => item.rank), [1]);
   assert.deepEqual(attributeRows(null), []);
 });
+
+test("the cadastre sits next to each answer and a difference is marked", () => {
+  const cadastre = { floors: 6, construction_year: 1975, building_type: "apartments", reference: "5830201YJ2753B", iou: 0.83, url: "https://example.test/parcel", note: "Spanish cadastre." };
+  const withCadastre = { ...card, references: { catastro: cadastre } };
+  const rows = attributeRows(withCadastre);
+  const floors = rows.find((row) => row.attribute === "floors");
+  assert.deepEqual(floors.reference, { text: "Cadastre 6", disagrees: true, title: "Storeys above ground in the cadastre, including any the street does not show." });
+  assert.equal(rows.find((row) => row.attribute === "construction_year").reference.disagrees, false);  // 1972 is within ten years
+  assert.equal(rows.find((row) => row.attribute === "building_type").reference.text, "Cadastre apartments");
+  assert.equal(rows.find((row) => row.attribute === "gem_material").reference, null);  // the cadastre says nothing about structure
+  // An abstention is not a disagreement.
+  assert.equal(referenceFor(withCadastre, "floors", { abstained: true, value: null }).disagrees, false);
+  assert.deepEqual(referenceRow(withCadastre), { label: "Cadastre", value: "5830201YJ2753B", url: "https://example.test/parcel", title: "Spanish cadastre. Footprint overlap 83%." });
+});
+
+test("a building only the cadastre knows still gets its rows", () => {
+  const rows = attributeRows({ attributes: {}, references: { catastro: { floors: 3, construction_year: null, reference: "5830404YJ2753B" } } });
+  assert.deepEqual(rows.map((row) => [row.label, row.value, row.reference.text]), [["Floors", "Not surveyed", "Cadastre 3"]]);
+  assert.equal(referenceRow({ attributes: {} }), null);
+});
+

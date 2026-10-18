@@ -127,6 +127,31 @@ class SurveyTests(SurveyWorkspace):
         self.assertEqual(missing.exception.code, 404)
         missing.exception.close()
 
+    def test_the_card_shows_the_cadastre_next_to_the_answers(self):
+        from city_analyser.local_viewer import ViewerServer
+
+        self.survey()
+        groundtruth = self.root / "data" / fixture.DATASET / "groundtruth"
+        groundtruth.mkdir()
+        (groundtruth / "catastro.json").write_text(json.dumps({"buildings": {
+            "way/101": {"reference": "5830201YJ2753B", "iou": 0.8, "floors": 4, "construction_year": 1960, "use": "1_residential", "building_type": "apartments"},
+            "way/999": {"reference": "5830404YJ2753B", "iou": 0.7, "floors": 2, "use": "4_3_publicServices", "building_type": "public"},
+        }}), encoding="utf-8")
+        server = ViewerServer(("127.0.0.1", 0), self.root)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(timeout=5)))
+        base = f"http://127.0.0.1:{server.server_port}/api/datasets/{fixture.DATASET}/building-attributes"
+        with urllib.request.urlopen(f"{base}/way/101", timeout=10) as response:
+            cadastre = json.load(response)["references"]["catastro"]
+        self.assertEqual((cadastre["floors"], cadastre["construction_year"]), (4, 1960))
+        self.assertTrue(cadastre["url"].endswith("rc1=5830201&rc2=YJ2753B"))
+        # Not described yet, but the cadastre knows it: the 404 carries the reference for the card.
+        with self.assertRaises(urllib.error.HTTPError) as missing:
+            urllib.request.urlopen(f"{base}/way/999", timeout=10)
+        self.assertEqual(json.load(missing.exception)["references"]["catastro"]["floors"], 2)
+        missing.exception.close()
+
 
 class ReviewTests(SurveyWorkspace):
     """Human review on top of a finished survey."""

@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from .analysis_backend import analysis_backend_from_environment, analysis_backend_status, run_analysis
 from .analysis_cache import atomic_write_json
 from .attributes.assistant import Assistant, AssistantUnavailable
-from .attributes.card import building_card
+from .attributes.card import building_card, references
 from .attributes.cli import model_settings_from_environment
 from .attributes.review import attribute_summary, attributes_signature, save_review
 from .building_analysis import ANALYSIS_VERSION, analysis_paths, building_mask, instance_overlay, load_analysis, nearby_buildings, osm_buildings, pick_building
@@ -617,8 +617,9 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
                 return
             card = building_card(server.data_root / dataset_id, dataset_id, attributes_match.group(2))
             if card is None:
-                # Expected until a survey or city-analyser-attributes reaches this building.
-                self.send_json({"error": "no attributes for this building yet"}, HTTPStatus.NOT_FOUND)
+                # Expected until a survey or city-analyser-attributes reaches this building; reference data may exist already.
+                self.send_json({"error": "no attributes for this building yet",
+                                "references": references(server.data_root / dataset_id, attributes_match.group(2))}, HTTPStatus.NOT_FOUND)
             else:
                 self.send_json(card)
             return

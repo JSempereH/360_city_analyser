@@ -1,10 +1,10 @@
-import { bearingDegrees, distanceMeters, nearbyPanoramas, nearestPanoramasByBearing, projectGroundPanoramaToView, signedDegrees } from "./navigation.mjs";
+import { applyMatrix, bearingDegrees, distanceMeters, LEVEL_IDENTITY, levelMatrix, nearbyPanoramas, nearestPanoramasByBearing, projectGroundPanoramaToView, signedDegrees } from "./navigation.mjs";
 import { buildViewerSearch, DEFAULT_FOV, findImageIndex, parseSearchQuery, parseViewerTarget } from "./deep-link.mjs";
 import { coordinatesOf, destinationPoint, geometryCentroid, mergeBuildingFootprints, nearestImageIndex, normalizeDegrees, outerRingsOf, segmentIntersectionFraction, sortedLocalPanoramas } from "./map-geometry.mjs";
 import { editableRings, startFootprintEdit } from "./footprint-editor.mjs";
 import { bearingCenter, buildReviewQueue, preservedIndex, REVIEW_KINDS, stepIndex } from "./review-queue.mjs";
 import { wallHeight, wallPolylines } from "./wall-projection.mjs";
-import { attributeRows, gemRow, observationItems, reviewFormValues, reviewOptions, reviewStatus } from "./building-card.mjs";
+import { attributeRows, gemRow, observationItems, referenceRow, reviewFormValues, reviewOptions, reviewStatus } from "./building-card.mjs";
 import { attributeClass, attributeLabel, COLOR_MODES, legendItems } from "./attribute-map.mjs";
 import { startPresentation } from "./presentation.mjs";
 import { answerLine, boldSpans, framingOf, streamEvents, visibleReasoning } from "./assistant.mjs";
@@ -206,6 +206,7 @@ const fragmentShaderSource = `
   uniform float yaw;
   uniform float pitch;
   uniform float fov;
+  uniform mat3 level;
   const float PI = 3.141592653589793;
   vec3 rotateYaw(vec3 vector, float angle) {
     float cosine = cos(angle); float sine = sin(angle);
@@ -223,6 +224,8 @@ const fragmentShaderSource = `
     // Pitch around the viewer's local right axis first, then yaw around world up.
     // Applying pitch after yaw uses a global axis and makes the horizon roll.
     direction = rotateYaw(rotatePitch(direction, pitch), yaw);
+    // Undo the camera's tilt, so the horizon stays level whatever the capture.
+    direction = level * direction;
     float longitude = atan(direction.x, direction.z);
     float latitude = asin(clamp(direction.y, -1.0, 1.0));
     vec2 panoramaUv = vec2(0.5 + longitude / (2.0 * PI), 0.5 - latitude / PI);
@@ -266,6 +269,8 @@ const MAP_BEAM_FOV = 22;
 const MAP_BEAM_DISTANCE_M = 20;
 const ASSUMED_CAMERA_HEIGHT_M = 2.1;
 let activeTexture = null;
+// The rotation that levels the panorama on screen (see levelMatrix), set with its texture.
+let panoramaLevel = LEVEL_IDENTITY;
 let selectionTexture = null;
 // A new selection mask fades in instead of appearing at once.
 let maskOpacity = 1;
@@ -445,6 +450,7 @@ function initializeRenderer() {
     selectionEmphasis: gl.getUniformLocation(program, "selectionEmphasis"), maskSize: gl.getUniformLocation(program, "maskSize"),
     vegetationVisible: gl.getUniformLocation(program, "vegetationVisible"), yaw: gl.getUniformLocation(program, "yaw"),
     instanceMask: gl.getUniformLocation(program, "instanceMask"), instanceVisible: gl.getUniformLocation(program, "instanceVisible"),
+    level: gl.getUniformLocation(program, "level"),
   };
   gl.uniform1i(uniforms.panorama, 0);
   gl.uniform1i(uniforms.selectionMask, 1);
@@ -475,6 +481,9 @@ function render() {
   gl.uniform1f(uniforms.yaw, yaw);
   gl.uniform1f(uniforms.pitch, pitch);
   gl.uniform1f(uniforms.fov, fov);
+  // WebGL 1 takes no transpose flag, so the row-major matrix goes in transposed (column-major).
+  const [a, b, c, d, e, f, g, h, i] = panoramaLevel;
+  gl.uniformMatrix3fv(uniforms.level, false, [a, d, g, b, e, h, c, f, i]);
   gl.uniform1f(uniforms.selectionVisible, selectionTexture && layers.masks ? maskOpacity : 0);
   gl.uniform1f(uniforms.vegetationVisible, vegetationTexture && layers.vegetation ? 1 : 0);
   gl.uniform1f(uniforms.instanceVisible, instanceTexture && layers.instances ? 1 : 0);
@@ -2217,22 +2226,7 @@ function fillBuildingCard(card) {
   }
   const gem = gemRow(card);
   const rows = attributeRows(card);
-  elements.buildingCardAttributes.replaceChildren(...(gem ? [{ ...gem, className: "gem" }] : []).concat(rows).flatMap((row) => {
-    const dt = document.createElement("dt");
-    dt.textContent = row.label;
-    const dd = document.createElement("dd");
-    dd.classList.toggle("abstained", Boolean(row.abstained));
-    if (row.className) dd.classList.add(row.className);
-    if (row.title) dd.title = row.title;
-    for (const [className, text] of [["value", row.value], ["source", row.source], ["note", row.note]]) {
-      if (!text) continue;
-      const span = document.createElement("span");
-      span.className = className;
-      span.textContent = text;
-      dd.append(span);
-    }
-    return [dt, dd];
-  }));
+  fillCardRows([...(gem ? [{ ...gem, className: "gem" }] : []), ...rows], referenceRow(card));
   const observations = observationItems(card);
   elements.buildingCardObservations.replaceChildren(...observations.map((item) => {
     const li = document.createElement("li");
@@ -2256,7 +2250,52 @@ function fillBuildingCard(card) {
     return li;
   }));
   elements.buildingCardWhy.hidden = !observations.length;
-  elements.buildingCardMessage.textContent = rows.length ? "" : "No attribute could be determined for this building.";
+  elements.buildingCardMessage.textContent = rows.some((row) => row.value !== "Not surveyed") ? "" : "No attribute could be determined for this building.";
+}
+
+// Attribute rows, each with the cadastre's value next to it (marked when they disagree), then the cadastre's parcel.
+function fillCardRows(rows, reference) {
+  elements.buildingCardAttributes.replaceChildren(...rows.flatMap((row) => {
+    const dt = document.createElement("dt");
+    dt.textContent = row.label;
+    const dd = document.createElement("dd");
+    dd.classList.toggle("abstained", Boolean(row.abstained));
+    if (row.className) dd.classList.add(row.className);
+    if (row.title) dd.title = row.title;
+    for (const [className, text] of [["value", row.value], ["source", row.source], ["note", row.note]]) {
+      if (!text) continue;
+      const span = document.createElement("span");
+      span.className = className;
+      span.textContent = text;
+      dd.append(span);
+    }
+    if (row.reference) {
+      const span = document.createElement("span");
+      span.className = row.reference.disagrees ? "reference disagrees" : "reference";
+      span.textContent = row.reference.disagrees ? `${row.reference.text} (differs)` : row.reference.text;
+      if (row.reference.title) span.title = row.reference.title;
+      dd.append(span);
+    }
+    return [dt, dd];
+  }), ...(reference ? [cadastreRow(reference)] : []).flat());
+}
+
+function cadastreRow(reference) {
+  const dt = document.createElement("dt");
+  dt.textContent = reference.label;
+  const dd = document.createElement("dd");
+  dd.className = "cadastre";
+  dd.title = reference.title;
+  const value = document.createElement(reference.url ? "a" : "span");
+  value.className = "value";
+  value.textContent = reference.value;
+  if (reference.url) {
+    value.href = reference.url;
+    value.target = "_blank";
+    value.rel = "noopener";
+  }
+  dd.append(value);
+  return [dt, dd];
 }
 
 // Attributes written by city-analyser-survey or city-analyser-attributes, for the selected building.
@@ -2290,8 +2329,12 @@ async function renderBuildingCard() {
       currentBuildingCard = null;
       elements.buildingCardReview.hidden = true;
       elements.buildingCardReviewStatus.hidden = true;
-      elements.buildingCardAttributes.replaceChildren();
       elements.buildingCardWhy.hidden = true;
+      // The cadastre may already know what the survey has not described yet.
+      const references = (await response.json().catch(() => ({}))).references || {};
+      if (requestId !== buildingCardRequest) return;
+      const referenceOnly = { attributes: {}, references };
+      fillCardRows(attributeRows(referenceOnly), referenceRow(referenceOnly));
       elements.buildingCardMessage.textContent = "Not surveyed yet. Run city-analyser-survey on this dataset to describe its structure, floors and use.";
       return;
     }
@@ -3106,7 +3149,7 @@ function panoramaUvAt(event) {
   let direction = [x * aspect * field, y * field, 1];
   const magnitude = Math.hypot(...direction);
   direction = direction.map((value) => value / magnitude);
-  direction = rotateYaw(rotatePitch(direction, pitch), yaw);
+  direction = applyMatrix(panoramaLevel, rotateYaw(rotatePitch(direction, pitch), yaw));
   return {
     u: (0.5 + Math.atan2(direction[0], direction[2]) / (2 * Math.PI) + 1) % 1,
     v: 0.5 - Math.asin(Math.max(-1, Math.min(1, direction[1]))) / Math.PI,
@@ -3204,6 +3247,7 @@ function selectImage(index, reset = false) {
   textureImage.onload = () => {
     if (loadId !== activeLoad) return;
     try {
+      panoramaLevel = levelMatrix(image.camera_up);
       const texture = uploadTexture(textureImage);
       render();
       textureWaiters.splice(0).forEach((resolve) => resolve());

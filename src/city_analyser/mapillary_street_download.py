@@ -156,6 +156,7 @@ def _image_fields(image_fields: tuple[str, ...]) -> str:
             "captured_at",
             "compass_angle",
             "computed_compass_angle",
+            "computed_rotation",
             "is_pano",
             "sequence",
             *image_fields,
@@ -306,6 +307,28 @@ def normalize_compass_heading(value: Any) -> float | None:
     return heading % 360.0
 
 
+def camera_up(rotation: object) -> list[float] | None:
+    """World up in the panorama's own frame (x right, y up, z toward the image center), or None.
+
+    ``rotation`` is Mapillary's ``computed_rotation``: the angle-axis rotation from the topocentric
+    frame (z up) to the camera frame (x right, y down, z forward) of its 3D reconstruction. A level
+    camera gives [0, 1, 0]; the viewer turns the panorama so that this vector points up.
+    """
+    if not isinstance(rotation, (list, tuple)) or len(rotation) != 3 or not all(isinstance(value, (int, float)) for value in rotation):
+        return None
+    angle = math.sqrt(sum(value * value for value in rotation))
+    if not math.isfinite(angle):
+        return None
+    if angle < 1e-12:
+        up = (0.0, 0.0, 1.0)
+    else:
+        kx, ky, kz = (value / angle for value in rotation)
+        cosine, sine = math.cos(angle), math.sin(angle)
+        # Rodrigues: R @ (0, 0, 1) = cos(a) z + sin(a) (k x z) + (1 - cos(a)) (k . z) k
+        up = (sine * ky + (1 - cosine) * kz * kx, -sine * kx + (1 - cosine) * kz * ky, cosine + (1 - cosine) * kz * kz)
+    return [round(up[0], 6), round(-up[1], 6), round(up[2], 6)]  # camera y points down
+
+
 def image_record(image: dict[str, Any], local_file: str | None, local_metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     creator_value = image.get("creator")
     creator_id = creator_value.get("id") if isinstance(creator_value, dict) else None
@@ -321,6 +344,8 @@ def image_record(image: dict[str, Any], local_file: str | None, local_metadata: 
         "captured_at_ms": image.get("captured_at"),
         "computed_compass_angle_deg": normalize_compass_heading(image.get("computed_compass_angle")),
         "raw_compass_angle_deg": normalize_compass_heading(image.get("compass_angle")),
+        "computed_rotation": image.get("computed_rotation"),
+        "camera_up": camera_up(image.get("computed_rotation")),
         "sequence_id": (
             str(sequence.get("id")) if isinstance(sequence, dict) and sequence.get("id") is not None
             else str(sequence) if isinstance(sequence, (str, int)) and not isinstance(sequence, bool)
@@ -452,27 +477,47 @@ def parse_tiled_bbox(value: str) -> tuple[float, float, float, float]:
     return min_lon, min_lat, max_lon, max_lat
 
 
+def _replace_text(path: Path, text: str) -> None:
+    """Write a new file and swap it in: a dataset copy that hard-links this one keeps its own version."""
+    temporary = path.with_name(path.name + ".writing")
+    temporary.write_text(text, encoding="utf-8")
+    temporary.replace(path)
+
+
 def write_manifest(output_dir: Path, records: list[dict[str, Any]], query: dict[str, Any]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "manifest.json").write_text(
-        json.dumps({"query": query, "images": records}, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    _replace_text(output_dir / "manifest.json", json.dumps({"query": query, "images": records}, indent=2, ensure_ascii=False) + "\n")
     features = [
         {"type": "Feature", "geometry": record["selected_geometry"], "properties": {key: value for key, value in record.items() if key != "selected_geometry"}}
         for record in records
     ]
-    (output_dir / "manifest.geojson").write_text(
-        json.dumps({"type": "FeatureCollection", "features": features}, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    _replace_text(output_dir / "manifest.geojson", json.dumps({"type": "FeatureCollection", "features": features}, indent=2, ensure_ascii=False) + "\n")
     attribution_lines = [
         "# Attribution", "", "Mapillary images are licensed CC BY-SA 4.0. Keep this file with the images and review Mapillary's current terms before redistributing a dataset.", ""
     ]
     for record in records:
         username = record["creator"].get("username") or record["creator"].get("id") or "unknown contributor"
         attribution_lines.append(f"- Image {record['id']} by {username}: {record['source_page']} (CC BY-SA 4.0)")
-    (output_dir / "ATTRIBUTION.md").write_text("\n".join(attribution_lines) + "\n", encoding="utf-8")
+    _replace_text(output_dir / "ATTRIBUTION.md", "\n".join(attribution_lines) + "\n")
+
+
+def add_camera_rotations(output_dir: Path, token: str, workers: int = 8) -> dict[str, int]:
+    """Fill ``computed_rotation`` and ``camera_up`` for a downloaded dataset's panoramas that lack them."""
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    missing = [record for record in manifest["images"] if record.get("camera_up") is None]
+
+    def fetch(record: dict[str, Any]) -> tuple[dict[str, Any], object]:
+        payload = request_json(f"https://graph.mapillary.com/{record['id']}", {"access_token": token, "fields": "id,computed_rotation"})
+        return record, payload.get("computed_rotation")
+
+    found = 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for record, rotation in pool.map(fetch, missing):
+            record["computed_rotation"] = rotation
+            record["camera_up"] = camera_up(rotation)
+            found += record["camera_up"] is not None
+    write_manifest(output_dir, manifest["images"], manifest.get("query") or {})
+    return {"panoramas": len(manifest["images"]), "asked": len(missing), "found": found}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -481,6 +526,7 @@ def build_parser() -> argparse.ArgumentParser:
     area.add_argument("--center", type=parse_center, help="WGS84 latitude,longitude at the street center")
     area.add_argument("--bbox", type=parse_bbox, help="min_lon,min_lat,max_lon,max_lat around one street")
     area.add_argument("--tiled-bbox", type=parse_tiled_bbox, help="min_lon,min_lat,max_lon,max_lat of any size, e.g. a city: queried tile by tile")
+    area.add_argument("--add-rotations", action="store_true", help="download nothing: add the camera rotations the viewer levels panoramas with to the dataset in --output")
     parser.add_argument("--radius-m", type=float, default=150, help="search radius for --center queries (default: 150)")
     parser.add_argument("--output", type=Path, required=True, help="directory for JPEGs and manifests")
     parser.add_argument("--max-images", type=int, default=25, help="maximum panoramas to download (default: 25)")
@@ -505,6 +551,14 @@ def main() -> int:
     if not token:
         print("Set MAPILLARY_ACCESS_TOKEN or pass --access-token.", file=sys.stderr)
         return 2
+    if args.add_rotations:
+        try:
+            result = add_camera_rotations(args.output, token, args.workers)
+        except (OSError, ValueError, KeyError, HTTPError, URLError, RuntimeError) as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        print(f"{args.output}: camera rotation for {result['found']} of the {result['asked']} panoramas that lacked it ({result['panoramas']} in all).")
+        return 0
     if args.max_images < 1 or args.min_spacing_m < 0 or args.max_api_pages < 1 or args.workers < 1:
         print("max-images, max-api-pages and workers must be positive; min-spacing-m cannot be negative.", file=sys.stderr)
         return 2

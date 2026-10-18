@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { nearbyPanoramas, nearestPanoramasByBearing, projectGroundPanoramaToView } from "../src/city_analyser/viewer/navigation.mjs";
+import { applyMatrix, LEVEL_IDENTITY, levelMatrix, nearbyPanoramas, nearestPanoramasByBearing, projectGroundPanoramaToView } from "../src/city_analyser/viewer/navigation.mjs";
 
 test("uses the Mapillary track spacing for navigation distances", () => {
   const targets = nearbyPanoramas([
@@ -51,3 +51,16 @@ test("does not move projected navigation points", () => {
   assert.ok(projection.left > 50);
   assert.ok(projection.top > 50);
 });
+
+test("a tilted panorama is leveled by the smallest rotation", () => {
+  const up = [-0.05434, 0.948265, 0.312795];  // Mapillary 1986345691512470: 18.5 degrees of tilt
+  const level = levelMatrix(up);
+  applyMatrix(level, [0, 1, 0]).forEach((value, index) => assert.ok(Math.abs(value - up[index]) < 1e-6));
+  const forward = applyMatrix(level, [0, 0, 1]);
+  assert.ok(Math.abs(Math.atan2(forward[0], forward[2]) * 180 / Math.PI) < 1);  // the center keeps its heading
+  const [x, y, z] = applyMatrix(level, [0.6, 0, 0.8]);
+  assert.ok(Math.abs(Math.hypot(x, y, z) - 1) < 1e-9);  // a rotation keeps lengths
+  assert.deepEqual(levelMatrix(undefined), LEVEL_IDENTITY);
+  assert.deepEqual(levelMatrix([0, -1, 0]), LEVEL_IDENTITY);  // an upside-down estimate is not trusted
+});
+

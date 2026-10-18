@@ -16,9 +16,40 @@ from urllib.parse import quote
 from ..building_inspection.reporting import _building_parts
 from .taxonomy import ALL_ATTRIBUTES, BUILDING_TYPES, GEM_LLRS, GEM_MATERIALS, GEM_TAXONOMY_VERSION, SURFACE_MATERIALS, TAXONOMY_VERSION, gem_taxonomy_string
 
-CARD_VERSION = 1
+CARD_VERSION = 2
 MAX_ALTERNATIVES = 2
 MAX_OBSERVATIONS = 3
+# The Sede Electrónica del Catastro page of a parcel (the first 14 characters of its reference).
+CADASTRE_URL = "https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCListaBienes.aspx?rc1={rc1}&rc2={rc2}"
+_reference_cache: dict[Path, tuple[float, dict[str, Any]]] = {}
+
+
+def references(dataset_dir: Path, building_id: str) -> dict[str, Any]:
+    """Reference data shown next to the answers: the cadastre's storeys, year and use, if matched.
+
+    Shown to the reviewer, never to the model: the experiments score the model against it.
+    """
+    path = dataset_dir / "groundtruth" / "catastro.json"
+    try:
+        modified = path.stat().st_mtime
+    except OSError:
+        return {}
+    cached = _reference_cache.get(path)
+    if cached is None or cached[0] != modified:
+        try:
+            buildings = json.loads(path.read_text(encoding="utf-8")).get("buildings") or {}
+        except (OSError, json.JSONDecodeError, AttributeError):
+            return {}
+        cached = _reference_cache[path] = (modified, buildings)
+    record = cached[1].get(building_id)
+    if not isinstance(record, dict):
+        return {}
+    reference = str(record.get("reference") or "")
+    return {"catastro": {
+        **{key: record.get(key) for key in ("floors", "construction_year", "building_type", "use", "dwellings", "reference", "iou")},
+        "url": CADASTRE_URL.format(rc1=quote(reference[:7]), rc2=quote(reference[7:14])) if len(reference) >= 14 else None,
+        "note": "Spanish cadastre: storeys above ground, year of construction (may be a refurbishment) and main use.",
+    }}
 
 
 def _summary(prediction: dict[str, Any], provider: str) -> dict[str, Any]:
@@ -124,4 +155,5 @@ def building_card(dataset_dir: Path, dataset_id: str, building_id: str) -> dict[
         # The classes a reviewer can choose from (GEM codes are in gem.codes).
         "classes": {"building_type": list(BUILDING_TYPES), "surface_material": list(SURFACE_MATERIALS)},
         "views": view_details,
+        "references": references(dataset_dir, building_id),
     }

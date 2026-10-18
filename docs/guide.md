@@ -38,7 +38,7 @@ uv run city-analyser-download \
   --output data/san-jose-pilot
 ```
 
-Use `--bbox=min_lon,min_lat,max_lon,max_lat` instead of `--center` when needed; keep the `=`, or a western longitude such as `-0.38` is read as an option. `--image-size auto` selects the best available derivative.
+Use `--bbox=min_lon,min_lat,max_lon,max_lat` instead of `--center` when needed; keep the `=`, or a western longitude such as `-0.38` is read as an option. `--image-size auto` selects the best available derivative. The manifest also keeps each camera's rotation from Mapillary's 3D reconstruction, which the viewer uses to level panoramas taken with a tilted camera; for a dataset downloaded before this, `city-analyser-download --add-rotations --output data/<dataset>` adds it without downloading images.
 
 The downloader requests panoramas at API level, limits each response to 50 MB, decodes the JPEG, requires an approximately 2:1 image, and records dimensions and SHA-256. A dataset contains `images/`, `manifest.json`, `manifest.geojson`, and `ATTRIBUTION.md`; manifest coordinates are camera locations.
 
