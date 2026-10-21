@@ -51,7 +51,8 @@ docs-build:
 	$(MKDOCS) build --strict
 
 # Presentation: analyzed copies of valencia-centro and madrid-centro with the reviewed masks
-# and answers in demo/*.curation.json, then the viewer at the presentation URL.
+# and answers in demo/*.curation.json, matched to the cadastre (the presentation cross-checks
+# each record with it), then the viewer at the presentation URL.
 PRESENTATION_ENV = BUILDING_ANALYSIS_MODEL=balanced BUILDING_ANALYSIS_TILE_SIZE=384
 
 presentation-data:
@@ -59,7 +60,8 @@ presentation-data:
 	  $(PRESENTATION_ENV) uv run city-analyser-analyze $$city && \
 	  rm -rf data/$$city-demo && mkdir -p data/$$city-demo && \
 	  cp demo/$$city-demo.curation.json data/$$city-demo/curation.json && \
-	  $(PRESENTATION_ENV) uv run city-analyser-demo $$city || exit 1; \
+	  $(PRESENTATION_ENV) uv run city-analyser-demo $$city && \
+	  uv run city-analyser-groundtruth catastro $$city-demo || exit 1; \
 	done
 
 presentation:

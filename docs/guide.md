@@ -211,21 +211,31 @@ ATTRIBUTES_VLM_OPTIONS='{"reasoning_effort": "none"}' uv run city-analyser-viewe
 
 ## Presentation mode
 
-The viewer can run the survey as a show: it walks the panorama sequence by itself, turns to a building, clicks it, looks at it from every view the survey kept, streams the assistant's reasoning (what it sees in each view, how it counts storeys, which GEM material and lateral system it settles on, and when it will not guess), fills in the building record, "saves" it, colors the footprint on the map and moves on, in a loop. Start it from Advanced > **Presentation mode**, or with `present=1` in the URL. <kbd>Space</kbd> pauses, <kbd>→</kbd> skips to the next building, <kbd>Esc</kbd> ends it.
+The viewer can run the survey as a show, to explain what the tool does. Press **▶ Run survey** in the toolbar (or open the viewer with `present=1`): it says what the audience is about to see, then walks the panorama sequence by itself, building after building. The HUD at the bottom names the phase of each visit:
+
+| Phase | What happens on screen |
+|---|---|
+| Walk | The camera turns to the next capture and steps into it, as in Street View: horizontal turns, then a gentle look up, never a roll. Panoramas taken with a tilted camera are shown leveled. |
+| Look | It clicks the building: its mask (the orange area) appears, and the crop the model was given is shown next to its field notes for that view. A view the model could not use is set aside, in its own words. |
+| Reason | It compares the storey counts and the structure across the views, and says when it will not guess. |
+| Record | It fills in floors, GEM material and lateral load-resisting system, composes the GEM v3 string, "saves" it and colors the footprint on the map. |
+| Check | When the building is matched to the cadastre, it compares the record with it and explains a difference (a mezzanine or set-back attic the street does not show, a cadastral year that is a refurbishment). |
+
+Each walk ends with a summary: what was found, the map enlarged and colored by GEM material, lateral system and floors in turn, and the review queue an engineer would work through. Then it starts again, or continues with the next dataset of `then`. <kbd>Space</kbd> pauses, <kbd>→</kbd> skips ahead, <kbd>Esc</kbd> returns to the viewer. The presentation writes nothing.
 
 ```bash
-uv run city-analyser-demo valencia-centro          # a presentation copy: valencia-centro-demo
-uv run city-analyser-viewer
+make presentation-data      # rebuild both demo copies from demo/*.curation.json and match them to the cadastre
+make presentation           # serve them; the command prints the URL
 # http://127.0.0.1:8765/viewer/?dataset=valencia-centro-demo&present=1&then=madrid-centro-demo
 ```
 
-`city-analyser-demo <dataset>` prepares a copy of an analyzed dataset (panoramas hard-linked, analyses copied, the original untouched): crops, OSM-tag priors and, for buildings without a real model answer, **simulated** answers built from the OSM tags, the analyzed height and the building's age and use, with some views disagreeing on purpose. They pass through the same fusion and card code as real answers, and the presentation shows a "Simulated answers" badge. A dataset surveyed with a real model (`city-analyser-survey`) is presented as it is, with its model named instead. The presentation writes nothing.
+`city-analyser-demo <dataset>` prepares a copy of an analyzed dataset (panoramas hard-linked, analyses copied, the original untouched): crops, OSM-tag priors and, for buildings without a real model answer, simulated answers built from the OSM tags, the analyzed height and the building's age and use. They pass through the same fusion and card code as real answers. A dataset surveyed with a real model (`city-analyser-survey`) is presented as it is, with its model named in the HUD; demo answers are marked "Demo dataset".
 
-For a public presentation, `demo/<dataset>.curation.json` holds a reviewed version: mask corrections checked by eye with `tools/mask_review.py --full` (keep a bearing range, trace a roof line, remove a view, drop views under `min_view_pixels`), buildings to `exclude`, and per-view `answers` written from the crops (provider `vlm:curated-demo`, shown as "Curated answers"). `make presentation-data` rebuilds both demo copies from it and `make presentation` serves them.
+For a public presentation, `demo/<dataset>.curation.json` holds a reviewed version: mask corrections checked by eye with `tools/mask_review.py --full` (keep a bearing range, trace a roof line, fill or claim views, remove a view), buildings to `exclude`, and per-view `answers` written from the crops (provider `vlm:curated-demo`). `make presentation-data` rebuilds both demo copies from it, matches them to the cadastre and `make presentation` serves them.
 
 With a model configured, the presentation runs **live**: the model analyzes each building as the camera reaches it, and the field notes on screen are its own, generated then. Without one, or with `live=0`, it replays the saved answers.
 
-URL options: `speed=1.5` (pace; 1 reads at about 330 words a minute, roughly a minute and a half per building with several views), `min-score=0.03` (leave out buildings whose best view shows only a sliver of facade), `then=other-demo,third-demo` (continue with other datasets after each lap).
+URL options, kept while the presentation runs: `speed=1.5` (pace; 1 reads at about 330 words a minute, about a minute per building), `min-score=0.03` (leave out buildings whose best view shows only a sliver of facade; a higher value gives a shorter tour), `then=other-demo,third-demo` (continue with other datasets after each walk), `live=0` (replay even with a model configured).
 
 ## From Colab (or any GPU machine) to the viewer
 

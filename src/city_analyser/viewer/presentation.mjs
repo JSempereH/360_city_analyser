@@ -1,16 +1,29 @@
 // Presentation mode: the viewer surveys the dataset by itself, the way an engineer would.
 //
 // It walks the panorama sequence, turns the camera to each building, clicks it,
-// looks at it from every view the survey kept, streams the assistant's reasoning,
-// fills in floors and the GEM structure, "saves" (the files are not touched) and moves
-// on, forever. Space pauses, the right arrow skips to the next building, Escape
-// ends it. Everything shown comes from the dataset's attribute files; answers
-// from city-analyser-demo are marked as simulated.
+// looks at it from every view the survey kept (showing the crop the model reads),
+// streams the assistant's reasoning, fills in floors and the GEM structure, "saves"
+// (the files are not touched), cross-checks the record with the cadastre when the
+// building is matched to it, and moves on. Each walk ends with the map colored by
+// what was found and the review queue an engineer would work through; then it
+// starts again. The HUD names the phase (walk, look, reason, record, check).
+// Space pauses, the right arrow skips to the next building, Escape ends it.
+// Everything shown comes from the dataset's attribute files; answers from
+// city-analyser-demo are marked as a demo dataset.
 
 import { answerLine, framingOf, visibleReasoning } from "./assistant.mjs";
-import { planTour, reasoningScript } from "./presentation-script.mjs";
+import { cadastreCheck, planTour, reasoningScript, surveySummary } from "./presentation-script.mjs";
 
 const SIMULATED_PREFIX = "vlm:simulated";
+
+// The phases of one visit, named in the HUD so an audience can follow what the assistant is doing.
+const PHASES = [
+  ["walk", "Walk", "Walks the street from capture to capture, as in Street View."],
+  ["look", "Look", "Finds the building's facade in the panorama (the orange mask) and reads each view the model is given."],
+  ["reason", "Reason", "Counts storeys and reads the structure across the views, explaining what it sees."],
+  ["record", "Record", "Writes the GEM v3 record (material / lateral system / height) and colors the map."],
+  ["check", "Check", "Compares the record with the cadastre and leaves doubtful answers to an engineer."],
+];
 
 class Stopped extends Error {}
 
@@ -27,7 +40,10 @@ function easeInOut(t) {
 
 // api: { host, datasetId(), imageIds(), currentImageId(), showImage(id), selectBuilding(id), fetchSummary(), fetchCard(id),
 //        getCamera(), setCamera({ yawDeg, pitchDeg, fov }), bearingToBuilding(id), revealBuilding(id), enter(), exit(),
-//        nextDataset(go): the dataset the presentation continues with (null to stay), loaded when `go` }
+//        nextDataset(go): the dataset the presentation continues with (null to stay), loaded when `go`,
+//        frame(view): the camera framing of a crop's view in the current panorama (assistant.framingOf),
+//        showColors(mode): color the map by an attribute, showReviewQueue(on): open or close the review queue,
+//        summaryView(on): enlarge the map and frame it on the saved buildings }
 export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
   const host = api.host;
   let paused = false;
@@ -42,7 +58,25 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
   hudBar.append(hudFill);
   const hudBadge = element("span", "presentation-badge");
   const hudKeys = element("span", "presentation-keys", "Space pause · → next · Esc exit");
-  hud.append(hudTitle, hudProgress, hudBar, hudBadge, hudKeys);
+  const hudPhases = element("ol", "presentation-phases");
+  const phaseItems = new Map(PHASES.map(([key, label, help]) => {
+    const item = element("li", "", label);
+    item.title = help;
+    hudPhases.append(item);
+    return [key, item];
+  }));
+  hud.append(hudTitle, hudProgress, hudPhases, hudBar, hudBadge, hudKeys);
+  // The current phase is lit, the earlier ones of this visit marked done; null clears them.
+  const setPhase = (key) => {
+    let reached = false;
+    for (const [name, item] of [...phaseItems.entries()].reverse()) {
+      if (name === key) reached = true;
+      item.classList.toggle("active", name === key);
+      item.classList.toggle("done", reached && name !== key);
+    }
+  };
+  const frame = (view) => (api.frame ? api.frame(view) : framingOf(view));
+  const saved = new Set();
   const panel = element("section", "presentation-panel");
   panel.setAttribute("aria-live", "polite");
   const cursor = element("div", "presentation-cursor");
@@ -177,17 +211,19 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     thinking.status.hidden = true;
   };
 
-  const stream = async (text, className = "") => {
+  const stream = async (text, className = "", container = thinking.body) => {
     const paragraph = element("p", className);
     const caret = element("span", "presentation-caret");
-    thinking.body.append(paragraph);
+    container.append(paragraph);
     paragraph.append(caret);
     // Text arrives in token-sized chunks at an uneven rate, slowing after punctuation as a model does
     // between clauses; about 330 words a minute on average, so an audience can read along.
     const tokens = text.match(/\s*\S{1,5}|\s+/g) || [];
     for (const token of tokens) {
       caret.before(document.createTextNode(token));
-      thinking.body.scrollTop = thinking.body.scrollHeight;
+      container.scrollTop = container.scrollHeight;
+      // On a phone the panel itself scrolls: keep the newest line in view.
+      panel.scrollTop = panel.scrollHeight;
       const pause = /[.;:]$/.test(token) ? 260 + Math.random() * 380 : /,$/.test(token) ? 120 + Math.random() * 120 : 0;
       await wait(35 + token.length * 11 + Math.random() * 45 + pause);
       if (skip) break;
@@ -206,6 +242,29 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     thinking.header.classList.add("done");
     await wait(500);
     thinking.body.classList.add("collapsed");
+  };
+
+  // The crop the model was given for this view, so the audience sees what it reads.
+  const showCrop = (url, index) => {
+    if (!url) return;
+    const figure = element("figure", "presentation-crop");
+    const image = element("img");
+    image.src = url;
+    image.alt = `View ${index + 1} as given to the model`;
+    image.addEventListener("error", () => figure.remove());
+    figure.append(image, element("figcaption", "", `View ${index + 1}: what the model reads`));
+    thinking.body.append(figure);
+    thinking.body.scrollTop = thinking.body.scrollHeight;
+  };
+
+  // After saving, the record is compared with the cadastre, when the building is matched to it.
+  const crossCheck = async (card) => {
+    const check = cadastreCheck(card);
+    if (!check) return;
+    setPhase("check");
+    const box = panel.querySelector(".presentation-decision") || panel;
+    await wait(600);
+    await stream(check.text, `presentation-check${check.differs ? " differs" : ""}`, box);
   };
 
   const decide = async (decision) => {
@@ -228,6 +287,7 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
       }
       dd.classList.remove("typing");
       dd.classList.add("filled");
+      panel.scrollTop = panel.scrollHeight;
       await wait(450);
     }
     const gem = element("p", "presentation-gem", decision.gem);
@@ -275,12 +335,15 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
       }
       const event = queue.shift();
       if (event.type === "start") {
+        setPhase("look");
         thinking.status.hidden = false;
         thinking.status.textContent = `${event.model} is reading ${event.views} view${event.views === 1 ? "" : "s"}...`;
       } else if (event.type === "view") {
         const reference = event.reference || {};
+        setPhase("walk");
         await walkTo(reference.image_id ? String(reference.image_id) : null);
-        const target = framingOf(reference.view);
+        setPhase("look");
+        const target = frame(reference.view);
         if (target) await turnTo(target);
         await moveCursor(host.clientWidth / 2, host.clientHeight / 2 - 10);
         await click();
@@ -316,15 +379,19 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     if (!card) return;
     // The reflection across views comes from the fused answer, as in replay.
     const steps = reasoningScript(card);
+    setPhase("reason");
     for (const step of steps.filter((item) => item.type === "floors" || item.type === "structure")) {
       if (skip) break;
       await working(step.type === "floors" ? "Comparing the storey counts across views..." : "Weighing the evidence across views...", 700);
       await stream(step.text, `presentation-step ${step.type}`);
     }
     const decision = steps.find((step) => step.type === "decision");
+    setPhase("record");
     await finishThinking();
     await decide({ ...decision, saveText: steps.at(-1).text });
     api.revealBuilding(building.osmId);
+    saved.add(building.osmId);
+    if (!skip) await crossCheck(card);
   };
 
   const visit = async (building, number, total) => {
@@ -348,6 +415,7 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     hudBadge.hidden = !hudBadge.textContent;
     const steps = reasoningScript(card);
     beginThinking(building.osmId);
+    setPhase("walk");
     await working("Loading the building's footprint and evidence...", 1100);
     // Walk to the first view: through the panoramas in between when they are few, as one would.
     const first = steps.find((step) => step.type === "view");
@@ -357,23 +425,32 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
       if (skip) break;
       if (step.type === "view") {
         if (step.imageId !== api.currentImageId()) {
+          setPhase("walk");
           await working(`Moving to another capture for view ${step.index + 1}...`, 400);
           await walkTo(step.imageId);
         }
-        await turnTo(framingOf(step.view) || { yawDeg: api.bearingToBuilding(building.osmId) ?? api.getCamera().yawDeg, pitchDeg: -8, fov: 75 });
+        setPhase("look");
+        await turnTo(frame(step.view) || { yawDeg: api.bearingToBuilding(building.osmId) ?? api.getCamera().yawDeg, pitchDeg: -6, fov: 75 });
         await moveCursor(host.clientWidth / 2 + (Math.random() - 0.5) * 30, host.clientHeight / 2 - 10 + (Math.random() - 0.5) * 20);
         await click();
         api.selectBuilding(building.osmId);
         await wait(400);
+        showCrop(step.cropUrl, step.index);
         await working(`Analyzing view ${step.index + 1}...`, 1600);
       }
+      if (step.type === "floors" || step.type === "structure") setPhase("reason");
       if (step.type === "floors") await working("Counting window rows across the views...", 1200);
       if (step.type === "structure") await working("Comparing the views and weighting the evidence...", 1400);
-      if (step.type === "decision") await working("Writing the building record...", 800);
+      if (step.type === "decision") {
+        setPhase("record");
+        await working("Writing the building record...", 800);
+      }
       if (step.type === "decision" || step.type === "save") {
         await finishThinking();
         await decide({ ...step, saveText: steps.at(-1).text });
         api.revealBuilding(building.osmId);
+        saved.add(building.osmId);
+        if (!skip) await crossCheck(card);
         break;
       }
       await stream(step.text ?? "", `presentation-step ${step.type}`);
@@ -381,6 +458,57 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     cursor.classList.remove("visible");
     hudFill.style.width = `${Math.round((number / total) * 100)}%`;
     await wait(4000);
+  };
+
+  // What the audience is about to see, once, before the first building; → skips it.
+  const introduce = async (total) => {
+    const box = element("section", "presentation-intro");
+    box.append(element("h3", "", "How the AI surveyor works"), element("p", "", `It will walk ${api.datasetId()} and describe ${total} buildings, one at a time:`));
+    const list = element("ol");
+    for (const [key, label, help] of PHASES) {
+      const item = element("li");
+      item.append(element("strong", "", label), document.createTextNode(` ${help}`));
+      item.dataset.phase = key;
+      list.append(item);
+    }
+    box.append(list, element("p", "presentation-intro-keys", "Space pauses, → skips ahead, Esc returns to the viewer."));
+    panel.replaceChildren(box);
+    await wait(9000);
+    skip = false;
+  };
+
+  // The end of a walk: what was found, the map colored by each attribute, and the engineer's queue.
+  const conclude = async (next) => {
+    setPhase(null);
+    hudProgress.textContent = "Survey complete";
+    hudFill.style.width = "100%";
+    beginThinking("Survey complete");
+    const summary = await api.fetchSummary();
+    const text = surveySummary(summary, saved) || `${saved.size} buildings described and saved.`;
+    api.summaryView?.(true);
+    await stream(text);
+    for (const [mode, caption] of [["gem_material", "Map colored by GEM material"], ["gem_llrs", "by lateral load-resisting system"], ["floors", "by number of floors"]]) {
+      if (skip) break;
+      api.showColors?.(mode);
+      thinking.status.hidden = false;
+      thinking.status.textContent = caption;
+      await wait(3500);
+    }
+    if (!skip && api.showReviewQueue) {
+      const waiting = summary?.counts?.needs_review || 0;
+      thinking.status.textContent = waiting
+        ? `The review queue: ${waiting} answer${waiting === 1 ? "" : "s"} of ${api.datasetId()} for an engineer to check, weakest first`
+        : "The review queue an engineer works through";
+      api.showReviewQueue(true);
+      await wait(6000);
+      api.showReviewQueue(false);
+    }
+    api.showColors?.("gem_material");
+    api.summaryView?.(false);
+    thinking.status.hidden = true;
+    skip = false;
+    await stream(next ? `Moving on to ${next}.` : "Starting the walk again.");
+    await wait(2000);
   };
 
   const run = async () => {
@@ -391,15 +519,16 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
         panel.replaceChildren(element("p", "presentation-step", "No building of this dataset has a model answer yet. Run city-analyser-survey, or city-analyser-demo for a presentation copy."));
         return;
       }
+      await introduce(tour.length);
       for (let lap = 0; !stopped; lap += 1) {
         for (let index = 0; index < tour.length && !stopped; index += 1) {
           skip = false;
           await visit(tour[index], index + 1, tour.length);
         }
-        beginThinking("Survey complete");
+        skip = false;
         const next = api.nextDataset ? await api.nextDataset(false) : null;
-        await stream(`${tour.length} buildings of ${api.datasetId()} described and saved. ${next ? `Moving on to ${next}.` : "Starting the walk again."}`);
-        await wait(3000);
+        await conclude(next);
+        saved.clear();
         if (next) {
           await api.nextDataset(true);
           tour = planTour(await api.fetchSummary(), api.imageIds(), { minScore });

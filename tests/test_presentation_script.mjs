@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { planTour, reasoningScript } from "../src/city_analyser/viewer/presentation-script.mjs";
+import { cadastreCheck, planTour, reasoningScript, surveySummary } from "../src/city_analyser/viewer/presentation-script.mjs";
 
 const codes = { CR: "reinforced concrete", MUR: "unreinforced masonry", LFINF: "infilled frame", LWAL: "wall" };
 
@@ -37,6 +37,7 @@ test("a confident building is reasoned view by view, then decided and saved", ()
   assert.equal(steps[1].imageId, "10");
   assert.match(steps[1].text, /^View 1\. Slab edges at every storey\.\n→ 5 storeys · reinforced concrete \(CR\) · infilled frame \(LFINF\)/);
   assert.match(steps[2].text, /set it aside/);
+  assert.deepEqual([steps[2].setAside, steps[2].cropUrl], [true, null]);  // its crop would show the neighbors
   assert.match(steps[3].text, /OpenStreetMap records 5 levels, consistent/);
   assert.match(steps[4].text, /reinforced concrete \(CR\), 83% of the votes/);
   const decision = steps[5];
@@ -64,9 +65,48 @@ test("slivers of facade are left out of the tour unless nothing else is left", (
   const summary = { buildings: { "way/1": { model: true, image: "10", score: 0.3 }, "way/2": { model: true, image: "10", score: 0.001 }, "way/3": { model: true, image: "11" } } };
   assert.deepEqual(planTour(summary, ["10", "11"], { minScore: 0.03 }).map((stop) => stop.osmId), ["way/1", "way/3"]);
   assert.deepEqual(planTour({ buildings: { "way/2": summary.buildings["way/2"] } }, ["10"], { minScore: 0.03 }).map((stop) => stop.osmId), ["way/2"]);
+  // A threshold no building reaches gives the best-seen few, not every sliver.
+  const many = { buildings: Object.fromEntries([0.001, 0.02, 0.005, 0.01, 0.002].map((score, index) => [`way/${index}`, { model: true, image: "10", score }])) };
+  assert.deepEqual(planTour(many, ["10"], { minScore: 0.5 }).map((stop) => stop.osmId), ["way/1", "way/2", "way/3"]);
 });
 
 test("a view shows the model's field notes when it wrote them", () => {
   const notes = card({ views: [{ image_id: "10", rank: 1, view: null, reasoning: "Four rows of windows between thick piers.", answer: { observations: "short", floors: 4 } }] });
   assert.match(reasoningScript(notes).find((step) => step.type === "view").text, /^View 1\. Four rows of windows between thick piers\.\n→ 4 storeys/);
 });
+
+test("the saved record is cross-checked with the cadastre and differences are explained", () => {
+  const record = {
+    building: "way/9",
+    attributes: {
+      floors: { source: "vlm:m", value: 4, abstained: false },
+      construction_year: { source: "vlm:m", value: 1910, abstained: false },
+      building_type: { source: "vlm:m", value: "apartments", abstained: false },
+    },
+    references: { catastro: { floors: 5, construction_year: 1998, building_type: "apartments", reference: "5830201YJ2753B0001WH" } },
+  };
+  const check = cadastreCheck(record);
+  assert.equal(check.differs, true);
+  assert.match(check.text, /^Cross-check with the Spanish cadastre \(parcel 5830201YJ2753B\)\./);
+  assert.match(check.text, /5 storeys above ground and I counted 4: the usual cause is a mezzanine/);
+  assert.match(check.text, /dates the building 1998, where the facade reads as about 1910/);
+  assert.match(check.text, /Same use: apartments\./);
+  const agreeing = { ...record, attributes: { ...record.attributes, floors: { value: 5 }, construction_year: { value: 1992 } } };
+  assert.equal(cadastreCheck(agreeing).differs, false);
+  assert.equal(cadastreCheck({ attributes: {} }), null);
+});
+
+test("the end of a walk says what was found and what waits for an engineer", () => {
+  const summary = { buildings: {
+    "way/1": { model: true, gem_material: "MUR", needs_review: null },
+    "way/2": { model: true, gem_material: "MUR", needs_review: "split vote" },
+    "way/3": { model: true, gem_material: "CR", needs_review: null },
+    "way/4": { model: true, gem_material: null, needs_review: "the model failed on 1 view" },
+    "way/5": { model: false, gem_material: "W" },
+  } };
+  assert.equal(surveySummary(summary, new Set(["way/1", "way/2", "way/3", "way/4"])),
+    "4 buildings described and saved: 2 unreinforced masonry, 1 reinforced concrete and 1 structure not determined. The map is colored by what was found. "
+    + "2 are flagged for an engineer; they wait in the Review tab, under \"Structure to check\", weakest answer first.");
+  assert.equal(surveySummary(summary, new Set()), "");
+});
+

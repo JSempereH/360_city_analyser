@@ -2079,6 +2079,11 @@ kbd {
   display: none;
 }
 
+/* At the end of a walk the map grows, to show the buildings colored by what was found. */
+.app-shell.presenting-summary #location-map-canvas {
+  height: min(380px, 50vh);
+}
+
 /* Survey mode runs inside the normal viewer; the assistant's panel takes the building card's place. */
 .app-shell.presenting .building-card,
 .app-shell.presenting .building-status {
@@ -2190,11 +2195,13 @@ kbd {
   top: 16px;
   left: 16px;
   display: flex;
-  width: min(420px, calc(100% - 32px));
-  max-height: calc(100% - 96px);
+  /* Beside the mini-map (310 px at the right) whenever the panorama leaves room for both. */
+  width: min(420px, max(300px, calc(100% - 360px)));
+  /* Clear of the HUD, which takes two lines on a narrow panorama. */
+  max-height: calc(100% - 132px);
   flex-direction: column;
   gap: 10px;
-  overflow: hidden;
+  overflow: hidden auto;
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -2396,6 +2403,94 @@ kbd {
 
 .presentation-save.flagged {
   color: #c98500;
+}
+
+/* The phase of the visit, so an audience knows what the assistant is doing. */
+.presentation-phases {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presentation-phases li {
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  transition: background 300ms ease, color 300ms ease;
+}
+
+.presentation-phases li.done {
+  color: var(--text-muted);
+}
+
+.presentation-phases li.active {
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+/* The crop a view gives the model. */
+.presentation-crop {
+  margin: 0 0 10px;
+}
+
+.presentation-crop img {
+  display: block;
+  max-width: 100%;
+  max-height: 130px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.presentation-crop figcaption {
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+}
+
+.presentation-check {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-left: 3px solid var(--border);
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.presentation-check.differs {
+  border-left-color: #c98500;
+}
+
+.presentation-intro h3 {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 1rem;
+}
+
+.presentation-intro p {
+  margin: 0 0 8px;
+  color: var(--text-soft);
+}
+
+.presentation-intro ol {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding-left: 18px;
+  color: var(--text-soft);
+  line-height: 1.4;
+}
+
+.presentation-intro strong {
+  color: var(--text);
+}
+
+.presentation-intro-keys {
+  color: var(--text-faint);
+  font-size: 0.75rem;
 }
 
 .presentation-cursor {

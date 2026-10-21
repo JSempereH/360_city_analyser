@@ -200,6 +200,7 @@ const fragmentShaderSource = `
   uniform float instanceVisible;
   uniform float selectionVisible;
   uniform float selectionEmphasis;
+  uniform float fillStrength;
   uniform vec2 maskSize;
   uniform float vegetationVisible;
   uniform float aspect;
@@ -237,7 +238,6 @@ const fragmentShaderSource = `
     vec4 completedColor = mix(instancedColor, vec4(0.20, 0.65, 1.0, 1.0), vegetation * 0.18);
     // Overview: a light tint on every matched building. Selection: a stronger
     // fill plus an outline, so one building stands out on dark facades too.
-    float fillStrength = mix(0.26, 0.42, selectionEmphasis);
     vec4 color = mix(completedColor, vec4(1.0, 0.57, 0.12, 1.0), selected * fillStrength);
     if (selectionEmphasis > 0.5 && selectionVisible > 0.01) {
       vec2 texel = 1.5 / maskSize;
@@ -316,6 +316,8 @@ let presentationLive = null;
 // Resolved when the next panorama texture is on screen (smooth transitions wait for it).
 const textureWaiters = [];
 let presentationRevealed = null;
+// What the presentation colors the map by; the viewer's saved choice is left alone.
+let presentationColorMode = "gem_material";
 let presentationRestore = null;
 const LAYER_DEFAULTS = { masks: true, vegetation: true, instances: false, footprints: true, captures: true, view: true, diagnostics: true, coverage: false };
 const LAYERS_KEY = "viewer-layers";
@@ -383,6 +385,13 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+// The presentation's options from the page's own URL (speed, min-score, then, live), read once: loading
+// a dataset rewrites the URL before the presentation starts.
+const PRESENTATION_OPTIONS = ["speed", "min-score", "then", "live"];
+const presentationParameters = new URLSearchParams(
+  [...new URLSearchParams(window.location.search)].filter(([name]) => PRESENTATION_OPTIONS.includes(name)),
+);
+
 function syncViewerUrl() {
   const image = images[currentIndex];
   if (!datasetId || !image) return;
@@ -395,11 +404,9 @@ function syncViewerUrl() {
     fovDeg: fov,
     reviewKey: !elements.sidePanel.hidden && currentPanelTab() === "review" ? reviewQueue[reviewIndex]?.key : null,
   });
-  // A reload during a presentation resumes it.
-  const current = new URLSearchParams(window.location.search);
-  const presenting = presentation
-    ? `${search ? "&" : "?"}present=1${["speed", "min-score", "then"].map((name) => current.get(name) ? `&${name}=${encodeURIComponent(current.get(name))}` : "").join("")}`
-    : "";
+  // A reload during a presentation resumes it, with the same options.
+  const options = presentationParameters.toString();
+  const presenting = presentation ? `${search ? "&" : "?"}present=1${options ? `&${options}` : ""}` : "";
   window.history.replaceState(null, "", `${window.location.pathname}${search}${presenting}`);
 }
 
@@ -448,6 +455,7 @@ function initializeRenderer() {
     pitch: gl.getUniformLocation(program, "pitch"), selectionMask: gl.getUniformLocation(program, "selectionMask"),
     selectionVisible: gl.getUniformLocation(program, "selectionVisible"), vegetationMask: gl.getUniformLocation(program, "vegetationMask"),
     selectionEmphasis: gl.getUniformLocation(program, "selectionEmphasis"), maskSize: gl.getUniformLocation(program, "maskSize"),
+    fillStrength: gl.getUniformLocation(program, "fillStrength"),
     vegetationVisible: gl.getUniformLocation(program, "vegetationVisible"), yaw: gl.getUniformLocation(program, "yaw"),
     instanceMask: gl.getUniformLocation(program, "instanceMask"), instanceVisible: gl.getUniformLocation(program, "instanceVisible"),
     level: gl.getUniformLocation(program, "level"),
@@ -488,6 +496,8 @@ function render() {
   gl.uniform1f(uniforms.vegetationVisible, vegetationTexture && layers.vegetation ? 1 : 0);
   gl.uniform1f(uniforms.instanceVisible, instanceTexture && layers.instances ? 1 : 0);
   gl.uniform1f(uniforms.selectionEmphasis, selectionIsSingleBuilding ? 1 : 0);
+  // A lighter fill while presenting: the facade stays readable behind the mask at close range.
+  gl.uniform1f(uniforms.fillStrength, selectionIsSingleBuilding ? (presentationRevealed ? 0.28 : 0.42) : 0.26);
   gl.uniform2f(uniforms.maskSize, selectionMaskSize[0], selectionMaskSize[1]);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -1571,7 +1581,7 @@ async function loadBuildingFootprints(coordinates) {
 
 function attributeColorMode() {
   // The presentation colors by structure without changing the viewer's saved choice.
-  if (presentationRevealed) return "gem_material";
+  if (presentationRevealed) return presentationColorMode;
   const mode = preferences().attributeColors;
   return mode in COLOR_MODES ? mode : "none";
 }
@@ -1811,7 +1821,7 @@ async function analyzeNow() {
         const reference = message.reference || {};
         cameraMoves.push((async () => {
           if (reference.image_id && String(reference.image_id) !== String(images[currentIndex]?.id)) await glideToImage(reference.image_id);
-          const framing = framingOf(reference.view);
+          const framing = framingOf(reference.view, panoramaLevel);
           if (framing) await tweenCamera(framing);
         })());
       }
@@ -1925,9 +1935,22 @@ function yawToImage(imageId) {
   return signedDegrees(bearingDegrees(from, to) - headingOf(here));
 }
 
+// The side panel as it was before the presentation showed the review queue.
+function restorePresentationPanel() {
+  if (!presentationRestore?.panel) return;
+  const { tab, kind, visible } = presentationRestore.panel;
+  presentationRestore.panel = null;
+  elements.reviewKind.value = kind;
+  rebuildReviewQueue();
+  if (!PHONE_QUERY.matches) {
+    setPanelTab(tab);
+    setSidePanelVisible(visible, false);
+  }
+}
+
 function startPresentationMode() {
   if (presentation || !datasetId) return;
-  const parameters = new URLSearchParams(window.location.search);
+  const parameters = presentationParameters;
   const speed = Number(parameters.get("speed"));
   const minScore = Number(parameters.get("min-score"));
   const presentationDatasets = [datasetId];
@@ -1976,6 +1999,37 @@ function startPresentationMode() {
     cancelLive: () => presentationLive?.abort(),
     getCamera: presentationCamera,
     setCamera: setPresentationCamera,
+    // Crop framings are measured in the raw panorama; the viewer shows it leveled.
+    frame: (view) => framingOf(view, panoramaLevel),
+    showColors: (mode) => {
+      presentationColorMode = mode in COLOR_MODES && mode !== "none" ? mode : "gem_material";
+      refreshBuildingStyles();
+      renderMapLegend();
+    },
+    // The end of a walk: a taller map framed on the buildings saved in it.
+    summaryView: (on) => {
+      elements.appShell.classList.toggle("presenting-summary", on);
+      if (!on || !locationMap) return;
+      const features = [...(presentationRevealed || [])].map(featureById).filter(Boolean);
+      window.setTimeout(() => {
+        locationMap.invalidateSize();
+        if (features.length) locationMap.fitBounds(window.L.geoJSON({ type: "FeatureCollection", features }).getBounds(), { padding: [24, 24], maxZoom: 18 });
+      }, 350);
+    },
+    // The engineer's queue of answers to check, shown at the end of a walk; closing it restores the panel.
+    showReviewQueue: (open) => {
+      if (open) {
+        presentationRestore.panel = { tab: currentPanelTab(), kind: elements.reviewKind.value, visible: !elements.sidePanel.hidden };
+        elements.reviewKind.value = "attributes";
+        if (!PHONE_QUERY.matches) {
+          setSidePanelVisible(true, false);
+          setPanelTab("review");
+        }
+        rebuildReviewQueue();
+      } else {
+        restorePresentationPanel();
+      }
+    },
     bearingToBuilding: yawToBuilding,
     revealBuilding: (osmId) => {
       presentationRevealed?.add(osmId);
@@ -1986,6 +2040,7 @@ function startPresentationMode() {
     enter: () => {
       presentationRestore = { map: !elements.mapPanel.hidden };
       presentationRevealed = new Set();
+      presentationColorMode = "gem_material";
       elements.appShell.classList.add("presenting");
       elements.presentationButton.setAttribute("aria-pressed", "true");
       elements.presentationButton.querySelector("span").textContent = "Stop survey";
@@ -1994,6 +2049,8 @@ function startPresentationMode() {
       renderMapLegend();
     },
     exit: () => {
+      restorePresentationPanel();
+      elements.appShell.classList.remove("presenting-summary");
       presentation = null;
       presentationRevealed = null;
       elements.appShell.classList.remove("presenting");

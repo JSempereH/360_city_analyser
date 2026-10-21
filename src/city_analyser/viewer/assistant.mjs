@@ -76,16 +76,34 @@ export function boldSpans(text) {
   return spans;
 }
 
+// How far up a framing may look, and its field of view. A crop frames the whole facade (up to 30 degrees
+// up with 100 degrees of field); shown like that, verticals converge and buildings seem to lean back.
+export const FRAMING_MAX_UP_DEG = 15;
+export const FRAMING_FOV_DEG = [65, 85];
+
 /**
- * Camera framing for a crop's view `{ yaw_deg, pitch_deg, fov_deg }`, as Street View users look: its direction,
- * a tilt of at most 22 degrees up, and a field of view wide enough to show the storeys. Null without a direction.
- * The renderer's pitch is positive down, hence the sign.
+ * Camera framing for a crop's view `{ yaw_deg, pitch_deg, fov_deg }`, as a person on the pavement looks at a
+ * facade: its direction, a gentle upward tilt and a moderate field of view. Null without a direction.
+ * `level` (navigation.mjs levelMatrix of the panorama) turns the crop's direction, measured in the raw
+ * panorama, into the leveled view the viewer shows. The renderer's pitch is positive down, hence the sign.
  */
-export function framingOf(view) {
+export function framingOf(view, level = null) {
   if (!view || !Number.isFinite(view.yaw_deg)) return null;
+  let yawDeg = view.yaw_deg;
+  let upDeg = view.pitch_deg || 0;
+  if (level) {
+    const yaw = yawDeg * Math.PI / 180;
+    const up = upDeg * Math.PI / 180;
+    const raw = [Math.cos(up) * Math.sin(yaw), Math.sin(up), Math.cos(up) * Math.cos(yaw)];
+    // The viewer samples raw = level * leveled, so the leveled direction is the transpose times raw.
+    const [x, y, z] = [0, 1, 2].map((column) => level[column] * raw[0] + level[3 + column] * raw[1] + level[6 + column] * raw[2]);
+    yawDeg = Math.atan2(x, z) * 180 / Math.PI;
+    upDeg = Math.asin(Math.max(-1, Math.min(1, y))) * 180 / Math.PI;
+  }
+  const round = (value) => Math.round(value * 100) / 100;
   return {
-    yawDeg: view.yaw_deg,
-    pitchDeg: -Math.max(-5, Math.min(22, view.pitch_deg || 0)),
-    fov: Math.max(60, Math.min(95, (view.fov_deg || 70) * 1.1)),
+    yawDeg: round(yawDeg),
+    pitchDeg: round(-Math.max(-3, Math.min(FRAMING_MAX_UP_DEG, upDeg))),
+    fov: round(Math.max(FRAMING_FOV_DEG[0], Math.min(FRAMING_FOV_DEG[1], (view.fov_deg || 70) * 0.85))),
   };
 }

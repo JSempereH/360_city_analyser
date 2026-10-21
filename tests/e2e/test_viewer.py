@@ -286,7 +286,12 @@ class ViewerTests(unittest.TestCase):
         prepare_demo(self.root / "data", DATASET, log=lambda _: None)
         page = self.new_page()
         page.goto(f"{self.base}/viewer/?dataset={DATASET}&image={FIRST}&present=1&speed=20")
+        # It opens by saying what the audience will see, phase by phase, as the HUD names them.
+        page.wait_for_selector(".presentation-intro", timeout=60_000)
+        self.assertEqual(page.locator(".presentation-phases li").all_text_contents(), ["Walk", "Look", "Reason", "Record", "Check"])
         page.wait_for_selector(".presentation-thinking-body", timeout=60_000)
+        # Loading the dataset rewrites the URL; the presentation keeps its options.
+        self.assertIn("speed=20", page.url)
         # It runs inside the normal viewer: the sidebar stays, the play button turns into stop.
         self.assertTrue(page.locator(".sidebar").is_visible())
         self.assertEqual(page.get_attribute("#presentation-button", "aria-pressed"), "true")
@@ -294,8 +299,15 @@ class ViewerTests(unittest.TestCase):
         page.wait_for_selector(".presentation-save.saved, .presentation-save.flagged", timeout=90_000)
         self.assertRegex(page.text_content(".presentation-gem"), r"^(MUR|CR|S|MAT99)/")
         self.assertIn("Thought for", page.text_content(".presentation-thinking-header"))
-        page.wait_for_function("document.querySelector('#map-legend-title').textContent.includes('1 saved')", timeout=30_000)
+        # Each saved building is colored on the map; at this speed the count may already be past one.
+        page.wait_for_function("/[1-9][0-9]* saved/.test(document.querySelector('#map-legend-title').textContent)", timeout=30_000)
         self.assertIn("present=1", page.url)
+        # The walk ends with what was found, the map colored by each attribute and the review queue, then the
+        # panel is as it was.
+        page.wait_for_function("document.querySelector('.presentation-panel').textContent.includes('Starting the walk again')", timeout=180_000)
+        self.assertIn("described and saved", page.text_content(".presentation-panel"))
+        self.assertTrue(page.locator("#panel-building").is_visible())
+        self.assertFalse(page.locator(".app-shell.presenting-summary").count())
         page.keyboard.press(" ")
         self.assertIn("paused", page.get_attribute(".presentation", "class"))
         page.keyboard.press("Escape")
