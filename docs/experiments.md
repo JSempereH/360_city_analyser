@@ -8,11 +8,13 @@ The question every experiment must answer first: **does a vision-language model 
 |---|---|---|
 | 1 | Reference data to measure against | Implemented: cadastre (Spain), engineer-labeled evaluation set, OSM tags |
 | 2 | Experiment management | Implemented: experiment files, isolated runs, comparison report |
-| 3 | Enough imagery | Planned below |
+| 3 | Enough imagery | In progress: Mapillary works again; Ciutat Vella (Valencia) has 89 panoramas and 133 buildings matched to the cadastre |
 | 4 | Automatic mask quality control | Planned below |
 | 5 | Scale (frozen OSM, GPU throughput, job queue) | Planned below |
 | 6 | GEM detail that matters for seismic risk | Planned below |
 | 7 | Outputs for risk analysis | Planned below |
+
+The last section compares the tool with related systems and lists what it lacks against them.
 
 ## 1. Reference data
 
@@ -80,7 +82,7 @@ Analyses only count under the settings they were made with, so `[analysis]` name
 | Order | Point | Depends on | Estimate | Unlocks |
 |---|---|---|---|---|
 | 1 | 3. Imagery (Mapillary token, Panoramax) | nothing | 2-3 days | a real pilot neighborhood, experiments with several views per building |
-| 2 | 4. Mask quality control | 3 (enough views to afford discarding bad ones) | 4-6 days | trustworthy crops without hand curation |
+| 2 | 4. Mask quality control | 3 (enough views to afford discarding bad ones) | 4-5 days for phases 0-2, 9-12 in all | trustworthy crops without hand curation |
 | 3 | 5a. Frozen OSM snapshot | nothing (can go in parallel with 3) | 2 days | reproducible experiments |
 | 4 | 6. GEM detail | 1-2 (reference data and experiments to measure it) | 3-4 days | vulnerability-relevant attributes |
 | 5 | 5b-c. GPU throughput, job queue | 3 (a city to run) | 3-5 days | city-scale runs |
@@ -89,6 +91,8 @@ Analyses only count under the settings they were made with, so `[analysis]` name
 Estimates are working days for the code, tests and docs, not for running the data. Each point ends with an experiment from section 2 that shows its effect; a step that cannot be measured is not done.
 
 ## 3. Enough imagery
+
+**Update (October 17).** A new token works: `valencia-ciutat-vella` was downloaded (89 panoramas at 10 m spacing), analyzed on CPU in 2 h 20 min without failures, and matched to the cadastre (133 of 151 footprints). The pilot experiment (`experiments/valencia-pilot.toml`) runs on it. Panoramax is still to do.
 
 **Diagnosis (checked October 2026).** The Mapillary token in `.env` is not active: the Graph API answers "An active access token must be used" even to `/me`, so every search returns empty. It is not a permissions problem. Panoramax, the open alternative, has over 480 equirectangular (360°) pictures in central Madrid (the query limit was reached, so more), mostly from 2023 to 2026; in central Valencia it lists 441 pictures whose metadata does not say whether they are 360°.
 
@@ -105,7 +109,11 @@ Estimates are working days for the code, tests and docs, not for running the dat
 
 ## 4. Automatic mask quality control
 
-**Diagnosis.** In the demo about thirty masks were wrong in five recurring ways, each of which a footprint projection can detect:
+**Diagnosis.** In the demo about thirty masks were wrong in five recurring ways, each of which a footprint projection can detect. The Ciutat Vella pilot (October 17) added three causes upstream of them:
+
+- **Speckle.** Pixels no instance (detector plus SAM) covers fall back to the footprint projection, and the semantic mask (SegFormer at 384 px) is noisy there: some masks come out mottled with loose blobs.
+- **Tilted cameras.** The analysis assumes a level camera, but 36 of the 89 Ciutat Vella panoramas are tilted more than 5 degrees (up to 25). Projected walls then shift vertically, which spoils exactly the "mask above the roof" signal. The viewer already levels panoramas with Mapillary's `computed_rotation` (`camera_up` in the manifest); the analysis does not.
+- **Default height.** Most footprints are projected 10 m high because OSM has no height; the cadastre now gives storeys for most of them.
 
 | Failure seen in the demo | Signal |
 |---|---|
@@ -114,14 +122,31 @@ Estimates are working days for the code, tests and docs, not for running the dat
 | The side facade of a corner is missing | A projected wall in line of sight has no mask pixels |
 | The mask leaks into the sky | Mask top far above the projected roof height |
 | A distant sliver gets a building id | Mask area tiny relative to the projected facade |
+| Speckle (pilot) | Many small components, low solidity |
 
-**Tasks.**
+The approach is to remove the causes first, then score what remains by the agreement of three independent sources: the instance mask (image), the footprint projection (geometry) and the semantic mask. Where they disagree the view is suspect, and the score says why.
 
-1. **Consistency score per view** (`mask_quality.py`): bearing intersection-over-union between mask and projected walls, share of projected walls covered, overshoot above the roof line, number of disjoint runs. The analysis already has both inputs; `tools/mask_review.py` computes the projection.
-2. **Use it.** Views below a threshold are left out of crops and the ranking (recorded, not deleted), and listed in the viewer's review queue as "mask to check" with the reason.
-3. **Fix it in the viewer.** The operations the demo curation used (keep a bearing range, trace a roof line, claim detected pixels, fill between edges, remove the view, give the mask to another footprint), drawn on the panorama and stored as reviewed, versioned corrections like the footprint corrections (`mask-corrections/`), applied at association time so a re-analysis keeps them.
-4. **Calibrate the threshold** on the demo, whose 30 hand corrections are labeled examples of bad masks, and on a sample of the pilot.
-5. **Measure.** An experiment with and without the filter: the filter is kept if model scores against the cadastre improve or hold while coverage drops little.
+**Phase 0. Labeled benchmark (half a day).** Positives: the demo curation's mask corrections (`demo/*.curation.json`), labeled by failure type. More: a quick labeling mode in the viewer (one key for good, bad, and the reason) for about 150 views of Ciutat Vella, some 30 to 40 minutes of review. Metrics: bad views caught (recall), good views dropped (false alarms), and the effect on the pilot experiment.
+
+**Phase 1. Remove the causes in the analysis (2 days).**
+
+1. Clean the projection fallback: drop small connected components and close holes only in pixels outside instances; SAM masks are left alone.
+2. Level before projecting: use `camera_up` in the wall projection and in the analysis' perspective views.
+3. Cadastre height: storeys times about 3.1 m where OSM has no height, for the projection and as the expected roof for phase 2.
+
+These change analysis results: bump `ANALYSIS_VERSION` and re-analyze (Ciutat Vella: about 2.5 h on CPU, minutes on a Colab GPU).
+
+**Phase 2. Quality score per view (2 days).** `mask_quality.py`, one signal per row of the table above, each with a readable reason: bearing overlap between mask and projected walls, number of separate bearing runs, mask top against the expected roof, fragmentation (components and solidity), and area against the projected facade minus what trees hide (the vegetation mask). Thresholded rules calibrated on phase 0 first; a logistic regression on the same signals once there are a few hundred labels.
+
+**Phase 3. Use it (1 to 2 days).** Views below the threshold leave the crops and the ranking, recorded with their reason, not deleted, and the model uses the next best view; a building without a clean view abstains with "no clean view" instead of answering from a bad mask. In the viewer: a "Mask to check" review queue with the reason, and a map layer colored by mask quality.
+
+**Phase 4. Correct in the viewer (3 to 4 days).** First the three operations the demo curation used most (remove the view, keep a bearing range, trace a roof line), then claiming pixels for another building and filling between edges. Stored as reviewed, versioned corrections in `mask-corrections/`, like the footprint corrections, and re-applied at association time so a re-analysis keeps them.
+
+**Phase 5. Measure (half a day plus the run).** The pilot experiment with and without the filter, against the run that finished on October 17 as the "before": the filter stays if the scores against the cadastre improve or hold while coverage drops little.
+
+**Risks.** A wrong projection (pose or OSM footprint) makes a good mask look bad: the score marks a view as inconsistent with a reason, not as wrong, and the footprint diagnostics help tell the cases apart. Trees legitimately hide facades: the vegetation mask is discounted from the expected coverage.
+
+**Start with** phases 0 to 2 (4 to 5 days, no new interface beyond quick labeling), which show with data how much the masks improve before the correction tools are built.
 
 **Done when** the score separates the demo's corrected masks from the rest (most bad ones caught, few good ones dropped) and the experiment shows no loss.
 
@@ -170,3 +195,35 @@ Estimates are working days for the code, tests and docs, not for running the dat
 4. **Uncertainty.** Carry the vote shares into the aggregation as a distribution over taxonomy strings per area, not only the top answer.
 
 **Done when** a pilot area produces an exposure file OpenQuake accepts and a side-by-side comparison with ESRM20.
+
+## Related tools and what this one lacks (October 2026)
+
+Four systems are close to this one; none covers the whole loop from imagery to a reviewed record.
+
+| System | What it does | Closest to |
+|---|---|---|
+| [OpenFACADES](https://arxiv.org/abs/2504.02866) (NUS, 2025) | Mapillary and OSM footprints joined by isovists to pick vantage points, facades detected in panoramas and reprojected, then **vision-language models fine-tuned on about 31,000 labeled images** predict type, material, age and floors; about 1.2 million images, half a million buildings. Paper under CC BY-NC-ND. | The analysis chain (see [OpenFACADES reuse plan](openfacades-reuse-plan.md)) |
+| [BRAILS++](https://simcenter.designsafe-ci.org/products/backend-components/brails/) (NHERI SimCenter) | Building inventories for regional hazard simulation: stories, roof shape, height and soft storeys from Street View, with imputation of missing values; feeds the SimCenter damage workflows. | The purpose: an inventory for risk |
+| [OpenBuildingMap](https://gee-community-catalog.org/projects/obm/) (GFZ, 2025) | 2.7 billion footprints with occupancy, height, stories and floorspace as GEM tags, derived from OSM and footprint datasets without imagery (ODbL); combined with ESRM20 in the European high-resolution exposure model. | The OSM-tag prior, at global scale |
+| GFZ remote rapid visual screening, and [GEM's street-view classifier](https://www.globalquakemodel.org/GEMNews/deep-learning-speeds-up-building-classification) | Experts label buildings in GEM from omnidirectional Street View with OSM footprints; GEM's pipeline rectifies the facade and classifies structural system (88% accuracy), storeys and construction period. | The review tab; the attribute models |
+
+**What they do and this tool does not.**
+
+1. **Fine-tuned models.** OpenFACADES shows fine-tuned open models beating single-attribute classifiers and zero-shot GPT-4o. Here Qwen runs zero-shot and, in the first experiments, does not beat the baselines.
+2. **Labels for the structure.** GEM's 88% rests on thousands of engineer-labeled buildings. The cadastre says nothing about structure, so `gem_material` and `gem_llrs` cannot be measured yet.
+3. **A published prior to beat.** OpenBuildingMap and ESRM20 already give a GEM estimate for every building in Europe; that is the honest baseline.
+4. **Output a risk model reads.** BRAILS feeds damage simulations, OBM and ESRM20 feed OpenQuake; this tool exports a table.
+5. **Rectified facades.** A fronto-parallel facade makes storeys easier to count than a perspective crop.
+
+**What this tool has that they do not.** The whole loop in one place: analysis, a 360° viewer, a card per building, a human review that wins over the model, a chat about the building with the model that described it, and a presentation mode; instance masks per building associated to OSM with occlusion and pose repair, measured on a benchmark; GEM v3 answers with visible reasoning, regional guidance, abstention and multi-view votes; reproducible experiments against the cadastre; Colab runs imported without losing local reviews.
+
+**What to add, in order.**
+
+1. **An engineer-labeled evaluation set**: a review mode that walks a reviewer through 100 to 200 buildings chosen to cover the typologies of an area, with "Use as ground truth" on.
+2. **Reference values in the card**: the cadastre's storeys, year and use next to the answer, disagreements marked, and later the OBM or ESRM20 class of the area. Implemented for the cadastre (October 17).
+3. **OpenBuildingMap or ESRM20 as an experiment run**, like the OSM prior: a model that does not beat it adds nothing.
+4. **Fine-tuning** (LoRA on Qwen3-VL) once there are a few hundred to a few thousand reviewed buildings, plus OpenFACADES labels if their license allows.
+5. **OpenQuake exposure export** and aggregation by area (point 7).
+6. **Vulnerability attributes** (point 6): open ground floor (soft storey), irregularity, position in the block, roof.
+7. **Viewer**: a height ruler to count storeys on a facade, the views of one building side by side, map filters by attribute or by disagreement with the cadastre, and the panorama leveling of the viewer applied to the analysis as well.
+
