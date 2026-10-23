@@ -36,7 +36,7 @@ def _views(dataset_dir: Path) -> dict[str, list[dict]]:
 
 def _projected(analysis: dict, image: dict, building_id: str, width: int, height: int) -> np.ndarray | None:
     """Pixels where the building's OSM walls project, from the pose the analysis used."""
-    from city_analyser.building_analysis import _render_facade_owners, nearby_buildings
+    from city_analyser.building_analysis import _render_facade_owners, camera_up_vector, nearby_buildings
     from city_analyser.multi_view_analysis import panorama_coordinates
 
     pose = analysis.get("refined_pose") or {}
@@ -44,7 +44,7 @@ def _projected(analysis: dict, image: dict, building_id: str, width: int, height
     heading = pose["heading_degrees"] if pose.get("accepted") else float(image["computed_compass_angle_deg"])
     camera = (pose.get("latitude", latitude), pose.get("longitude", longitude))
     features = nearby_buildings(latitude, longitude)
-    owners, _, candidates, _ = _render_facade_owners(features, camera[0], camera[1], heading, width, height)
+    owners, _, candidates, _ = _render_facade_owners(features, camera[0], camera[1], heading, width, height, camera_up_vector(analysis.get("camera_up")))
     for ordinal, feature in enumerate(candidates, start=1):
         if feature["properties"].get("osm_id") == building_id:
             return owners == ordinal

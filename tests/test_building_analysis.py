@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import tempfile
 import unittest
@@ -348,3 +349,38 @@ class FacadeGeometryTests(unittest.TestCase):
             path.write_bytes(b"second-content")
 
             self.assertNotEqual(file_sha256(path), first)
+
+
+class PhaseOneAssociationTests(unittest.TestCase):
+    def test_a_tilted_camera_sees_the_level_horizon_shifted_by_its_tilt(self):
+        width, height = 720, 360  # half a degree per pixel
+        self.assertIsNone(building_analysis._level_lookup((0.0, 1.0, 0.0), width, height))
+        tilt = math.radians(10)
+        # World up leans toward the image center: the camera looks 10 degrees up, so the horizon ahead sits 10 degrees low.
+        rows, columns = building_analysis._level_lookup((0.0, math.cos(tilt), math.sin(tilt)), width, height)
+        below = height // 2 + 20  # 10 degrees under the panorama's own horizon, straight ahead
+        self.assertAlmostEqual(int(rows[below, width // 2]), height // 2, delta=1)
+        self.assertAlmostEqual(int(columns[below, width // 2]), width // 2, delta=1)
+        # Behind the camera the same tilt raises the horizon.
+        self.assertAlmostEqual(int(rows[height // 2 - 20, 0]), height // 2, delta=1)
+
+    def test_camera_up_needs_three_finite_numbers(self):
+        self.assertEqual(building_analysis.camera_up_vector([0, 2, 0]), (0.0, 1.0, 0.0))
+        for value in (None, [0, 1], [0, float("nan"), 1], [True, 1, 0], [0, 0, 0]):
+            self.assertIsNone(building_analysis.camera_up_vector(value))
+
+    def test_projection_speckle_is_cleaned_but_instance_pixels_are_kept(self):
+        labels = np.zeros((200, 400), dtype=np.uint16)
+        labels[50:150, 50:350] = 1
+        evidence = labels > 0
+        evidence[100, 100] = False  # a pinhole in the projected facade
+        evidence[20:22, 20:22] = True  # a loose blob, named by no footprint
+        labels[20:22, 20:22] = 2
+        outside = np.ones_like(evidence)
+        outside[:, 300:] = False  # a detected instance covers the right part
+        evidence[120:125, 320:325] = False  # whose own holes stay
+        cleaned = building_analysis._clean_fallback(labels, evidence, outside)
+        self.assertTrue(cleaned[100, 100])
+        self.assertFalse(cleaned[20:22, 20:22].any())
+        self.assertFalse(cleaned[120:125, 320:325].any())
+        self.assertTrue(cleaned[60, 60])

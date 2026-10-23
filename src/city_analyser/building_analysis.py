@@ -35,7 +35,7 @@ GPU_MODEL_ID = "nvidia/segformer-b5-finetuned-cityscapes-1024-1024"
 CPU_MODEL_ID = "nvidia/segformer-b0-finetuned-cityscapes-1024-1024"
 HIGH_ACCURACY_MODEL_ID = "facebook/mask2former-swin-large-mapillary-vistas-semantic"
 MODEL_VERSION = "mask2former-mapillary-high-segformer-confidence-fusion-osm-multipolygons"
-ANALYSIS_VERSION = 29
+ANALYSIS_VERSION = 31
 # Footprint diagnostics (heuristic thresholds, see docs/footprint-corrections.md).
 # Evidence regions smaller than this share of the panorama are not reported.
 FOOTPRINT_DIAGNOSTIC_MIN_SHARE = 0.005
@@ -52,6 +52,11 @@ ANALYSIS_MAX_WIDTH = 2048
 CONFIDENCE_SCALE = 255
 EARTH_RADIUS_M = 6_371_008.8
 DEFAULT_BUILDING_HEIGHT_M = 10.0
+STOREY_HEIGHT_M = 3.2
+# Tilts smaller than this are left as they are: the projection moves by under a pixel row per few meters.
+LEVEL_MIN_TILT_DEGREES = 0.5
+# Projection-only pieces of mask smaller than this share of the panorama are speckle; holes as small are closed.
+FALLBACK_MIN_PIECE_SHARE = 0.0002
 UNKNOWN_FACADE_RENDER_HEIGHT_M = 32.0
 CAMERA_HEIGHT_M = 1.7
 # Model input resolution when BUILDING_ANALYSIS_TILE_SIZE is unset; these match
@@ -159,7 +164,7 @@ def building_height(properties: dict[str, Any]) -> float:
     if explicit is not None:
         return explicit
     levels = _parse_levels(properties.get("building:levels"))
-    return max(3.0, levels * 3.2) if levels is not None else DEFAULT_BUILDING_HEIGHT_M
+    return max(3.0, levels * STOREY_HEIGHT_M) if levels is not None else DEFAULT_BUILDING_HEIGHT_M
 
 
 def facade_render_height(properties: dict[str, Any]) -> float:
@@ -527,13 +532,60 @@ def _render_scene_owners(
     return owners, depth_buffer, candidate_features, facade_counts
 
 
+def camera_up_vector(value: object) -> tuple[float, float, float] | None:
+    """A manifest's ``camera_up`` (world up in the panorama frame: x right, y up, z forward) as a unit vector, or None."""
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    if any(isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item) for item in value):
+        return None
+    length = math.hypot(*value)
+    return tuple(float(item) / length for item in value) if length > 1e-9 else None  # type: ignore[return-value]
+
+
+@lru_cache(maxsize=4)
+def _level_lookup(camera_up: tuple[float, float, float], width: int, height: int) -> tuple[Any, Any] | None:
+    """For each pixel of a tilted panorama, the row and column of a level rendering that shows the same direction.
+
+    The rotation is the viewer's ``levelMatrix``: the smallest one taking (0, 1, 0)
+    to ``camera_up``, which maps a level direction to the panorama's own frame, so
+    a panorama direction ``d`` is ``L^T d`` once leveled. None when the camera is
+    level enough, or so tilted that it has no horizon to restore.
+    """
+    np = __import__("numpy")
+    x, y, z = camera_up
+    if y < 0.5 or math.degrees(math.acos(min(1.0, y))) < LEVEL_MIN_TILT_DEGREES:
+        return None
+    k = 1 / (1 + y)
+    level = np.array([[1 - x * x * k, x, -x * z * k], [-x, y, -z], [-x * z * k, z, 1 - z * z * k]])
+    azimuth = ((np.arange(width) + 0.5) / width - 0.5) * 2 * math.pi
+    elevation = (0.5 - (np.arange(height) + 0.5) / height) * math.pi
+    cosine = np.cos(elevation)[:, None]
+    raw = np.stack(np.broadcast_arrays(np.sin(azimuth)[None, :] * cosine, np.sin(elevation)[:, None], np.cos(azimuth)[None, :] * cosine), axis=-1)
+    leveled = raw @ level  # row vectors: d^T L = (L^T d)^T
+    columns = np.floor((np.arctan2(leveled[..., 0], leveled[..., 2]) / (2 * math.pi) + 0.5) * width).astype(np.int64) % width
+    rows = np.clip(np.floor((0.5 - np.arcsin(np.clip(leveled[..., 1], -1, 1)) / math.pi) * height).astype(np.int64), 0, height - 1)
+    return rows, columns
+
+
+def _leveled(buffers: tuple[Any, ...], camera_up: tuple[float, float, float] | None) -> tuple[Any, ...]:
+    """Buffers rendered for a level camera, resampled to a tilted panorama's own frame."""
+    if camera_up is None:
+        return buffers
+    height, width = buffers[0].shape
+    lookup = _level_lookup(camera_up, width, height)
+    return buffers if lookup is None else tuple(buffer[lookup] for buffer in buffers)
+
+
 def _render_facade_owners(
     features: list[dict[str, Any]], camera_latitude: float, camera_longitude: float, heading_degrees: float, width: int, height: int,
+    camera_up: tuple[float, float, float] | None = None,
 ) -> tuple[Any, Any, list[dict[str, Any]], dict[str, int]]:
-    """Render all clear OSM walls into a pixel-accurate owner/depth buffer."""
+    """Render all clear OSM walls into a pixel-accurate owner/depth buffer, in the frame of a camera tilted by ``camera_up``."""
     geometry = _facade_geometry()
     scene = geometry.build_scene(features, camera_latitude, camera_longitude)
-    return _render_scene_owners(scene, geometry.visible_facades(scene), heading_degrees, width, height)
+    owners, depth_buffer, candidates, facade_counts = _render_scene_owners(scene, geometry.visible_facades(scene), heading_degrees, width, height)
+    owners, depth_buffer = _leveled((owners, depth_buffer), camera_up)
+    return owners, depth_buffer, candidates, facade_counts
 
 
 def _sfm_depth_samples_from_payload(payload: object, image_id: str) -> list[dict[str, float]]:
@@ -889,6 +941,32 @@ def _drop_fallback_slivers(labels: Any, outside_instances: Any, evidence: Any, b
     return cleaned
 
 
+def _clean_fallback(labels: Any, evidence: Any, outside_instances: Any) -> Any:
+    """Building evidence without speckle where only the projected footprints name the pixels.
+
+    Outside detected instances the semantic mask decides the extent, and it is
+    noisy: loose blobs and pinholes that make a mask look mottled. Pieces smaller
+    than ``FALLBACK_MIN_PIECE_SHARE`` of the panorama are dropped there and holes
+    as small are closed; instance (SAM) pixels are left exactly as they are.
+    """
+    np = __import__("numpy")
+    from scipy import ndimage
+
+    minimum = FALLBACK_MIN_PIECE_SHARE * labels.size
+    named = outside_instances & (labels > 0)
+    fallback = named & evidence
+    if not fallback.any():
+        return evidence
+    pieces = ndimage.label(fallback)[0]
+    small = np.bincount(pieces.ravel()) < minimum
+    small[0] = False
+    kept = fallback & ~small[pieces]
+    holes = ndimage.label(ndimage.binary_fill_holes(kept) & ~kept)[0]
+    closable = np.bincount(holes.ravel()) < minimum
+    closable[0] = False
+    return (evidence & ~(fallback & small[pieces])) | (closable[holes] & named)
+
+
 def _instance_labels(instance_map: Any, evidence: Any, owners: Any, bins: int) -> tuple[Any, list[dict[str, Any]]]:
     """Name every visual instance's pixels with OSM ordinals.
 
@@ -979,13 +1057,13 @@ def _assign_buildings(
 def _assign_buildings_detailed(
     buildings: Any, vegetation: Any, features: list[dict[str, Any]], camera_latitude: float, camera_longitude: float, heading_degrees: float,
     sfm_depth_samples: list[dict[str, float]] | None = None, instance_map: Any = None, instance_coverage: Any = None,
-    diagnostics: list[dict[str, Any]] | None = None,
+    diagnostics: list[dict[str, Any]] | None = None, camera_up: tuple[float, float, float] | None = None,
 ) -> tuple[Any, Any, dict[str, dict[str, Any]], list[dict[str, Any]]]:
     """Name building pixels with footprints; append footprint diagnostics to ``diagnostics`` if given."""
     np = __import__("numpy")
     height, width = buildings.shape
     owners, depth_buffer, candidate_features, facade_counts = _render_facade_owners(
-        features, camera_latitude, camera_longitude, heading_degrees, width, height,
+        features, camera_latitude, camera_longitude, heading_degrees, width, height, camera_up,
     )
     depth_known, foreground_conflicts, background_conflicts = _sfm_depth_conflicts(depth_buffer, sfm_depth_samples or [])
     conflicts = foreground_conflicts | background_conflicts
@@ -1008,6 +1086,7 @@ def _assign_buildings_detailed(
     # continuation only fills what those views could not see.
     open_space = ~instance_coverage if instance_map is not None and instance_coverage is not None else np.ones_like(buildings)
     labels = _continue_upward(labels, selected_mask, owners, open_space)
+    selected_mask = _clean_fallback(labels, selected_mask, instance_map == 0 if instance_map is not None else np.ones_like(buildings))
     flat_owners, flat_labels = owners.ravel(), labels.ravel()
 
     def counts(values: Any, mask: Any) -> Any:
@@ -1157,9 +1236,12 @@ def _is_overhead(properties: dict[str, Any]) -> bool:
     return building in OVERHEAD_BUILDING_TYPES or facade_bottom_height(properties) > CAMERA_HEIGHT_M
 
 
-def _pose_iou(observed_buildings: Any, scene: Any, facades: list[Any], heading_degrees: float) -> float:
+def _pose_iou(
+    observed_buildings: Any, scene: Any, facades: list[Any], heading_degrees: float, camera_up: tuple[float, float, float] | None = None,
+) -> float:
     height, width = observed_buildings.shape
     projected, _, _, _ = _render_scene_owners(scene, facades, heading_degrees, width, height)
+    projected, = _leveled((projected,), camera_up)
     projected = projected != 0
     union = int((observed_buildings | projected).sum())
     return int((observed_buildings & projected).sum()) / union if union else 0.0
@@ -1167,6 +1249,7 @@ def _pose_iou(observed_buildings: Any, scene: Any, facades: list[Any], heading_d
 
 def _refine_camera_pose(
     buildings: Any, features: list[dict[str, Any]], camera_latitude: float, camera_longitude: float, heading_degrees: float,
+    camera_up: tuple[float, float, float] | None = None,
 ) -> dict[str, Any]:
     """Refine noisy Mapillary GPS/heading only when facade evidence clearly agrees."""
     geometry = _facade_geometry()
@@ -1193,7 +1276,7 @@ def _refine_camera_pose(
     observed = buildings[::8, ::8]
     probe_scene = geometry.build_scene(probe_features, camera_latitude, camera_longitude)
     base_scene = probe_scene.translated(base_east, base_north)
-    original_score = _pose_iou(observed, base_scene, geometry.visible_facades(base_scene), heading_degrees)
+    original_score = _pose_iou(observed, base_scene, geometry.visible_facades(base_scene), heading_degrees, camera_up)
     candidates = []
     for east in POSE_SEARCH_OFFSETS_M:
         for north in POSE_SEARCH_OFFSETS_M:
@@ -1202,7 +1285,7 @@ def _refine_camera_pose(
             shifted_facades = geometry.visible_facades(shifted_scene)
             for heading_offset in POSE_SEARCH_HEADING_OFFSETS_DEG:
                 candidate_heading = heading_degrees + heading_offset
-                score = _pose_iou(observed, shifted_scene, shifted_facades, candidate_heading)
+                score = _pose_iou(observed, shifted_scene, shifted_facades, candidate_heading, camera_up)
                 candidates.append((
                     score, -abs(east) - abs(north), -abs(heading_offset), candidate_latitude, candidate_longitude, candidate_heading,
                     east, north, heading_offset,
@@ -1384,6 +1467,7 @@ class PanoramaInputs(NamedTuple):
     latitude: float
     longitude: float
     heading: float
+    camera_up: tuple[float, float, float] | None = None
 
 
 class Perception(NamedTuple):
@@ -1462,7 +1546,7 @@ def panorama_inputs(data_root: Path, dataset_id: str, image: dict[str, Any]) -> 
         raise ValueError("The panorama coordinates are invalid.")
     if not math.isfinite(heading):
         raise ValueError("The panorama has no valid compass heading.")
-    return PanoramaInputs(image_id, image_path, latitude, longitude, heading % 360.0)
+    return PanoramaInputs(image_id, image_path, latitude, longitude, heading % 360.0, camera_up_vector(image.get("camera_up")))
 
 
 def perceive_panorama(data_root: Path, model_root: Path, image_path: Path, progress: Callable[[str], None]) -> Perception:
@@ -1542,7 +1626,7 @@ def associate_panorama(
     # Detected instances exclude sky and trees the semantic mask can confuse
     # with facades, which makes a cleaner target for the pose search.
     pose_target = buildings & (instance_map > 0) if instance_map is not None and instance_map.any() else buildings
-    refined_pose = _refine_camera_pose(pose_target, features, inputs.latitude, inputs.longitude, inputs.heading)
+    refined_pose = _refine_camera_pose(pose_target, features, inputs.latitude, inputs.longitude, inputs.heading, inputs.camera_up)
     progress("Associating building masks with OpenStreetMap footprints...")
     diagnostics: list[dict[str, Any]] = []
     assignments, facade_assignments, building_ids, instance_links = _assign_buildings_detailed(
@@ -1550,7 +1634,7 @@ def associate_panorama(
         float(refined_pose["latitude"]), float(refined_pose["longitude"]), float(refined_pose["heading_degrees"]),
         _sfm_depth_samples_from_payload(sfm_refinement, image_id) if sfm_refinement is not None
         else _sfm_depth_samples(data_root, dataset_id, image_id),
-        instance_map, coverage, diagnostics,
+        instance_map, coverage, diagnostics, inputs.camera_up,
     )
     if instance_map is not None:
         diagnostics.extend(_instance_diagnostics(instance_map, instance_links, float(refined_pose["heading_degrees"])))
@@ -1582,6 +1666,8 @@ def associate_panorama(
         "sfm_input_sha256": sfm_input_sha256(data_root, dataset_id, image_id),
         "image_quality": panorama_quality(inputs.image_path),
         "heading_degrees": inputs.heading,
+        # The tilt the projection was leveled with: anything that re-renders the walls must use the same.
+        "camera_up": list(inputs.camera_up) if inputs.camera_up is not None else None,
         "refined_pose": refined_pose,
         "footprint_sources": {
             "osm_candidates": len(features),

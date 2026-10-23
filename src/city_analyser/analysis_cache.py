@@ -88,6 +88,7 @@ def analysis_input_sha256(
         "panorama_sha256": file_sha256(image_path),
         "geometry": image.get("selected_geometry") or image.get("computed_geometry") or image.get("geometry"),
         "computed_compass_angle_deg": image.get("computed_compass_angle_deg"),
+        "camera_up": image.get("camera_up"),
         "sfm_input_sha256": sfm_input_sha256(data_root, dataset_id, image_id),
         "configuration": configuration,
     })
