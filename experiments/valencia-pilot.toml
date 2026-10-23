@@ -38,6 +38,13 @@ model = "qwen3.5:4b"
 options = { reasoning_effort = "none" }
 regional_guidance = false
 
+# Claude Opus 5.5 answering the same prompt for every crop by hand in a session, written to the dataset
+# through VLMProvider so validation and pooling are the same as for the other runs.
+[[runs]]
+id = "claude-opus-5-5"
+kind = "saved"
+provider = "vlm:claude-opus-5-5"
+
 # Answers already in a dataset, e.g. a Colab survey imported with city-analyser-results:
 # [[runs]]
 # id = "colab-qwen3vl-8b"
