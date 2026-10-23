@@ -80,6 +80,13 @@ def parse_bbox(value: str) -> tuple[float, float, float, float]:
     return min_lon, min_lat, max_lon, max_lat
 
 
+def parse_date(value: str) -> datetime:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=UTC)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a date as YYYY-MM-DD") from error
+
+
 def validate_lat_lon(lat: float, lon: float) -> None:
     if not -90 <= lat <= 90 or not -180 <= lon <= 180:
         raise argparse.ArgumentTypeError("coordinates are outside WGS84 bounds")
@@ -224,13 +231,19 @@ def available_image_url(image: dict[str, Any], preferred_size: str) -> tuple[str
 class PanoramaSelector:
     """Keeps panoramas at least ``min_spacing_m`` apart, earliest capture first, up to ``max_images``.
 
+    ``captured_after_ms`` leaves out older captures, so a recent, sharper camera is not
+    displaced at the same spot by an old one taken first.
+
     The positions kept so far live in a grid of cells one spacing wide, so each
     candidate is compared with its neighbors only. The previous all-pairs check
     took hours at city scale. It can be fed one tile of results at a time.
     """
 
-    def __init__(self, center: tuple[float, float] | None, radius_m: float | None, min_spacing_m: float, max_images: int):
+    def __init__(
+        self, center: tuple[float, float] | None, radius_m: float | None, min_spacing_m: float, max_images: int, captured_after_ms: int = 0,
+    ):
         self.center, self.radius_m, self.min_spacing_m, self.max_images = center, radius_m, min_spacing_m, max_images
+        self.captured_after_ms = captured_after_ms
         self.selected: list[dict[str, Any]] = []
         self._seen: set[str] = set()
         self._cells: dict[tuple[int, int], list[tuple[float, float]]] = {}
@@ -261,6 +274,9 @@ class PanoramaSelector:
         candidates: list[dict[str, Any]] = []
         for image in images:
             if image.get("is_pano") is not True or str(image.get("id")) in self._seen:
+                continue
+            captured = image.get("captured_at")
+            if self.captured_after_ms and not (isinstance(captured, (int, float)) and captured >= self.captured_after_ms):
                 continue
             point = point_from_image(image)
             if point is None:
@@ -532,6 +548,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-images", type=int, default=25, help="maximum panoramas to download (default: 25)")
     parser.add_argument("--min-spacing-m", type=float, default=10, help="minimum distance between selected camera positions (default: 10)")
     parser.add_argument("--max-api-pages", type=int, default=3, help="maximum API pages to inspect (default: 3)")
+    parser.add_argument("--captured-after", type=parse_date, help="only panoramas captured on or after this date (YYYY-MM-DD), e.g. to keep a recent, sharper camera")
     parser.add_argument("--image-size", choices=("auto", *MAPILLARY_IMAGE_SIZES), default="auto", help="preferred Mapillary derivative; falls back to smaller available versions")
     parser.add_argument("--access-token", help="Mapillary token; defaults to MAPILLARY_ACCESS_TOKEN")
     parser.add_argument("--dry-run", action="store_true", help="write manifests but do not download JPEGs")
@@ -581,7 +598,8 @@ def main() -> int:
 
     image_dir = args.output / "images"
     records: list[dict[str, Any]] = []
-    selector = PanoramaSelector(center, args.radius_m if center else None, args.min_spacing_m, args.max_images)
+    captured_after_ms = int(args.captured_after.timestamp() * 1000) if args.captured_after else 0
+    selector = PanoramaSelector(center, args.radius_m if center else None, args.min_spacing_m, args.max_images, captured_after_ms)
     api_images_seen = 0
     truncated_tiles = 0
     last_checkpoint = time.monotonic()
@@ -593,6 +611,7 @@ def main() -> int:
         "radius_m": args.radius_m if center else None,
         "only_panoramas": True,
         "min_camera_spacing_m": args.min_spacing_m,
+        "captured_after": args.captured_after.date().isoformat() if args.captured_after else None,
         "preferred_image_size": args.image_size,
         "image_fields_requested": MAPILLARY_IMAGE_FIELDS,
         "tiles": len(tiles),

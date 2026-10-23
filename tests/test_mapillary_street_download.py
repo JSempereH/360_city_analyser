@@ -79,6 +79,13 @@ class MapillaryStreetDownloadTests(unittest.TestCase):
         selected = select_panoramas(images, None, None, min_spacing_m=50, max_images=10)
         self.assertEqual([item["id"] for item in selected], ["one", "three"])
 
+    def test_an_older_capture_does_not_displace_a_recent_one_after_the_cutoff(self):
+        from city_analyser.mapillary_street_download import PanoramaSelector
+
+        old, recent = panorama("old", -84.09, 9.92, 1), panorama("recent", -84.09001, 9.92001, 5_000)
+        self.assertEqual([item["id"] for item in PanoramaSelector(None, None, 50, 10).add([old, recent])], ["old"])
+        self.assertEqual([item["id"] for item in PanoramaSelector(None, None, 50, 10, captured_after_ms=1_000).add([old, recent])], ["recent"])
+
     def test_download_falls_back_to_an_available_smaller_derivative(self):
         image = {"thumb_1024_url": "https://example.test/pano-1024.jpg"}
 
