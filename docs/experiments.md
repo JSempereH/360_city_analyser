@@ -109,6 +109,57 @@ Estimates are working days for the code, tests and docs, not for running the dat
 
 ## 4. Automatic mask quality control
 
+**Update (October 22): phases 0, 1 and 2 done; phase 3 next.**
+
+Phases 0 and 2 (October 21, analysis version 29):
+
+- **Benchmark.** The labels are in `benchmarks/mask-labels/`. Each file records the analysis version whose masks it describes, and `evaluate` refuses to score labels against masks from another version.
+  - The 94 crop views of the Ciutat Vella pilot were labeled by eye from `tools/mask_review.py` panels. 58 of them are bad: the pilot's model read a bad crop most of the time.
+  - The curated demos give 88 more through `city-analyser-mask-quality labels-from-curation`. A view the curation edited is bad. A view the demo showed with a reviewer's answer is good. A view it left as a sliver is bad. Views the demo never showed were not reviewed and are not used.
+- **New failure.** The labels add a cause the demo did not have: panoramas taken inside the Mercat Central (`interior`). It is detected by the analysis's repaired camera still lying inside a footprint. The recorded GPS cannot be used for this: in narrow streets it falls inside a footprint for 199 of 531 views.
+- **Score.** `city-analyser-mask-quality score` (`mask_quality.py`) applies thresholded rules, one per failure. On the 182 version-29 views they catch 70% of the bad views (92/132) and flag 14% of the good ones (7/50).
+  - Ciutat Vella: 86% caught, 17% false alarms.
+  - Madrid demo: 65% caught, 8% false alarms.
+  - Valencia demo: 42% caught; it has only one good view.
+- **Misses.** What the rules miss is mostly the demo's hand fixes of masks that reach a neighbor where the projected walls reach it too. Geometry cannot see those; it needs the image (phase 4) or better footprints.
+- **Thresholds.** Sweeping each threshold trades recall for false alarms one for one, so they were left at their first values. A logistic regression waits for more labels.
+
+Phase 1 (October 22, analysis version 31). Both changes act after the model stages, so Ciutat Vella re-associated from the stage cache in 5.5 minutes on CPU, with a peak of 460 MiB.
+
+- **Leveling.** Walls are rendered for a level camera and resampled into the panorama's tilt (`camera_up`), with the viewer's rotation.
+  - On the 36 panoramas tilted more than 5 degrees, the overlap between projected walls and detected buildings rose from 0.200 to 0.224, and was better in 22 of them.
+  - The opposite rotation lowers it to 0.165, which confirms the sign.
+- **Fallback cleanup.** Pieces and holes under 0.02% of the panorama are removed where only the projection names the pixels.
+- **Cadastre heights: tried and removed.**
+  - Version 30 gave footprints without an OSM height their cadastre storeys.
+  - The analysis must work where no cadastre exists, and floors are scored against that same cadastre, so it would have been both a dependency and a leak.
+  - The analysis reads no reference data; footprints without a height are still drawn 32 m high.
+- **Effect across the dataset** (version 29 to 31):
+  - Speckle flags fell from 64 to 37, street splits from 19 to 11, overhead views from 45 to 39 and neighbor leaks from 76 to 69.
+  - Clean views rose from 178 of 564 to 192 of 538; buildings with a clean view from 71 to 76.
+- **Effect on what the model reads.** The pilot's crops were exported again and labeled by eye.
+  - 59 of 95 crop views are bad (62%), as in version 29 (58 of 94). 21 buildings have a good view, as before.
+  - The dominant failures, distant slivers and the market interior, are not causes phase 1 can remove: phase 3 has to leave them out.
+- **Score on the new masks.** It catches 85% of the bad views (50/59) and flags 14% of the good ones (5/36).
+- **Demos.** `make presentation-data` rebuilt both demos with the same curated answers (10 and 23), and the curation's mask edits still apply.
+  - Their labels from the curation describe version-29 masks and are kept as `*-v29.json`.
+  - The version 29 and 30 analyses of Ciutat Vella are kept under `data/valencia-ciutat-vella/history/` for comparison.
+
+**Next: phase 3, use the flag (planned October 22, about 2 days).** Nothing in it reads reference data. The cadastre stays an evaluation tool, shown in the viewer only in evaluation mode (`references=1`).
+
+1. **Score while associating.** `associate_panorama` already has the projected walls, their depth and the masks, so it computes `mask_quality.view_signals` and `assess` for every building it names. It stores `{"reasons", "signals"}` in `building_ids[ordinal]["mask_quality"]`, and `ANALYSIS_VERSION` goes up. `city-analyser-mask-quality score` then only collects them, and `evaluate` is unchanged.
+2. **Crops and ranking.** The ranking (`building_inspection.evidence`) keeps every view but marks the flagged ones. `export_building_crops` takes the best `per_building` clean views. Sidecars record the views set aside with their reasons, so nothing is deleted. `--keep-flagged` gives the old behavior, for comparison.
+3. **Attributes and survey.** A building without a clean view is not sent to the model. Its model result abstains with "no clean view" and the reasons, while the OSM-tag prior still applies. A building with some clean views is asked only about those.
+4. **Viewer.**
+   - The card lists the views set aside and why: "2 views set aside: sliver, panorama inside a building".
+   - The Review tab gets a "Mask to check" queue with the reason, which opens the panorama on that facade.
+   - The map gets a "Mask quality" color layer: the share of a building's views that are clean.
+   - In the presentation, the tour skips buildings without a clean view (instead of `min-score` alone), and the Look phase says why a view was set aside.
+5. **Curated demos.** A curation is a human review, so a view it edited or answered counts as clean whatever the rules say. Its mask edits are applied before the views are counted.
+6. **Tests and checks.** Unit tests for each piece, and the e2e presentation test with a flagged view. Screenshots at three sizes. Re-association of Ciutat Vella and of the demos (minutes, from the stage cache).
+
+**Then phase 5: measure.** The pilot is run again with the filter and with `--keep-flagged`: the OSM-tag prior, qwen3.5:4b with and without regional guidance, and a new Claude run on the clean crops. The pilot's model answers are stale anyway, because version 31 changed the crops. It is scored against the cadastre and the evaluation set, which are references only. The filter stays if the scores hold or improve while coverage drops little. Expect coverage to drop: today 21 of the 40 buildings have a clean crop view.
+
 **Diagnosis.** In the demo about thirty masks were wrong in five recurring ways, each of which a footprint projection can detect. The Ciutat Vella pilot (October 17) added three causes upstream of them:
 
 - **Speckle.** Pixels no instance (detector plus SAM) covers fall back to the footprint projection, and the semantic mask (SegFormer at 384 px) is noisy there: some masks come out mottled with loose blobs.

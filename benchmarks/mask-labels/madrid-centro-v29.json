@@ -1,0 +1,459 @@
+{
+ "dataset": "madrid-centro",
+ "analysis_versions": [
+  29
+ ],
+ "note": "Derived from the curation and crops of madrid-centro-demo with city-analyser-mask-quality labels-from-curation: edited views are bad, views the demo showed unedited are good.",
+ "labels": [
+  {
+   "image": "1140032839847675",
+   "building": "way/254289940",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254289945",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254289954",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254289955",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254289956",
+   "label": "good"
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254289960",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254289962",
+   "label": "good"
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254439920",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254439933",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254439943",
+   "label": "good"
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254439962",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254439983",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254528177",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "1140032839847675",
+   "building": "way/254528185",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254289950",
+   "label": "good"
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254289953",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254289954",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254289955",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254439933",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254439962",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254439983",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254528177",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254528188",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "364366455011230",
+   "building": "way/254528189",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "536652140657971",
+   "building": "way/254289940",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "536652140657971",
+   "building": "way/254289945",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "536652140657971",
+   "building": "way/254289962",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "536652140657971",
+   "building": "way/254439962",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "536652140657971",
+   "building": "way/314795210",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "relation/19617167",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254289940",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254289955",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254439965",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254439983",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254528160",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254528187",
+   "label": "bad",
+   "reasons": [
+    "neighbor",
+    "sky"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254532451",
+   "label": "good"
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/254532457",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/256657145",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/256657148",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/256657195",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/279322009",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/334419182",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/1430833798",
+   "label": "good"
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/1430833803",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "758109061572354",
+   "building": "way/1484171988",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "800286414209467",
+   "building": "relation/4231153",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/254329236",
+   "label": "good"
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/254329240",
+   "label": "good"
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/254329257",
+   "label": "good"
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/254439892",
+   "label": "good"
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/254439947",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/292232960",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/292232966",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "800286414209467",
+   "building": "way/680589515",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "927828031327111",
+   "building": "relation/4098953",
+   "label": "good"
+  },
+  {
+   "image": "927828031327111",
+   "building": "relation/4098997",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "927828031327111",
+   "building": "relation/18282021",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "927828031327111",
+   "building": "way/373429782",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "927828031327111",
+   "building": "way/1328336085",
+   "label": "good"
+  },
+  {
+   "image": "927828031327111",
+   "building": "way/1484171988",
+   "label": "good"
+  }
+ ]
+}

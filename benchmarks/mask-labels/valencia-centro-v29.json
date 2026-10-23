@@ -1,0 +1,223 @@
+{
+ "dataset": "valencia-centro",
+ "analysis_versions": [
+  29
+ ],
+ "note": "Derived from the curation and crops of valencia-centro-demo with city-analyser-mask-quality labels-from-curation: edited views are bad, views the demo showed unedited are good.",
+ "labels": [
+  {
+   "image": "199282938701732",
+   "building": "way/414793962",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "199282938701732",
+   "building": "way/414793978",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "199282938701732",
+   "building": "way/492816278",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "199282938701732",
+   "building": "way/814967846",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "199282938701732",
+   "building": "way/814967847",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "199282938701732",
+   "building": "way/814967848",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "199282938701732",
+   "building": "way/814967849",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "199282938701732",
+   "building": "way/814967850",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "206326784388835",
+   "building": "way/492816277",
+   "label": "bad",
+   "reasons": [
+    "missing",
+    "neighbor"
+   ]
+  },
+  {
+   "image": "206326784388835",
+   "building": "way/814967846",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "214827346727115",
+   "building": "way/414793976",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "214827346727115",
+   "building": "way/414793978",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "214827346727115",
+   "building": "way/814967846",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "214827346727115",
+   "building": "way/814967847",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "2848753168681498",
+   "building": "way/135630267",
+   "label": "bad",
+   "reasons": [
+    "missing"
+   ]
+  },
+  {
+   "image": "2848753168681498",
+   "building": "way/492825579",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "2848753168681498",
+   "building": "way/1287108788",
+   "label": "bad",
+   "reasons": [
+    "removed"
+   ]
+  },
+  {
+   "image": "290195212605250",
+   "building": "way/492825579",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "290195212605250",
+   "building": "way/580690799",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "290195212605250",
+   "building": "way/809977111",
+   "label": "bad",
+   "reasons": [
+    "wrong_id"
+   ]
+  },
+  {
+   "image": "290195212605250",
+   "building": "way/814967853",
+   "label": "bad",
+   "reasons": [
+    "neighbor"
+   ]
+  },
+  {
+   "image": "290195212605250",
+   "building": "way/814967854",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "290195212605250",
+   "building": "way/1287108788",
+   "label": "bad",
+   "reasons": [
+    "wrong_id"
+   ]
+  },
+  {
+   "image": "830787757519930",
+   "building": "way/135630265",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "830787757519930",
+   "building": "way/414793974",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  },
+  {
+   "image": "830787757519930",
+   "building": "way/414793978",
+   "label": "good"
+  },
+  {
+   "image": "830787757519930",
+   "building": "way/624143436",
+   "label": "bad",
+   "reasons": [
+    "sliver"
+   ]
+  }
+ ]
+}

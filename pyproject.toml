@@ -47,6 +47,7 @@ city-analyser-demo = "city_analyser.demo:main"
 city-analyser-results = "city_analyser.results:main"
 city-analyser-groundtruth = "city_analyser.groundtruth:main"
 city-analyser-experiment = "city_analyser.experiments:main"
+city-analyser-mask-quality = "city_analyser.mask_quality:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]
