@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#0b0b0b"/>
+  <!-- three skyline tiles: gray block, tall yellow arch, yellow gable -->
+  <rect x="4" y="16" width="7" height="12" fill="#8c8c84"/>
+  <path d="M12 28V10.5a4.5 4.5 0 0 1 9 0V28Z" fill="#ffd500"/>
+  <path d="M22 28V19l3.5-4 3.5 4V28Z" fill="#ffd500"/>
+  <rect x="14.6" y="13" width="3.8" height="3.8" fill="#0b0b0b"/>
+  <rect x="14.6" y="19" width="3.8" height="3.8" fill="#0b0b0b"/>
+  <rect x="4" y="28" width="24" height="1.6" fill="#f5f2e8"/>
+</svg>

@@ -2653,3 +2653,44 @@ kbd {
   padding: 5px 7px;
   resize: vertical;
 }
+
+/* Focus (F, or the focus button): the panorama fills the window. The library column and the details panel
+   are hidden, not closed, and come back as they were. After the media queries, so it holds at every width. */
+.app-shell.focus,
+.app-shell.focus.panel-closed {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app-shell.focus > .sidebar,
+.app-shell.focus > .side-panel,
+.app-shell.focus .metadata {
+  display: none;
+}
+
+.icon-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.presentation-hud-button {
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  pointer-events: auto;
+}
+
+.presentation-hud-button:hover,
+.presentation-hud-button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* Folded notes keep filling, out of sight, until they are shown again. */
+.presentation-panel.folded {
+  display: none;
+}

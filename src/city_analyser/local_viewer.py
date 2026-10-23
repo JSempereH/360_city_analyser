@@ -615,11 +615,14 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
             if not server.has_dataset(dataset_id):
                 self.send_json({"error": "dataset not found"}, HTTPStatus.NOT_FOUND)
                 return
-            card = building_card(server.data_root / dataset_id, dataset_id, attributes_match.group(2))
+            # Reference data (the cadastre) only in evaluation mode (?references=1): the analysis never uses it.
+            with_references = query.get("references", [""])[0] == "1"
+            card = building_card(server.data_root / dataset_id, dataset_id, attributes_match.group(2), with_references=with_references)
             if card is None:
                 # Expected until a survey or city-analyser-attributes reaches this building; reference data may exist already.
                 self.send_json({"error": "no attributes for this building yet",
-                                "references": references(server.data_root / dataset_id, attributes_match.group(2))}, HTTPStatus.NOT_FOUND)
+                                **({"references": references(server.data_root / dataset_id, attributes_match.group(2))} if with_references else {})},
+                               HTTPStatus.NOT_FOUND)
             else:
                 self.send_json(card)
             return
@@ -813,6 +816,8 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
             except ValueError as error:  # ReviewError, or a malformed body
                 self.send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
             else:
+                if parse_qs(urlparse(self.path).query).get("references", [""])[0] == "1":
+                    card["references"] = references(server.data_root / dataset_id, attributes_match.group(2))
                 self.send_json(card)
             return
         correction_match = FOOTPRINT_CORRECTION_ROUTE.fullmatch(path)

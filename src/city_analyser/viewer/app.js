@@ -6,7 +6,7 @@ import { bearingCenter, buildReviewQueue, preservedIndex, REVIEW_KINDS, stepInde
 import { wallHeight, wallPolylines } from "./wall-projection.mjs";
 import { attributeRows, gemRow, observationItems, referenceRow, reviewFormValues, reviewOptions, reviewStatus } from "./building-card.mjs";
 import { attributeClass, attributeLabel, COLOR_MODES, legendItems } from "./attribute-map.mjs";
-import { startPresentation } from "./presentation.mjs";
+import { DEFAULT_SPEED, startPresentation } from "./presentation.mjs";
 import { answerLine, boldSpans, framingOf, streamEvents, visibleReasoning } from "./assistant.mjs";
 
 const elements = {
@@ -129,6 +129,7 @@ const elements = {
   messageLog: document.querySelector("#message-log"),
   panelCloseButton: document.querySelector("#panel-close-button"),
   panelToggleButton: document.querySelector("#panel-toggle-button"),
+  focusButton: document.querySelector("#focus-button"),
   reviewCount: document.querySelector("#review-count"),
   reviewAcceptButton: document.querySelector("#review-accept-button"),
   reviewAllDatasets: document.querySelector("#review-all-datasets"),
@@ -388,6 +389,10 @@ function formatDate(value) {
 // The presentation's options from the page's own URL (speed, min-score, then, live), read once: loading
 // a dataset rewrites the URL before the presentation starts.
 const PRESENTATION_OPTIONS = ["speed", "min-score", "then", "live"];
+// Evaluation mode (?references=1): the card shows reference data (the cadastre) next to the answers. The analysis
+// never uses it, and a city without a cadastre must look the same, so it is off unless asked for.
+const SHOW_REFERENCES = new URLSearchParams(window.location.search).get("references") === "1";
+const REFERENCES_QUERY = SHOW_REFERENCES ? "?references=1" : "";
 const presentationParameters = new URLSearchParams(
   [...new URLSearchParams(window.location.search)].filter(([name]) => PRESENTATION_OPTIONS.includes(name)),
 );
@@ -407,7 +412,8 @@ function syncViewerUrl() {
   // A reload during a presentation resumes it, with the same options.
   const options = presentationParameters.toString();
   const presenting = presentation ? `${search ? "&" : "?"}present=1${options ? `&${options}` : ""}` : "";
-  window.history.replaceState(null, "", `${window.location.pathname}${search}${presenting}`);
+  const evaluation = SHOW_REFERENCES ? `${search || presenting ? "&" : "?"}references=1` : "";
+  window.history.replaceState(null, "", `${window.location.pathname}${search}${presenting}${evaluation}`);
 }
 
 function coordinateLabel(image) {
@@ -805,12 +811,31 @@ function currentPanelTab() {
 }
 
 function setSidePanelVisible(visible, remember = true) {
+  // Opening the details leaves focus, which hides them.
+  if (visible && isFocused()) setFocus(false, remember);
   // Only the docked desktop panel is remembered; drawers open on demand.
   if (remember && !OVERLAY_PANEL_QUERY.matches) savePreference("panel", visible);
   elements.sidePanel.hidden = !visible;
   elements.appShell.classList.toggle("panel-closed", !visible);
   elements.panelToggleButton.setAttribute("aria-expanded", String(visible));
   // The panorama canvas and the map change size with the panel.
+  window.setTimeout(() => {
+    resizeCanvas();
+    locationMap?.invalidateSize();
+  }, 0);
+}
+
+// Focus: the panorama fills the window, with the library column and the details panel hidden (not closed),
+// so a walk or a presentation can be shown large. F or the focus button toggles it.
+function isFocused() {
+  return elements.appShell.classList.contains("focus");
+}
+
+function setFocus(on, remember = true) {
+  if (remember) savePreference("focus", on);
+  elements.appShell.classList.toggle("focus", on);
+  elements.focusButton.setAttribute("aria-pressed", String(on));
+  elements.focusButton.title = on ? "Show the side columns (F)" : "Focus on the panorama: hide the side columns (F)";
   window.setTimeout(() => {
     resizeCanvas();
     locationMap?.invalidateSize();
@@ -1938,13 +1963,14 @@ function yawToImage(imageId) {
 // The side panel as it was before the presentation showed the review queue.
 function restorePresentationPanel() {
   if (!presentationRestore?.panel) return;
-  const { tab, kind, visible } = presentationRestore.panel;
+  const { tab, kind, visible, focus } = presentationRestore.panel;
   presentationRestore.panel = null;
   elements.reviewKind.value = kind;
   rebuildReviewQueue();
   if (!PHONE_QUERY.matches) {
     setPanelTab(tab);
     setSidePanelVisible(visible, false);
+    if (focus) setFocus(true, false);
   }
 }
 
@@ -1982,7 +2008,7 @@ function startPresentationMode() {
       return attributeSummary;
     },
     fetchCard: async (osmId) => {
-      const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}`);
+      const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}${REFERENCES_QUERY}`);
       return response.ok ? response.json() : null;
     },
     // Live when a model is configured (unless the URL says live=0): the model analyzes each building now.
@@ -2019,7 +2045,7 @@ function startPresentationMode() {
     // The engineer's queue of answers to check, shown at the end of a walk; closing it restores the panel.
     showReviewQueue: (open) => {
       if (open) {
-        presentationRestore.panel = { tab: currentPanelTab(), kind: elements.reviewKind.value, visible: !elements.sidePanel.hidden };
+        presentationRestore.panel = { tab: currentPanelTab(), kind: elements.reviewKind.value, visible: !elements.sidePanel.hidden, focus: isFocused() };
         elements.reviewKind.value = "attributes";
         if (!PHONE_QUERY.matches) {
           setSidePanelVisible(true, false);
@@ -2031,6 +2057,7 @@ function startPresentationMode() {
       }
     },
     bearingToBuilding: yawToBuilding,
+    toggleFocus: () => setFocus(!isFocused()),
     revealBuilding: (osmId) => {
       presentationRevealed?.add(osmId);
       refreshBuildingStyles();
@@ -2061,7 +2088,7 @@ function startPresentationMode() {
       renderMapLegend();
       syncViewerUrl();
     },
-  }, { speed: Number.isFinite(speed) && speed > 0 ? speed : 1, minScore: Number.isFinite(minScore) && parameters.has("min-score") ? minScore : 0.03 });
+  }, { speed: Number.isFinite(speed) && speed > 0 ? speed : DEFAULT_SPEED, minScore: Number.isFinite(minScore) && parameters.has("min-score") ? minScore : 0.03 });
   syncViewerUrl();
 }
 
@@ -2379,7 +2406,7 @@ async function renderBuildingCard() {
     elements.buildingCardWhy.open = false;
   }
   try {
-    const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}`);
+    const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}${REFERENCES_QUERY}`);
     if (requestId !== buildingCardRequest) return;
     renderedBuildingCard = key;
     if (response.status === 404) {
@@ -2456,7 +2483,7 @@ async function sendAttributeReview(body, osmId = selectedBuildingId) {
     elements.buildingCardReviewMessage.textContent = "Enter your name in the Review tab first; it is recorded with the review.";
     return null;
   }
-  const card = await footprintRequest(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}`, { ...body, reviewer });
+  const card = await footprintRequest(`/api/datasets/${encodeURIComponent(datasetId)}/building-attributes/${osmId}${REFERENCES_QUERY}`, { ...body, reviewer });
   if (selectedBuildingId === osmId) {
     closeReviewForm();
     fillBuildingCard(card);
@@ -3553,6 +3580,7 @@ function bindInteraction() {
   });
   elements.searchForm.addEventListener("submit", runSearch);
   elements.panelToggleButton.addEventListener("click", () => setSidePanelVisible(elements.sidePanel.hidden));
+  elements.focusButton.addEventListener("click", () => setFocus(!isFocused()));
   elements.panelCloseButton.addEventListener("click", () => setSidePanelVisible(false));
   elements.tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => setPanelTab(PANEL_TABS[index]));
@@ -3627,6 +3655,7 @@ function bindInteraction() {
     if (event.key === "ArrowRight") { event.preventDefault(); selectImage(currentIndex + 1); }
     if (event.key.toLowerCase() === "r") resetView();
     if (event.key.toLowerCase() === "m") setLayer("masks", !layers.masks);
+    if (event.key.toLowerCase() === "f") setFocus(!isFocused());
     if (event.key === "?") {
       event.preventDefault();
       elements.helpDialog.showModal();
@@ -3643,6 +3672,7 @@ async function start() {
     const saved = preferences();
     applyTheme(saved.theme);
     setSidePanelVisible(!OVERLAY_PANEL_QUERY.matches && saved.panel !== false, false);
+    if (saved.focus === true) setFocus(true, false);
     if (PANEL_TABS.includes(saved.tab) && saved.tab !== "building") setPanelTab(saved.tab);
     updateMaskToggle();
     if (PHONE_QUERY.matches || saved.map === false) setMapPanelVisible(false, false);

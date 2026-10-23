@@ -299,6 +299,17 @@ class ViewerTests(unittest.TestCase):
         page.wait_for_selector(".presentation-save.saved, .presentation-save.flagged", timeout=90_000)
         self.assertRegex(page.text_content(".presentation-gem"), r"^(MUR|CR|S|MAT99)/")
         self.assertIn("Thought for", page.text_content(".presentation-thinking-header"))
+        # F gives the panorama the whole window and brings the columns back; H folds the notes, which keep filling.
+        width = page.evaluate("document.querySelector('canvas').getBoundingClientRect().width")
+        page.keyboard.press("f")
+        page.wait_for_function(f"document.querySelector('canvas').getBoundingClientRect().width > {width} + 100")
+        self.assertFalse(page.locator(".sidebar").is_visible())
+        page.keyboard.press("f")
+        page.wait_for_selector(".sidebar", state="visible")
+        page.keyboard.press("h")
+        self.assertFalse(page.locator(".presentation-panel").is_visible())
+        page.keyboard.press("h")
+        page.wait_for_selector(".presentation-panel", state="visible")
         # Each saved building is colored on the map; at this speed the count may already be past one.
         page.wait_for_function("/[1-9][0-9]* saved/.test(document.querySelector('#map-legend-title').textContent)", timeout=30_000)
         self.assertIn("present=1", page.url)

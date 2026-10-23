@@ -7,7 +7,8 @@
 // building is matched to it, and moves on. Each walk ends with the map colored by
 // what was found and the review queue an engineer would work through; then it
 // starts again. The HUD names the phase (walk, look, reason, record, check).
-// Space pauses, the right arrow skips to the next building, Escape ends it.
+// Space pauses, the right arrow skips to the next building, Escape ends it. F (focus) hides the
+// viewer's side columns and H folds the notes away, so the panorama can be shown large.
 // Everything shown comes from the dataset's attribute files; answers from
 // city-analyser-demo are marked as a demo dataset.
 
@@ -22,8 +23,13 @@ const PHASES = [
   ["look", "Look", "Finds the building's facade in the panorama (the orange mask) and reads each view the model is given."],
   ["reason", "Reason", "Counts storeys and reads the structure across the views, explaining what it sees."],
   ["record", "Record", "Writes the GEM v3 record (material / lateral system / height) and colors the map."],
-  ["check", "Check", "Compares the record with the cadastre and leaves doubtful answers to an engineer."],
+  ["check", "Check", "Leaves doubtful answers to an engineer (in evaluation mode, also compares the record with the cadastre)."],
 ];
+
+// The default pace: 1 reads at about 330 words a minute; 1.5 keeps a building to about 40 seconds.
+export const DEFAULT_SPEED = 1.5;
+// The pause on a finished building before walking on (at speed 1).
+const BETWEEN_BUILDINGS_MS = 2500;
 
 class Stopped extends Error {}
 
@@ -44,7 +50,7 @@ function easeInOut(t) {
 //        frame(view): the camera framing of a crop's view in the current panorama (assistant.framingOf),
 //        showColors(mode): color the map by an attribute, showReviewQueue(on): open or close the review queue,
 //        summaryView(on): enlarge the map and frame it on the saved buildings }
-export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
+export function startPresentation(api, { speed = DEFAULT_SPEED, minScore = 0.03 } = {}) {
   const host = api.host;
   let paused = false;
   let stopped = false;
@@ -57,7 +63,17 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
   const hudFill = element("span");
   hudBar.append(hudFill);
   const hudBadge = element("span", "presentation-badge");
-  const hudKeys = element("span", "presentation-keys", "Space pause · → next · Esc exit");
+  const hudKeys = element("span", "presentation-keys", "Space pause · → next · H notes · F focus · Esc exit");
+  // Buttons as well as keys, for a presenter with a mouse or a touch screen.
+  const hudButton = (label, title, action) => {
+    const button = element("button", "presentation-hud-button", label);
+    button.type = "button";
+    button.title = title;
+    button.addEventListener("click", action);
+    return button;
+  };
+  const notesButton = hudButton("Hide notes", "Fold the assistant's notes away to show more of the panorama (H)", () => toggleNotes());
+  const focusButton = hudButton("Focus", "Hide the side columns so the panorama fills the window (F)", () => api.toggleFocus?.());
   const hudPhases = element("ol", "presentation-phases");
   const phaseItems = new Map(PHASES.map(([key, label, help]) => {
     const item = element("li", "", label);
@@ -65,7 +81,7 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     hudPhases.append(item);
     return [key, item];
   }));
-  hud.append(hudTitle, hudProgress, hudPhases, hudBar, hudBadge, hudKeys);
+  hud.append(hudTitle, hudProgress, hudPhases, hudBar, hudBadge, notesButton, focusButton, hudKeys);
   // The current phase is lit, the earlier ones of this visit marked done; null clears them.
   const setPhase = (key) => {
     let reached = false;
@@ -82,6 +98,13 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
   const cursor = element("div", "presentation-cursor");
   cursor.setAttribute("aria-hidden", "true");
   root.append(hud, panel, cursor);
+  // The notes keep filling while folded, so showing them again picks up where the assistant is.
+  const toggleNotes = () => {
+    const folded = !panel.classList.contains("folded");
+    panel.classList.toggle("folded", folded);
+    notesButton.textContent = folded ? "Show notes" : "Hide notes";
+    notesButton.setAttribute("aria-pressed", String(folded));
+  };
   host.append(root);
 
   const wait = async (ms) => {
@@ -257,11 +280,12 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     thinking.body.scrollTop = thinking.body.scrollHeight;
   };
 
-  // After saving, the record is compared with the cadastre, when the building is matched to it.
+  // After saving, doubtful answers are left to an engineer; in evaluation mode (the card carries the cadastre,
+  // see app.js), the record is also compared with the cadastre when the building is matched to it.
   const crossCheck = async (card) => {
+    setPhase("check");
     const check = cadastreCheck(card);
     if (!check) return;
-    setPhase("check");
     const box = panel.querySelector(".presentation-decision") || panel;
     await wait(600);
     await stream(check.text, `presentation-check${check.differs ? " differs" : ""}`, box);
@@ -404,7 +428,7 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
       await liveVisit(building, card);
       cursor.classList.remove("visible");
       hudFill.style.width = `${Math.round((number / total) * 100)}%`;
-      await wait(4000);
+      await wait(BETWEEN_BUILDINGS_MS);
       return;
     }
     if (!card) return;
@@ -457,7 +481,7 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
     }
     cursor.classList.remove("visible");
     hudFill.style.width = `${Math.round((number / total) * 100)}%`;
-    await wait(4000);
+    await wait(BETWEEN_BUILDINGS_MS);
   };
 
   // What the audience is about to see, once, before the first building; → skips it.
@@ -471,9 +495,9 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
       item.dataset.phase = key;
       list.append(item);
     }
-    box.append(list, element("p", "presentation-intro-keys", "Space pauses, → skips ahead, Esc returns to the viewer."));
+    box.append(list, element("p", "presentation-intro-keys", "Space pauses, → skips ahead, H folds these notes, F hides the side columns, Esc returns to the viewer."));
     panel.replaceChildren(box);
-    await wait(9000);
+    await wait(6000);
     skip = false;
   };
 
@@ -492,7 +516,7 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
       api.showColors?.(mode);
       thinking.status.hidden = false;
       thinking.status.textContent = caption;
-      await wait(3500);
+      await wait(2500);
     }
     if (!skip && api.showReviewQueue) {
       const waiting = summary?.counts?.needs_review || 0;
@@ -500,7 +524,7 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
         ? `The review queue: ${waiting} answer${waiting === 1 ? "" : "s"} of ${api.datasetId()} for an engineer to check, weakest first`
         : "The review queue an engineer works through";
       api.showReviewQueue(true);
-      await wait(6000);
+      await wait(4500);
       api.showReviewQueue(false);
     }
     api.showColors?.("gem_material");
@@ -556,6 +580,10 @@ export function startPresentation(api, { speed = 1, minScore = 0.03 } = {}) {
       event.preventDefault();
       event.stopImmediatePropagation();
       controller.stop();
+    } else if (event.key.toLowerCase() === "h" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      toggleNotes();
     }
   };
   window.addEventListener("keydown", onKey, true);

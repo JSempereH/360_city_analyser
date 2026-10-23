@@ -81,8 +81,12 @@ def _load(directory: Path, building_id: str) -> list[tuple[float, dict[str, Any]
     return payloads
 
 
-def building_card(dataset_dir: Path, dataset_id: str, building_id: str) -> dict[str, Any] | None:
-    """The merged attributes of one building, or ``None`` when no provider has written any."""
+def building_card(dataset_dir: Path, dataset_id: str, building_id: str, *, with_references: bool = False) -> dict[str, Any] | None:
+    """The merged attributes of one building, or ``None`` when no provider has written any.
+
+    ``with_references`` adds the reference data (the cadastre) for evaluation. It is off by
+    default: the analysis works without reference data, so the viewer shows it only when asked.
+    """
     loaded = _load(dataset_dir / "attributes" / Path(*_building_parts(building_id)), building_id)
     if not loaded:
         return None
@@ -155,5 +159,5 @@ def building_card(dataset_dir: Path, dataset_id: str, building_id: str) -> dict[
         # The classes a reviewer can choose from (GEM codes are in gem.codes).
         "classes": {"building_type": list(BUILDING_TYPES), "surface_material": list(SURFACE_MATERIALS)},
         "views": view_details,
-        "references": references(dataset_dir, building_id),
+        **({"references": references(dataset_dir, building_id)} if with_references else {}),
     }

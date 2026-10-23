@@ -142,15 +142,20 @@ class SurveyTests(SurveyWorkspace):
         thread.start()
         self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(timeout=5)))
         base = f"http://127.0.0.1:{server.server_port}/api/datasets/{fixture.DATASET}/building-attributes"
+        # Without evaluation mode the card carries no reference data: the analysis does not depend on it.
         with urllib.request.urlopen(f"{base}/way/101", timeout=10) as response:
+            self.assertNotIn("references", json.load(response))
+        with urllib.request.urlopen(f"{base}/way/101?references=1", timeout=10) as response:
             cadastre = json.load(response)["references"]["catastro"]
         self.assertEqual((cadastre["floors"], cadastre["construction_year"]), (4, 1960))
         self.assertTrue(cadastre["url"].endswith("rc1=5830201&rc2=YJ2753B"))
-        # Not described yet, but the cadastre knows it: the 404 carries the reference for the card.
-        with self.assertRaises(urllib.error.HTTPError) as missing:
-            urllib.request.urlopen(f"{base}/way/999", timeout=10)
-        self.assertEqual(json.load(missing.exception)["references"]["catastro"]["floors"], 2)
-        missing.exception.close()
+        # Not described yet, but the cadastre knows it: in evaluation mode the 404 carries the reference for the card.
+        for suffix, expected in (("", None), ("?references=1", 2)):
+            with self.assertRaises(urllib.error.HTTPError) as missing:
+                urllib.request.urlopen(f"{base}/way/999{suffix}", timeout=10)
+            body = json.load(missing.exception)
+            self.assertEqual(body.get("references", {}).get("catastro", {}).get("floors"), expected)
+            missing.exception.close()
 
 
 class ReviewTests(SurveyWorkspace):
