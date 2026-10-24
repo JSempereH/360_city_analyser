@@ -241,6 +241,7 @@ def collect_building_evidence(
             inferred_mask_relative_path=f"analysis/{image_id}-facades.png",
             inferred_mask_sha256=inferred_mask_digest,
             image_quality=_image_quality(analysis.get("image_quality")),
+            mask_quality=dict(building["mask_quality"]) if isinstance(building.get("mask_quality"), dict) else None,
         ))
 
     manifest_digest = hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")).hexdigest()

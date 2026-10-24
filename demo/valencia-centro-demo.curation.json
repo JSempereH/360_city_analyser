@@ -476,6 +476,21 @@
         "surface_material": "plaster",
         "construction_year": 1885
       }
+    },
+    "way/814967845": {
+      "206326784388835": {
+        "observations": "Seen very obliquely along a narrow street: a rendered facade with banded rustication on the ground floor, tall barred windows and stacked iron balconies in narrow bays between solid piers; the upper storeys are too foreshortened to count.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
     }
   }
 }

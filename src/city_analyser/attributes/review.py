@@ -196,9 +196,17 @@ def attribute_summary(dataset_dir: Path, dataset_id: str) -> dict[str, Any]:
             "needs_review": reason, "urgency": round(urgency, 4), "image": card.get("best_image"),
             # Ranking score of the best view: how much of the building that view shows.
             "score": max((view["score"] for view in card.get("views", []) if isinstance(view.get("score"), (int, float))), default=None),
+            # Mask quality: how many views were set aside (and why) next to the ones the model read.
+            "set_aside": len(card.get("set_aside", [])),
+            "set_aside_reasons": sorted({reason for view in card.get("set_aside", []) for reason in view["reasons"]}),
+            "set_aside_image": (card.get("set_aside") or [{}])[0].get("image_id"),
+            "clean_views": len(card.get("views", [])) if not card.get("no_clean_view") else 0,
+            "no_clean_view": bool(card.get("no_clean_view")),
         }
     counts = {
         "buildings": len(buildings), "reviewed": sum(entry["reviewed"] for entry in buildings.values()),
         "needs_review": sum(entry["needs_review"] is not None for entry in buildings.values()),
+        "set_aside": sum(entry["set_aside"] > 0 for entry in buildings.values()),
+        "no_clean_view": sum(entry["no_clean_view"] for entry in buildings.values()),
     }
     return {"dataset": dataset_id, "buildings": buildings, "counts": counts}

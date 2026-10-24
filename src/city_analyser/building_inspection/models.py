@@ -56,6 +56,12 @@ class ViewEvidence:
     inferred_mask_relative_path: str
     inferred_mask_sha256: str
     image_quality: dict[str, Any] | None = None
+    # The analysis's check of the mask against the projected walls: {"ok", "reasons", "signals"} (mask_quality).
+    mask_quality: dict[str, Any] | None = None
+
+    @property
+    def mask_flagged(self) -> bool:
+        return bool(self.mask_quality) and not self.mask_quality.get("ok", True)
 
     def public_dict(self) -> dict[str, Any]:
         return {
@@ -95,6 +101,7 @@ class ViewEvidence:
                 "facade_iou_gain": self.pose_facade_iou_gain,
             },
             "image_quality": self.image_quality,
+            "mask_quality": {key: self.mask_quality[key] for key in ("ok", "reasons") if key in self.mask_quality} if self.mask_quality else None,
         }
 
 

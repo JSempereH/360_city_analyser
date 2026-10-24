@@ -31,7 +31,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from .fusion import DEFAULT_MIN_SHARE, fuse_categorical, fuse_numeric
-from .models import BuildingAttributes
+from .models import BuildingAttributes, abstain_categorical, abstain_numeric
 from .regional import GUIDANCE_VERSION, guidance_for
 from .taxonomy import BUILDING_TYPES, CATEGORICAL_ATTRIBUTES, GEM_LLRS, GEM_MATERIALS, SURFACE_MATERIALS, TAXONOMY_VERSION
 
@@ -202,6 +202,23 @@ def inputs_fingerprint(provider: str, crops: Sequence[Crop]) -> str:
 # Live analysis events: {"type": "view", "index", "reference"}, {"type": "text", "index", "text"} (a chunk),
 # {"type": "answer", "index", "answer", "reasoning", "error"}.
 EventSink = Callable[[dict[str, Any]], None]
+
+
+# Why a building was not shown to the model, as its answer says: every view's mask was flagged.
+NO_CLEAN_VIEW = "no clean view"
+
+
+def no_clean_view_result(building_id: str, provider: str, set_aside: Sequence[dict[str, Any]]) -> BuildingAttributes:
+    """The model's result for a building whose every view was set aside (see building_inspection.crops): it abstains
+    on every attribute and says why, so an older answer read from a bad mask is not left standing."""
+    from ..mask_quality import REASONS
+
+    reasons = sorted({reason for view in set_aside for reason in view.get("reasons", [])})
+    why = f"{NO_CLEAN_VIEW}: " + "; ".join(REASONS.get(reason, reason) for reason in reasons)
+    predictions: dict[str, Any] = {attribute: abstain_categorical(attribute, provider, why) for attribute in CATEGORICAL_ATTRIBUTES}
+    predictions.update({attribute: abstain_numeric(attribute, provider, why) for attribute in ("floors", "construction_year")})
+    fingerprint = hashlib.sha256(json.dumps({"provider": provider, "set_aside": list(set_aside)}, sort_keys=True).encode("utf-8")).hexdigest()
+    return BuildingAttributes(building_id, provider, predictions, run={"no_clean_view": True, "set_aside": list(set_aside), "inputs_sha256": fingerprint})
 
 
 class VLMProvider:

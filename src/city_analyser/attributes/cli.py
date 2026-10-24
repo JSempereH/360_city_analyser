@@ -14,14 +14,14 @@ from shapely.geometry import shape
 
 from ..analysis_cache import atomic_write_bytes
 from ..building_analysis import ANALYSIS_VERSION, nearby_buildings
-from ..building_inspection.crops import analyzed_building_ids, crops_directory, export_building_crops
+from ..building_inspection.crops import analyzed_building_ids, crops_directory, export_building_crops, set_aside_views
 from ..building_inspection.evidence import BuildingEvidenceNotFound, collect_building_evidence
 from ..building_inspection.reporting import _building_parts
 from ..multi_view_analysis import panorama_coordinates
 from .models import BuildingAttributes
 from .prior import osm_prior
 from .regional import region_at
-from .vlm import Crop, OpenAICompatibleClient, VLMProvider, inputs_fingerprint
+from .vlm import Crop, OpenAICompatibleClient, VLMProvider, inputs_fingerprint, no_clean_view_result
 
 PRIOR_PROVIDER = "osm-tag-prior"
 
@@ -120,12 +120,20 @@ def predict_vlm(
 ) -> tuple[str, BuildingAttributes | None]:
     """Ask the model about one building's exported crops, unless its inputs did not change since the last answer.
 
-    Returns ``(status, result)``: ``written``, ``unchanged`` or ``no_crops``.
+    Returns ``(status, result)``: ``written``, ``unchanged``, ``no_clean_view`` (every view's mask was flagged:
+    the model is not asked and its result abstains, saying why) or ``no_crops``.
     """
     crops = load_crops(dataset_dir, building_id, images_by_id)
-    if not crops:
-        return "no_crops", None
     previous = read_attributes(dataset_dir, building_id, provider.name)
+    if not crops:
+        set_aside = set_aside_views(dataset_dir, building_id)
+        if not set_aside:
+            return "no_crops", None
+        result = no_clean_view_result(building_id, provider.name, set_aside)
+        if not force and previous and (previous.get("run") or {}).get("inputs_sha256") == result.run["inputs_sha256"]:
+            return "unchanged", None
+        write_attributes(dataset_dir, result)
+        return "no_clean_view", result
     if not force and previous and (previous.get("run") or {}).get("inputs_sha256") == inputs_fingerprint(provider.name, crops):
         return "unchanged", None
     result = provider.predict(building_id, crops)

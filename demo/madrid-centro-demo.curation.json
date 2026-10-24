@@ -475,6 +475,21 @@
         "surface_material": "plaster",
         "construction_year": 1880
       }
+    },
+    "way/254289953": {
+      "364366455011230": {
+        "observations": "A narrow corner block with a shop front at street level and rows of iron balconies stacked in two bays above, rendered in red and ochre; narrow openings between thick piers point to load-bearing brick; ground floor plus five or six upper rows, the top partly out of view.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "M99",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1880
+      }
     }
   }
 }

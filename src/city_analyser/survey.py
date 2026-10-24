@@ -209,6 +209,8 @@ def run_survey(
                     if provider[0] is not None:
                         try:
                             record["vlm"], result = predict_vlm(provider[0], dataset_dir, building_id, images_by_id)
+                            if record["vlm"] == "no_clean_view":
+                                result = None  # an abstention, not a model answer
                         except (OSError, ValueError, KeyError) as error:
                             record["vlm"] = "error"
                             record["vlm_error"] = f"{type(error).__name__}: {error}"[:300]

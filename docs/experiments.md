@@ -145,18 +145,16 @@ Phase 1 (October 22, analysis version 31). Both changes act after the model stag
   - Their labels from the curation describe version-29 masks and are kept as `*-v29.json`.
   - The version 29 and 30 analyses of Ciutat Vella are kept under `data/valencia-ciutat-vella/history/` for comparison.
 
-**Next: phase 3, use the flag (planned October 22, about 2 days).** Nothing in it reads reference data. The cadastre stays an evaluation tool, shown in the viewer only in evaluation mode (`references=1`).
+**Phase 3, done (October 24, analysis version 33).**
 
-1. **Score while associating.** `associate_panorama` already has the projected walls, their depth and the masks, so it computes `mask_quality.view_signals` and `assess` for every building it names. It stores `{"reasons", "signals"}` in `building_ids[ordinal]["mask_quality"]`, and `ANALYSIS_VERSION` goes up. `city-analyser-mask-quality score` then only collects them, and `evaluate` is unchanged.
-2. **Crops and ranking.** The ranking (`building_inspection.evidence`) keeps every view but marks the flagged ones. `export_building_crops` takes the best `per_building` clean views. Sidecars record the views set aside with their reasons, so nothing is deleted. `--keep-flagged` gives the old behavior, for comparison.
-3. **Attributes and survey.** A building without a clean view is not sent to the model. Its model result abstains with "no clean view" and the reasons, while the OSM-tag prior still applies. A building with some clean views is asked only about those.
-4. **Viewer.**
-   - The card lists the views set aside and why: "2 views set aside: sliver, panorama inside a building".
-   - The Review tab gets a "Mask to check" queue with the reason, which opens the panorama on that facade.
-   - The map gets a "Mask quality" color layer: the share of a building's views that are clean.
-   - In the presentation, the tour skips buildings without a clean view (instead of `min-score` alone), and the Look phase says why a view was set aside.
-5. **Curated demos.** A curation is a human review, so a view it edited or answered counts as clean whatever the rules say. Its mask edits are applied before the views are counted.
-6. **Tests and checks.** Unit tests for each piece, and the e2e presentation test with a flagged view. Screenshots at three sizes. Re-association of Ciutat Vella and of the demos (minutes, from the stage cache).
+- **Seam split (version 32).** One detected instance that covers two attached facades is split at the seam between their footprints even when one footprint dominates: it splits when the second footprint wins a continuous run of at least 3 degrees and holds 15% of the instance.
+  - Measured against the bearing edits of the demo curations, the result is mixed and the sample is small: one Madrid leak falls from 61% to 27% of the mask outside the curated range; in Valencia one case improves and one gets worse.
+  - In a by-eye review of 24 changed views, 8 to 9 got better, 2 to 4 worse (the projected seam falls inside a uniform facade, from a small pose or footprint error) and the rest stayed the same.
+- **Scores stored by the analysis.** `associate_panorama` scores every view and stores the result in `building_ids[ordinal]["mask_quality"]`. Recomputing the score from the saved masks gives the same reasons for all 152 views checked.
+- **Crops only from clean views.** The rest go to `set-aside.json` with their reasons, and a building without a clean view abstains with "no clean view" instead of reaching the model.
+- **Viewer.** The card notes the views set aside, the Review tab has a "Mask to check" queue and the map a "Mask quality" layer. The presentation skips buildings without a clean view and says what was set aside.
+- **Demos.** A curated demo's edited or answered views count as clean. Two buildings the seam split separated in the demos got curated answers instead of simulated ones.
+- **Madrid Salesas** (158 GoPro MAX2 panoramas, 7680 px, analyzed on Colab with `notebooks/colab_madrid_salesas.ipynb`): 295 clean crops of 126 buildings. 87 buildings have only flagged views, mostly distant slivers.
 
 **Then phase 5: measure.** The pilot is run again with the filter and with `--keep-flagged`: the OSM-tag prior, qwen3.5:4b with and without regional guidance, and a new Claude run on the clean crops. The pilot's model answers are stale anyway, because version 31 changed the crops. It is scored against the cadastre and the evaluation set, which are references only. The filter stays if the scores hold or improve while coverage drops little. Expect coverage to drop: today 21 of the 40 buildings have a clean crop view.
 

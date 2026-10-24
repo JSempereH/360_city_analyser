@@ -202,10 +202,10 @@ def match(osm: dict[str, Any], cadastre: dict[str, Any], min_iou: float = MIN_IO
 
 def dataset_footprints(dataset_dir: Path) -> dict[str, dict[str, Any]]:
     """OSM footprints (GeoJSON geometry) of the buildings the dataset's analyses name."""
+    from ..building_analysis import panorama_analysis_files
+
     footprints: dict[str, dict[str, Any]] = {}
-    for path in sorted((dataset_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(dataset_dir):
         payload = json.loads(path.read_text(encoding="utf-8"))
         for record in (payload.get("building_ids") or {}).values():
             if isinstance(record, dict) and record.get("footprint_geometry") and record.get("osm_id"):

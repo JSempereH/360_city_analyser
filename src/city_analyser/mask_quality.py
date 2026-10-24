@@ -24,6 +24,8 @@ from typing import Any
 
 import numpy as np
 
+from .building_analysis import panorama_analysis_files
+
 QUALITY_VERSION = 1
 QUALITY_FILE = "mask-quality.json"
 
@@ -144,6 +146,38 @@ def assess(signals: dict[str, Any]) -> dict[str, Any]:
     return {"ok": not reasons, "reasons": reasons}
 
 
+def building_height_m(record: dict[str, Any]) -> float:
+    """The height a building's walls were drawn with: its known height, or the drawing default when OSM has none."""
+    from .building_analysis import DEFAULT_BUILDING_HEIGHT_M
+
+    height_m = float(record.get("height_m") or DEFAULT_BUILDING_HEIGHT_M)
+    return float(record.get("render_height_m") or height_m) if record.get("height_source") == "default" else height_m
+
+
+def score_views(
+    ids: np.ndarray, hidden_ids: np.ndarray | None, owners: np.ndarray, depth: np.ndarray, building_ids: dict[str, dict[str, Any]],
+    camera_inside: bool,
+) -> dict[str, dict[str, Any]]:
+    """``{ordinal: {"version", "ok", "reasons", "signals"}}`` for every building the analysis named, ``owners`` drawn
+    with the same ordinals as ``ids``."""
+    results = {}
+    for ordinal, record in building_ids.items():
+        number = int(ordinal)
+        hidden = hidden_ids == number if hidden_ids is not None else None
+        signals = view_signals(ids, number, owners, depth, height_m=building_height_m(record), hidden=hidden, camera_inside=camera_inside)
+        results[ordinal] = {"version": QUALITY_VERSION, **assess(signals), "signals": signals}
+    return results
+
+
+def stored_quality(analysis: dict[str, Any]) -> dict[str, dict[str, Any]] | None:
+    """``{osm_id: quality}`` as the analysis recorded it while associating (version 33 on), or None."""
+    records = analysis.get("building_ids") or {}
+    stored = {record["osm_id"]: record.get("mask_quality") for record in records.values()}
+    if not stored or any(not isinstance(value, dict) or value.get("version") != QUALITY_VERSION for value in stored.values()):
+        return None
+    return stored
+
+
 def camera_inside_footprint(features: list[dict[str, Any]], latitude: float, longitude: float) -> bool:
     from .facade_geometry import _points_in_polygon, build_scene
 
@@ -160,9 +194,12 @@ def panorama_quality(dataset_dir: Path, image_id: str) -> dict[str, dict[str, An
     """
     from PIL import Image
 
-    from .building_analysis import _render_facade_owners, building_height, camera_up_vector, nearby_buildings
+    from .building_analysis import _render_facade_owners, camera_up_vector, nearby_buildings
 
     analysis = json.loads((dataset_dir / "analysis" / f"{image_id}.json").read_text(encoding="utf-8"))
+    stored = stored_quality(analysis)
+    if stored is not None:
+        return stored
     with Image.open(dataset_dir / "analysis" / f"{image_id}-ids.png") as source:
         ids = np.asarray(source).astype(np.int32)
     hidden_path = dataset_dir / "analysis" / f"{image_id}-facades.png"
@@ -178,38 +215,30 @@ def panorama_quality(dataset_dir: Path, image_id: str) -> dict[str, dict[str, An
         features, latitude, longitude, heading, ids.shape[1], ids.shape[0], camera_up_vector(analysis.get("camera_up")),
     )
     ordinals = {str(feature["properties"]["osm_id"]): index for index, feature in enumerate(candidates, start=1)}
-    inside = camera_inside_footprint(features, latitude, longitude)
-    results = {}
+    # The analysis rendered the same footprints from the same pose; renumber the walls with its ordinals.
+    lookup = np.zeros(len(candidates) + 1, dtype=np.int32)
+    named = {}
     for ordinal, record in analysis["building_ids"].items():
-        osm_id = record["osm_id"]
-        # The analysis rendered the same footprints from the same pose, so its ordinals are the renderer's.
-        rendered = ordinals.get(osm_id)
-        if rendered is None:
-            continue
-        projected_owners = np.where(owners == rendered, int(ordinal), 0)
-        hidden = hidden_ids == int(ordinal) if hidden_ids is not None else None
-        height_m = float(record.get("height_m") or building_height({}))
-        if record.get("height_source") == "default":
-            height_m = float(record.get("render_height_m") or height_m)
-        signals = view_signals(ids, int(ordinal), projected_owners, depth, height_m=height_m, hidden=hidden, camera_inside=inside)
-        results[osm_id] = {"signals": signals, **assess(signals)}
-    return results
+        rendered = ordinals.get(record["osm_id"])
+        if rendered is not None:
+            lookup[rendered] = int(ordinal)
+            named[ordinal] = record
+    scored = score_views(ids, hidden_ids, lookup[owners], depth, named, camera_inside_footprint(features, latitude, longitude))
+    return {named[ordinal]["osm_id"]: result for ordinal, result in scored.items()}
 
 
 def analysis_versions(dataset_dir: Path) -> list[int]:
     """The ``ANALYSIS_VERSION`` values of a dataset's analyses: labels describe the masks of one version."""
     return sorted({
         json.loads(path.read_text(encoding="utf-8")).get("version")
-        for path in (dataset_dir / "analysis").glob("*.json") if not path.name.endswith("-sfm.json")
+        for path in panorama_analysis_files(dataset_dir)
     })
 
 
 def dataset_quality(data_root: Path, dataset_id: str, log: Any = print) -> dict[str, Any]:
     dataset_dir = data_root / dataset_id
     views = []
-    for path in sorted((dataset_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(dataset_dir):
         image_id = path.stem
         for building, result in panorama_quality(dataset_dir, image_id).items():
             views.append({"image": image_id, "building": building, **result})
@@ -247,9 +276,7 @@ def labels_from_curation(source_dir: Path, demo_dir: Path) -> list[dict[str, Any
         view = (str(sidecar["source"]["image_id"]), sidecar["building"]["id"])
         shown[view] = view in answered or sidecar["evidence"]["score"] >= SLIVER_SCORE
     labels = []
-    for path in sorted((source_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(source_dir):
         analysis = json.loads(path.read_text(encoding="utf-8"))
         for record in analysis["building_ids"].values():
             view = (str(analysis["image_id"]), record["osm_id"])

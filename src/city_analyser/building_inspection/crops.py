@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from ..analysis_cache import atomic_write_bytes
-from ..building_analysis import ANALYSIS_VERSION
+from ..building_analysis import ANALYSIS_VERSION, panorama_analysis_files
 from ..panorama_geometry import perspective_tile
 from .evidence import BuildingEvidenceNotFound, collect_building_evidence
 from .models import RANKING_FORMULA_VERSION, RankedView
@@ -35,12 +35,24 @@ def crops_directory(dataset_dir: Path, building_id: str) -> Path:
     return dataset_dir / "crops" / Path(*_building_parts(building_id))
 
 
+# Next to a building's crops: the views left out because their mask was flagged, with the reasons.
+SET_ASIDE_FILE = "set-aside.json"
+
+
+def set_aside_views(dataset_dir: Path, building_id: str) -> list[dict[str, Any]]:
+    """``[{"image_id", "rank", "reasons"}]`` of the views a crop export left out, or ``[]``."""
+    path = crops_directory(dataset_dir, building_id) / SET_ASIDE_FILE
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return [view for view in payload.get("views", []) if isinstance(view, dict)]
+
+
 def analyzed_building_ids(dataset_dir: Path) -> list[str]:
     """OSM buildings named by a current analysis of this dataset."""
     found: set[str] = set()
-    for path in sorted((dataset_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(dataset_dir):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -104,8 +116,15 @@ def export_building_crops(
     size: int = DEFAULT_CROP_SIZE,
     mask_others: bool = False,
     skip_flagged: bool = False,
+    keep_flagged_masks: bool = False,
+    clean_views: dict[str, set[str]] | None = None,
 ) -> dict[str, Any]:
-    """Write the top ``per_building`` crops of each building; returns counts and the buildings without evidence."""
+    """Write the top ``per_building`` crops of each building; returns counts and the buildings without evidence.
+
+    Views whose mask the analysis flagged (``mask_quality``) are left out and listed in ``set-aside.json``
+    with their reasons, unless ``keep_flagged_masks``; ``clean_views`` (``{building: {image ids}}``, e.g. a
+    reviewer's curation) are kept whatever the flag says. A building with only flagged views gets no crop.
+    """
     from ..local_viewer import dataset_manifest
 
     np = __import__("numpy")
@@ -115,6 +134,8 @@ def export_building_crops(
     wanted = analyzed_building_ids(dataset_dir) if building_ids is None else sorted(set(building_ids))
     tasks: list[tuple[str, RankedView]] = []
     missing: list[str] = []
+    no_clean_view: list[str] = []
+    set_aside: dict[str, list[dict[str, Any]]] = {}
     for building_id in wanted:
         try:
             collection = collect_building_evidence(dataset_dir, manifest, building_id, expected_analysis_version=ANALYSIS_VERSION)
@@ -125,6 +146,17 @@ def export_building_crops(
         if not views:
             missing.append(building_id)
             continue
+        if not keep_flagged_masks:
+            vouched = (clean_views or {}).get(building_id, set())
+            flagged = [view for view in views if view.evidence.mask_flagged and view.evidence.image_id not in vouched]
+            set_aside[building_id] = [
+                {"image_id": view.evidence.image_id, "rank": view.rank, "reasons": list(view.evidence.mask_quality.get("reasons", []))}
+                for view in flagged
+            ]
+            views = [view for view in views if view not in flagged]
+            if not views:
+                no_clean_view.append(building_id)
+                continue
         tasks.extend((building_id, view) for view in views[:per_building])
     # One panorama decode serves every crop taken from it.
     tasks.sort(key=lambda item: (item[1].evidence.image_id, item[0]))
@@ -153,7 +185,14 @@ def export_building_crops(
         for stale in (*directory.glob("crop-*.jpg"), *directory.glob("crop-*.json")):
             if stale.name not in names:
                 stale.unlink(missing_ok=True)
-    return {"buildings": len(wanted) - len(missing), "crops": written, "buildings_without_evidence": missing}
+        if set_aside.get(building_id):
+            document = {"note": "Views left out of the crops because their mask disagrees with the projected walls (mask_quality).",
+                        "views": set_aside[building_id]}
+            atomic_write_bytes(directory / SET_ASIDE_FILE, (json.dumps(document, indent=2) + "\n").encode("utf-8"))
+        else:
+            (directory / SET_ASIDE_FILE).unlink(missing_ok=True)
+    return {"buildings": len(wanted) - len(missing) - len(no_clean_view), "crops": written, "buildings_without_evidence": missing,
+            "buildings_without_clean_view": no_clean_view}
 
 
 def main() -> None:
@@ -165,17 +204,20 @@ def main() -> None:
     parser.add_argument("--size", type=int, default=DEFAULT_CROP_SIZE)
     parser.add_argument("--mask-others", action="store_true", help="paint pixels of other buildings gray, to isolate the target")
     parser.add_argument("--skip-flagged", action="store_true", help="do not export views flagged blurry, dark or overexposed")
+    parser.add_argument("--keep-flagged-masks", action="store_true", help="export views whose mask was flagged too (by default they are set aside)")
     args = parser.parse_args()
     try:
         result = export_building_crops(
             args.data_root, args.dataset, args.building, per_building=args.per_building, size=args.size,
-            mask_others=args.mask_others, skip_flagged=args.skip_flagged,
+            mask_others=args.mask_others, skip_flagged=args.skip_flagged, keep_flagged_masks=args.keep_flagged_masks,
         )
     except ValueError as error:
         parser.error(str(error))
     print(f"{result['crops']} crops for {result['buildings']} buildings under {args.data_root / args.dataset / 'crops'}")
     if result["buildings_without_evidence"]:
         print(f"{len(result['buildings_without_evidence'])} buildings had no usable view")
+    if result["buildings_without_clean_view"]:
+        print(f"{len(result['buildings_without_clean_view'])} buildings had only flagged masks (see set-aside.json in their crops folder)")
 
 
 if __name__ == "__main__":

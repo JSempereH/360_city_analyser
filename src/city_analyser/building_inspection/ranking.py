@@ -57,6 +57,11 @@ def rank_views(evidence: tuple[ViewEvidence, ...], dataset_id: str, building_id:
         flags = (item.image_quality or {}).get("flags")
         if flags:
             reasons.append(f"Image quality flags ({', '.join(flags)}) halve its score; the view stays listed.")
+        if item.mask_flagged:
+            from ..mask_quality import REASONS
+
+            why = "; ".join(REASONS.get(reason, reason) for reason in item.mask_quality.get("reasons", []))
+            reasons.append(f"The mask is flagged ({why}): the view stays listed but is not given to the model.")
         if item.sfm_depth_samples:
             reasons.append(f"SfM checked {item.sfm_depth_samples} sparse depth samples; {item.sfm_depth_conflicts} conflicted.")
         ranked.append(RankedView(

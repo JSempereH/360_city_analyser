@@ -81,6 +81,17 @@ def _load(directory: Path, building_id: str) -> list[tuple[float, dict[str, Any]
     return payloads
 
 
+def _set_aside(dataset_dir: Path, building_id: str) -> list[dict[str, Any]]:
+    from ..building_inspection.crops import set_aside_views
+    from ..mask_quality import REASONS
+
+    return [
+        {"image_id": view.get("image_id"), "reasons": list(view.get("reasons", [])),
+         "why": "; ".join(REASONS.get(reason, reason) for reason in view.get("reasons", []))}
+        for view in set_aside_views(dataset_dir, building_id)
+    ]
+
+
 def building_card(dataset_dir: Path, dataset_id: str, building_id: str, *, with_references: bool = False) -> dict[str, Any] | None:
     """The merged attributes of one building, or ``None`` when no provider has written any.
 
@@ -159,5 +170,8 @@ def building_card(dataset_dir: Path, dataset_id: str, building_id: str, *, with_
         # The classes a reviewer can choose from (GEM codes are in gem.codes).
         "classes": {"building_type": list(BUILDING_TYPES), "surface_material": list(SURFACE_MATERIALS)},
         "views": view_details,
+        # Views left out of the model's crops because their mask was flagged, and why (building_inspection.crops).
+        "set_aside": _set_aside(dataset_dir, building_id),
+        "no_clean_view": bool(((model or {}).get("run") or {}).get("no_clean_view")),
         **({"references": references(dataset_dir, building_id)} if with_references else {}),
     }

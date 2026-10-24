@@ -25,9 +25,9 @@ from ..attributes.cli import ModelSettings, attributes_path, load_crops, osm_tag
 from ..attributes.prior import osm_prior
 from ..attributes.regional import GUIDANCE_VERSION
 from ..attributes.taxonomy import TAXONOMY_VERSION
-from ..attributes.vlm import PROMPT_VERSION, VLMProvider, inputs_fingerprint
+from ..attributes.vlm import PROMPT_VERSION, VLMProvider, inputs_fingerprint, no_clean_view_result
 from ..building_analysis import ANALYSIS_VERSION
-from ..building_inspection.crops import analyzed_building_ids, crops_directory, export_building_crops
+from ..building_inspection.crops import analyzed_building_ids, crops_directory, export_building_crops, set_aside_views
 from ..groundtruth import load_truth
 from .config import ExperimentConfig, RunConfig
 
@@ -91,7 +91,11 @@ def _run_vlm(dataset_dir: Path, run_dir: Path, run: RunConfig, buildings: list[s
     for number, building in enumerate(buildings, start=1):
         crops = load_crops(dataset_dir.resolve(), building, images)
         if not crops:
-            record(building, "no_crops", 0.0)
+            set_aside = set_aside_views(dataset_dir.resolve(), building)
+            if set_aside:
+                # Every view's mask was flagged: the model is not asked, and the run says so.
+                write_attributes(run_dir, no_clean_view_result(building, settings.provider_name, set_aside))
+            record(building, "no_clean_view" if set_aside else "no_crops", 0.0)
             continue
         if not run.regional_guidance:
             crops = [replace(crop, region=None) for crop in crops]
@@ -183,7 +187,7 @@ def _run_experiment(
         atomic_write_json(run_dir / "run.json", summary)
         summaries[run.id] = summary
         log(f"  {summary['statuses']}")
-        if rows and all(row["status"] in {"no_tags", "no_crops"} for row in rows) and run.kind != "saved":
+        if rows and all(row["status"] in {"no_tags", "no_crops", "no_clean_view"} for row in rows) and run.kind != "saved":
             log(f"  Warning: {NO_EVIDENCE}")
     return summaries
 

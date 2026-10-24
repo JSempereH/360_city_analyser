@@ -384,3 +384,22 @@ class PhaseOneAssociationTests(unittest.TestCase):
         self.assertFalse(cleaned[20:22, 20:22].any())
         self.assertFalse(cleaned[120:125, 320:325].any())
         self.assertTrue(cleaned[60, 60])
+
+
+class InstanceSeamTests(unittest.TestCase):
+    def test_a_dominant_footprint_leaves_a_wide_second_facade_its_columns(self):
+        # One detected instance over two projected facades: footprint 1 on 70% of the columns, footprint 2 on 30%.
+        instance_map = np.zeros((40, 360), dtype=np.int32)
+        instance_map[10:30, 100:200] = 1
+        owners = np.zeros_like(instance_map, dtype=np.uint16)
+        owners[:, 100:170] = 1
+        owners[:, 170:200] = 2
+        evidence = instance_map > 0
+        labels, details = building_analysis._instance_labels(instance_map, evidence, owners, 3)
+        self.assertEqual(details[0]["mode"], "columns")
+        self.assertTrue((labels[20, 100:170] == 1).all() and (labels[20, 170:200] == 2).all())
+        # A narrow strip of the second footprint (pose noise) still leaves the instance whole.
+        owners[:, 170:200] = 1
+        owners[:, 197:200] = 2
+        labels, details = building_analysis._instance_labels(instance_map, evidence, owners, 3)
+        self.assertEqual((details[0]["mode"], int(labels[20, 198])), ("whole", 1))

@@ -26,7 +26,7 @@ from typing import Any
 
 from .attributes.cli import load_crops, osm_tags, predict_prior, read_attributes, write_attributes
 from .attributes.vlm import VLMProvider
-from .building_analysis import ANALYSIS_VERSION
+from .building_analysis import ANALYSIS_VERSION, panorama_analysis_files
 from .building_inspection.crops import analyzed_building_ids, export_building_crops
 
 SIMULATED_PROVIDER = "vlm:simulated-demo"
@@ -134,9 +134,7 @@ def simulated_answers(building_id: str, views: int, tags: dict[str, Any], height
 
 
 def _height(dataset_dir: Path, building_id: str) -> float | None:
-    for path in sorted((dataset_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(dataset_dir):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -193,9 +191,7 @@ def _in_range(bearings: Any, start: float, end: float) -> Any:
 def small_views(dataset_dir: Path, min_pixels: int) -> list[dict[str, Any]]:
     """Removal edits for every building view smaller than ``min_pixels``: slivers a presentation should not show."""
     edits = []
-    for path in sorted((dataset_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(dataset_dir):
         payload = json.loads(path.read_text(encoding="utf-8"))
         edits.extend(
             {"image": str(payload["image_id"]), "building": record["osm_id"], "remove": True}
@@ -378,7 +374,14 @@ def prepare_demo(data_root: Path, dataset_id: str, *, per_building: int = 3, for
     if not buildings:
         raise ValueError(f"{dataset_id} has no current analysis (version {ANALYSIS_VERSION}); run city-analyser-analyze first")
     log(f"{len(buildings)} analyzed buildings; exporting crops...")
-    export_building_crops(data_root, dataset_id, buildings, per_building=per_building, mask_others=True)
+    # A view the reviewer edited or answered was checked by eye: it is clean whatever the mask rules say.
+    vouched: dict[str, set[str]] = {}
+    for edit in curation.get("masks", []):
+        if not edit.get("remove"):
+            vouched.setdefault(edit.get("rename_to") or edit["building"], set()).add(str(edit["image"]))
+    for building_id, views in curated.items():
+        vouched.setdefault(building_id, set()).update(str(image_id) for image_id in views)
+    export_building_crops(data_root, dataset_id, buildings, per_building=per_building, mask_others=True, clean_views=vouched)
     images_by_id = {str(image["id"]): image for image in manifest["images"] if isinstance(image, dict) and "id" in image}
     counts = {"real": 0, "simulated": 0, "curated": 0, "excluded": 0, "no_crops": 0, "prior": 0}
     for building_id in buildings:

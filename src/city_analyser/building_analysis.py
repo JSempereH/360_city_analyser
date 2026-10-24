@@ -35,7 +35,7 @@ GPU_MODEL_ID = "nvidia/segformer-b5-finetuned-cityscapes-1024-1024"
 CPU_MODEL_ID = "nvidia/segformer-b0-finetuned-cityscapes-1024-1024"
 HIGH_ACCURACY_MODEL_ID = "facebook/mask2former-swin-large-mapillary-vistas-semantic"
 MODEL_VERSION = "mask2former-mapillary-high-segformer-confidence-fusion-osm-multipolygons"
-ANALYSIS_VERSION = 31
+ANALYSIS_VERSION = 33
 # Footprint diagnostics (heuristic thresholds, see docs/footprint-corrections.md).
 # Evidence regions smaller than this share of the panorama are not reported.
 FOOTPRINT_DIAGNOSTIC_MIN_SHARE = 0.005
@@ -90,6 +90,10 @@ INSTANCE_MIN_PROJECTED_SHARE = 0.3
 INSTANCE_MIN_OWNER_SHARE = 0.6
 # Narrower facade slivers inside a detected building are merged into a neighbor.
 INSTANCE_MIN_FACADE_DEGREES = 2.0
+# A dominant footprint still leaves the instance to be split by columns when another footprint wins a continuous
+# run this wide and holds this share of the projected votes: the detector saw two attached facades as one.
+INSTANCE_SEAM_MIN_DEGREES = 3.0
+INSTANCE_SEAM_MIN_SHARE = 0.15
 OSM_QUERY_RADIUS_M = 140.0
 # About 110 m; every camera in a cell reuses one enlarged footprint query.
 OSM_CELL_DEGREES = 0.001
@@ -987,6 +991,25 @@ def _instance_labels(instance_map: Any, evidence: Any, owners: Any, bins: int) -
     votes = np.bincount(
         instance_map[evidence].astype(np.int64) * bins + owners[evidence], minlength=count * bins,
     ).reshape(count, bins)
+    minimum_run = max(1, round(width * INSTANCE_MIN_FACADE_DEGREES / 360))
+
+    def column_owners(mask: Any) -> tuple[Any, Any]:
+        """Each column of the instance named by the footprint projected most in it (walls are vertical)."""
+        rows, columns = np.nonzero(mask & evidence & (owners > 0))
+        column_votes = np.zeros((width, bins), dtype=np.int64)
+        np.add.at(column_votes, (columns, owners[rows, columns]), 1)
+        voted = np.flatnonzero(column_votes.sum(axis=1))
+        column_owner = column_votes.argmax(axis=1)
+        # Columns without projected votes take the nearest voted column.
+        instance_columns = np.flatnonzero(mask.any(axis=0))
+        position = np.clip(np.searchsorted(voted, instance_columns), 1, len(voted) - 1) if len(voted) > 1 else np.zeros(len(instance_columns), dtype=np.int64)
+        if len(voted) > 1:
+            left, right = voted[position - 1], voted[position]
+            position = np.where(instance_columns - left <= right - instance_columns, position - 1, position)
+        column_owner[instance_columns] = column_owner[voted[position]]
+        _absorb_narrow_runs(column_owner, instance_columns, minimum_run)
+        return column_owner, instance_columns
+
     details = []
     for label in range(1, count):
         total = int(votes[label].sum())
@@ -996,26 +1019,15 @@ def _instance_labels(instance_map: Any, evidence: Any, owners: Any, bins: int) -
         best = int(np.argmax(votes[label, 1:])) + 1 if projected else 0
         share = float(votes[label, best] / projected) if projected else 0.0
         mask = instance_map == label
-        if projected < INSTANCE_MIN_PROJECTED_SHARE * total:
+        owned = column_owners(mask) if projected >= INSTANCE_MIN_PROJECTED_SHARE * total else None
+        if owned is None:
             mode, ordinals = "abstain", []
-        elif share >= INSTANCE_MIN_OWNER_SHARE:
+        elif share >= INSTANCE_MIN_OWNER_SHARE and not _second_facade(owned, best, votes[label], projected, width):
             mode, ordinals = "whole", [best]
             labels[mask] = best
         else:
             mode = "columns"
-            rows, columns = np.nonzero(mask & evidence & (owners > 0))
-            column_votes = np.zeros((width, bins), dtype=np.int64)
-            np.add.at(column_votes, (columns, owners[rows, columns]), 1)
-            voted = np.flatnonzero(column_votes.sum(axis=1))
-            column_owner = column_votes.argmax(axis=1)
-            # Columns without projected votes take the nearest voted column.
-            instance_columns = np.flatnonzero(mask.any(axis=0))
-            position = np.clip(np.searchsorted(voted, instance_columns), 1, len(voted) - 1) if len(voted) > 1 else np.zeros(len(instance_columns), dtype=np.int64)
-            if len(voted) > 1:
-                left, right = voted[position - 1], voted[position]
-                position = np.where(instance_columns - left <= right - instance_columns, position - 1, position)
-            column_owner[instance_columns] = column_owner[voted[position]]
-            _absorb_narrow_runs(column_owner, instance_columns, max(1, round(width * INSTANCE_MIN_FACADE_DEGREES / 360)))
+            column_owner, instance_columns = owned
             mask_rows, mask_columns = np.nonzero(mask)
             labels[mask_rows, mask_columns] = column_owner[mask_columns]
             ordinals = sorted(int(value) for value in np.unique(column_owner[instance_columns]) if value)
@@ -1024,6 +1036,23 @@ def _instance_labels(instance_map: Any, evidence: Any, owners: Any, bins: int) -
             "projected_share": round(projected / total, 3), "owner_share": round(share, 3), "ordinals": ordinals,
         })
     return labels, details
+
+
+def _second_facade(owned: tuple[Any, Any], best: int, votes: Any, projected: int, width: int) -> bool:
+    """Whether a footprint other than ``best`` wins a continuous run of the instance's columns at least
+    ``INSTANCE_SEAM_MIN_DEGREES`` wide while holding ``INSTANCE_SEAM_MIN_SHARE`` of its projected votes."""
+    np = __import__("numpy")
+    column_owner, columns = owned
+    if len(columns) < 2:
+        return False
+    values = column_owner[columns]
+    breaks = np.flatnonzero((np.diff(values) != 0) | (np.diff(columns) != 1)) + 1
+    minimum = max(1, round(width * INSTANCE_SEAM_MIN_DEGREES / 360))
+    for run in np.split(np.arange(len(columns)), breaks):
+        owner = int(values[run[0]])
+        if owner and owner != best and len(run) >= minimum and votes[owner] >= INSTANCE_SEAM_MIN_SHARE * projected:
+            return True
+    return False
 
 
 def _continue_upward(labels: Any, evidence: Any, owners: Any, open_space: Any) -> Any:
@@ -1058,13 +1087,17 @@ def _assign_buildings_detailed(
     buildings: Any, vegetation: Any, features: list[dict[str, Any]], camera_latitude: float, camera_longitude: float, heading_degrees: float,
     sfm_depth_samples: list[dict[str, float]] | None = None, instance_map: Any = None, instance_coverage: Any = None,
     diagnostics: list[dict[str, Any]] | None = None, camera_up: tuple[float, float, float] | None = None,
+    projection: dict[str, Any] | None = None,
 ) -> tuple[Any, Any, dict[str, dict[str, Any]], list[dict[str, Any]]]:
-    """Name building pixels with footprints; append footprint diagnostics to ``diagnostics`` if given."""
+    """Name building pixels with footprints; append footprint diagnostics to ``diagnostics`` and put the projected
+    walls (``owners``, ``depth``) in ``projection`` if given."""
     np = __import__("numpy")
     height, width = buildings.shape
     owners, depth_buffer, candidate_features, facade_counts = _render_facade_owners(
         features, camera_latitude, camera_longitude, heading_degrees, width, height, camera_up,
     )
+    if projection is not None:
+        projection.update(owners=owners, depth=depth_buffer)
     depth_known, foreground_conflicts, background_conflicts = _sfm_depth_conflicts(depth_buffer, sfm_depth_samples or [])
     conflicts = foreground_conflicts | background_conflicts
     bins = len(candidate_features) + 1
@@ -1343,6 +1376,12 @@ def preload_models(model_root: Path) -> dict[str, Any]:
     if settings.enabled:
         _load_instance_models(settings.detector, settings.segmenter, str(model_root.resolve()), str(device))
     return {"device": str(device), "segmentation_model": model_id, "instances": settings.as_configuration()}
+
+
+def panorama_analysis_files(dataset_dir: Path) -> list[Path]:
+    """The per-panorama analysis metadata (``<image id>.json``) of a dataset, sorted; not the SfM
+    (``-sfm.json``) or multi-view (``-nearby.json``) files that share the folder."""
+    return sorted(path for path in (dataset_dir / "analysis").glob("*.json") if "-" not in path.stem)
 
 
 def analysis_paths(data_root: Path, dataset_id: str, image_id: str) -> tuple[Path, Path]:
@@ -1629,13 +1668,21 @@ def associate_panorama(
     refined_pose = _refine_camera_pose(pose_target, features, inputs.latitude, inputs.longitude, inputs.heading, inputs.camera_up)
     progress("Associating building masks with OpenStreetMap footprints...")
     diagnostics: list[dict[str, Any]] = []
+    projection: dict[str, Any] = {}
     assignments, facade_assignments, building_ids, instance_links = _assign_buildings_detailed(
         buildings, vegetation, features,
         float(refined_pose["latitude"]), float(refined_pose["longitude"]), float(refined_pose["heading_degrees"]),
         _sfm_depth_samples_from_payload(sfm_refinement, image_id) if sfm_refinement is not None
         else _sfm_depth_samples(data_root, dataset_id, image_id),
-        instance_map, coverage, diagnostics, inputs.camera_up,
+        instance_map, coverage, diagnostics, inputs.camera_up, projection,
     )
+    # How far each building's mask agrees with its projected walls: the views a model should not read are flagged
+    # here, with a reason, and left out of the crops (city_analyser.mask_quality).
+    from .mask_quality import camera_inside_footprint, score_views
+
+    inside = camera_inside_footprint(features, float(refined_pose["latitude"]), float(refined_pose["longitude"]))
+    for ordinal, quality in score_views(assignments, facade_assignments, projection["owners"], projection["depth"], building_ids, inside).items():
+        building_ids[ordinal]["mask_quality"] = quality
     if instance_map is not None:
         diagnostics.extend(_instance_diagnostics(instance_map, instance_links, float(refined_pose["heading_degrees"])))
     pose_diagnostic = _pose_diagnostic(inputs, refined_pose)

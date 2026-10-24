@@ -19,15 +19,15 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
+from city_analyser.building_analysis import panorama_analysis_files
+
 PAD = 0.08  # of the panorama width, around the mask
 PANEL_HEIGHT = 420
 
 
 def _views(dataset_dir: Path) -> dict[str, list[dict]]:
     found: dict[str, list[dict]] = {}
-    for path in sorted((dataset_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(dataset_dir):
         payload = json.loads(path.read_text(encoding="utf-8"))
         for ordinal, record in (payload.get("building_ids") or {}).items():
             found.setdefault(record["osm_id"], []).append({"image": str(payload["image_id"]), "ordinal": int(ordinal), "pixels": record.get("pixels", 0)})
@@ -192,9 +192,7 @@ def overview(dataset_dir: Path, output: Path) -> None:
     from PIL import ImageFont  # noqa: F401  (default bitmap font)
 
     manifest = {str(image["id"]): image for image in json.loads((dataset_dir / "manifest.json").read_text())["images"]}
-    for path in sorted((dataset_dir / "analysis").glob("*.json")):
-        if path.name.endswith("-sfm.json"):
-            continue
+    for path in panorama_analysis_files(dataset_dir):
         analysis = json.loads(path.read_text())
         image_id = str(analysis["image_id"])
         with Image.open(dataset_dir / "analysis" / f"{image_id}-ids.png") as source:
@@ -254,7 +252,7 @@ def main() -> None:
         return
     views = _views(dataset_dir)
     cache: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-    analyses = {path.stem: json.loads(path.read_text()) for path in (dataset_dir / "analysis").glob("*.json") if not path.name.endswith("-sfm.json")}
+    analyses = {path.stem: json.loads(path.read_text()) for path in panorama_analysis_files(dataset_dir)}
     for building_id in sorted(args.building or views):
         panels = []
         for view in sorted(views.get(building_id, []), key=lambda item: -item["pixels"]):
