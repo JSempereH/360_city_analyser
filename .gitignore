@@ -8,3 +8,5 @@ tests/__pycache__/
 docs/*.webm
 *.egg-info/
 site/
+video/node_modules/
+video/out/

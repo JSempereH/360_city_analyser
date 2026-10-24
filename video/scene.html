@@ -1,0 +1,316 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html,body{margin:0;background:#0b0b0b}
+  #stage{position:relative;width:960px;height:540px;overflow:hidden;background:#0b0b0b;
+    font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#f5f2e8}
+  .abs{position:absolute}
+  .mono{font-family:'DejaVu Sans Mono',Menlo,Consolas,monospace}
+  .kick{left:0;right:0;text-align:center;font-size:12px;letter-spacing:3px;color:#ffd500}
+  .head{left:0;right:0;text-align:center;font-weight:700;letter-spacing:-1.5px;line-height:1.05}
+  .chip{padding:8px 12px;border-radius:10px;background:#16161a;font-size:11px}
+  .card{border-radius:14px;background:#121216;border:1px solid rgba(255,255,255,.14)}
+</style>
+<div id="stage">
+  <svg id="grid" class="abs" width="960" height="540" style="inset:0"></svg>
+  <div id="glow" class="abs" style="left:50%;top:70%;width:900px;height:500px;transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(255,213,0,.22),transparent)"></div>
+
+  <!-- scene 1 -->
+  <div id="s1" class="abs" style="inset:0">
+    <svg id="tiles" class="abs" width="960" height="540" style="inset:0"></svg>
+    <div id="k1" class="abs mono" style="left:44px;top:40px;font-size:12px;letter-spacing:3px">OPEN SOURCE TOOLKIT</div>
+    <div id="big" class="abs" style="left:36px;top:62px;font-size:190px;font-weight:900;letter-spacing:-13px;line-height:1">360</div>
+    <div id="tag" class="abs" style="left:44px;top:262px;font-size:50px;font-weight:900;letter-spacing:-2.5px;line-height:.98">Street view in.<br>Building <span style="color:#ffd500">evidence</span><br>out.</div>
+    <div id="bar" class="abs" style="left:44px;top:470px;width:120px;height:8px;background:#ffd500;transform-origin:left"></div>
+  </div>
+
+  <!-- scenes 2-3 -->
+  <div id="s2" class="abs" style="inset:0">
+    <div id="k2" class="abs mono kick" style="top:44px">01 / SEE THE STREET</div>
+    <div id="h2" class="abs head" style="top:70px;font-size:46px">
+      <span id="h2a" style="display:inline-block">Every facade,</span><br><span id="h2b" style="display:inline-block;color:#8a8a92">matched to its footprint.</span></div>
+    <div id="win" class="abs" style="left:130px;top:230px;width:700px;height:260px;border:1px solid rgba(255,255,255,.14);border-radius:16px;background:#121216;box-shadow:0 30px 80px rgba(0,0,0,.7);overflow:hidden">
+      <div style="height:30px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:6px;padding-left:12px"><i style="width:9px;height:9px;border-radius:50%;background:#333"></i><i style="width:9px;height:9px;border-radius:50%;background:#333"></i><i style="width:9px;height:9px;border-radius:50%;background:#333"></i><span class="mono" style="font-size:10px;color:#777;margin-left:12px">360 city analyser</span></div>
+      <svg id="pano" width="1000" height="230" style="display:block"></svg>
+    </div>
+    <div id="chip1" class="abs mono chip" style="left:96px;top:262px;border:1px solid rgba(255,213,0,.5);color:#ffd500">masks: 0 buildings</div>
+    <div id="chip2" class="abs mono chip" style="right:92px;top:430px;border:1px solid rgba(255,255,255,.2)">confidence 0.92</div>
+  </div>
+
+  <!-- scene 4: projection -->
+  <div id="s4" class="abs" style="inset:0">
+    <svg id="iso" class="abs" width="960" height="540" style="inset:0"></svg>
+    <div class="abs" style="left:44px;top:40px">
+      <div id="k4" class="mono" style="font-size:12px;letter-spacing:3px;color:#ffd500">03 / PROJECT</div>
+      <div id="h4" style="font-size:40px;font-weight:700;letter-spacing:-1.2px;margin-top:8px;line-height:1.05">From panorama<br>to footprint.</div></div>
+    <div id="c4" class="abs card" style="left:690px;top:150px;width:222px;padding:14px 16px;box-shadow:0 20px 50px rgba(0,0,0,.6)">
+      <div class="mono" style="font-size:10px;letter-spacing:2px;color:#8a8a92">MATCHED</div>
+      <div style="font-size:20px;font-weight:700;margin-top:4px">OSM way 8421</div>
+      <div class="mono" style="font-size:11px;color:#ffd500;margin-top:8px">bearing 47° · 4 views</div></div>
+  </div>
+
+  <!-- scene 5: evidence -->
+  <div id="s5" class="abs" style="inset:0">
+    <div class="abs mono kick" style="top:44px">04 / EVIDENCE</div>
+    <div class="abs head" style="top:68px;font-size:38px">Open a building. <span style="color:#8a8a92">See the evidence.</span></div>
+    <div id="win5" class="abs" style="left:80px;top:150px;width:800px;height:340px;border:1px solid rgba(255,255,255,.14);border-radius:16px;background:#121216;box-shadow:0 30px 80px rgba(0,0,0,.7);overflow:hidden">
+      <div style="height:30px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:6px;padding-left:12px"><i style="width:9px;height:9px;border-radius:50%;background:#333"></i><i style="width:9px;height:9px;border-radius:50%;background:#333"></i><i style="width:9px;height:9px;border-radius:50%;background:#333"></i><span class="mono" style="font-size:10px;color:#777;margin-left:12px">360 city analyser</span></div>
+      <svg id="pano5" width="470" height="310" class="abs" style="left:0;top:30px"></svg>
+      <div id="panel" class="abs" style="left:470px;top:30px;width:328px;height:310px;background:#0f0f13;border-left:1px solid rgba(255,255,255,.1)">
+        <div id="p_lab" class="abs mono" style="left:16px;top:14px;font-size:10px;letter-spacing:2px;color:#8a8a92">BUILDING #2</div>
+        <div id="p_title" class="abs" style="left:16px;top:30px;font-size:24px;font-weight:700">OSM way 8421</div>
+        <svg id="mini" class="abs" width="296" height="96" style="left:16px;top:68px;border-radius:8px;background:#17171c"></svg>
+        <div id="thumbs" class="abs" style="left:16px;top:176px;width:296px;height:52px;display:flex;gap:10px"></div>
+        <div id="p_cov" class="abs" style="left:16px;top:244px;width:296px">
+          <div class="mono" style="font-size:10px;color:#8a8a92;display:flex;justify-content:space-between"><span>COVERAGE</span><span id="p_pct">0%</span></div>
+          <div style="margin-top:6px;height:6px;border-radius:3px;background:#24242b"><div id="p_bar" style="width:0;height:100%;border-radius:3px;background:#ffd500"></div></div></div>
+        <div id="p_chip" class="abs mono" style="left:16px;top:274px;padding:5px 10px;border-radius:99px;background:#ffd500;color:#0b0b0b;font-size:11px;font-weight:700">Reviewed</div>
+      </div>
+    </div>
+    <svg id="cur" class="abs" width="22" height="22" viewBox="0 0 22 22" style="left:0;top:0"><path d="M3 2 L3 17 L7 13 L10 20 L13 19 L10 12 L16 12 Z" fill="#fff" stroke="#0b0b0b" stroke-width="1.5" stroke-linejoin="round"/></svg>
+  </div>
+
+  <!-- scene 6a: abstention -->
+  <div id="s6a" class="abs" style="inset:0">
+    <div class="abs mono kick" style="top:44px">05 / KNOW WHEN NOT TO GUESS</div>
+    <div class="abs head" style="top:68px;font-size:44px">When it's unsure, <span style="color:#ffd500">it abstains.</span></div>
+    <div id="ca" class="abs card" style="left:150px;top:190px;width:300px;height:210px;padding:20px;box-sizing:border-box">
+      <div class="mono" style="font-size:10px;letter-spacing:2px;color:#8a8a92">BUILDING #2</div>
+      <div style="font-size:26px;font-weight:700;margin-top:6px">Sufficient evidence</div>
+      <div class="mono" style="font-size:11px;color:#8a8a92;margin-top:10px">4 views · 84% coverage</div>
+      <div style="margin-top:14px;height:6px;border-radius:3px;background:#24242b"><div id="ca_bar" style="width:0;height:100%;border-radius:3px;background:#ffd500"></div></div>
+      <div id="ca_chip" class="abs mono" style="left:20px;bottom:18px;padding:5px 10px;border-radius:99px;background:#ffd500;color:#0b0b0b;font-size:11px;font-weight:700">Included in report</div></div>
+    <div id="cb" class="abs card" style="left:510px;top:190px;width:300px;height:210px;padding:20px;box-sizing:border-box;border-style:dashed;border-color:rgba(255,255,255,.3)">
+      <div class="mono" style="font-size:10px;letter-spacing:2px;color:#8a8a92">BUILDING #5</div>
+      <div style="font-size:26px;font-weight:700;margin-top:6px;color:#c9c9c4">Ambiguous</div>
+      <div class="mono" style="font-size:11px;color:#8a8a92;margin-top:10px">1 view · 12% visible</div>
+      <div style="margin-top:14px;height:6px;border-radius:3px;background:#24242b"><div id="cb_bar" style="width:0;height:100%;border-radius:3px;background:#6c6c66"></div></div>
+      <div id="cb_chip" class="abs mono" style="left:20px;bottom:18px;padding:5px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.4);color:#f5f2e8;font-size:11px;font-weight:700">Abstained</div>
+      <div id="cb_q" class="abs" style="right:22px;top:14px;font-size:70px;font-weight:900;color:rgba(255,255,255,.12)">?</div></div>
+    <div id="foot6" class="abs mono" style="left:0;right:0;top:440px;text-align:center;font-size:12px;letter-spacing:2px;color:#8a8a92">DETERMINISTIC REPORTS · NO LLM GUESSES</div>
+  </div>
+
+  <!-- scene 6b: lockup -->
+  <div id="s6b" class="abs" style="inset:0">
+    <svg id="tiles2" class="abs" width="960" height="540" style="inset:0"></svg>
+    <div id="k6" class="abs mono" style="left:44px;top:40px;font-size:12px;letter-spacing:3px">OPEN SOURCE TOOLKIT</div>
+    <div id="big6" class="abs" style="left:36px;top:62px;font-size:190px;font-weight:900;letter-spacing:-13px;line-height:1">360</div>
+    <div id="name6" class="abs" style="left:44px;top:262px;font-size:62px;font-weight:900;letter-spacing:-3px;line-height:.98">City<br>Analyser<span style="color:#ffd500">.</span></div>
+    <div id="bar6" class="abs" style="left:44px;top:420px;width:120px;height:8px;background:#ffd500;transform-origin:left"></div>
+    <div id="meta6" class="abs mono" style="left:44px;top:446px;font-size:13px;line-height:1.7"><span style="color:#8a8a92">LICENSE</span> EUPL-1.2 &nbsp; <span style="color:#8a8a92">PYTHON</span> 3.12+<br><span style="color:#8a8a92">DOCS</span> jsempereh.github.io/360_city_analyser</div>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const prog=(t,a,b)=>clamp((t-a)/(b-a));
+const oc=x=>1-Math.pow(1-x,3), ob=x=>{const c=1.5;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+const io=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function el(p,n,at){const e=document.createElementNS(NS,n);for(const k in at)e.setAttribute(k,at[k]);p.appendChild(e);return e}
+function show(e,a,tx=0,ty=0){e.style.opacity=a;e.style.display=a<=0.001?'none':'';e.style.transform=(tx||ty)?`translate(${tx}px,${ty}px)`:'';}
+const hex=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));
+const mix=(a,b,p)=>{const A=hex(a),B=hex(b);return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*p).toString(16).padStart(2,'0')).join('')};
+
+// grid
+for(let x=0;x<960;x+=48)el($('grid'),'line',{x1:x,y1:0,x2:x,y2:540,stroke:'#fff','stroke-opacity':.05});
+for(let y=0;y<540;y+=48)el($('grid'),'line',{x1:0,y1:y,x2:960,y2:y,stroke:'#fff','stroke-opacity':.05});
+
+// tiles (scene 1 and lockup)
+function mkTiles(svg){
+  const colors=['#ffd500','#3a3a36','#f5f2e8','#ffd500','#8c8c84','#ffd500','#3a3a36'], hs=[3,5,2,6,4,2,5], out=[], P=60, X=520;
+  hs.forEach((h,c)=>{for(let r=0;r<h;r++){
+    const x=X+c*P,y=480-(r+1)*P,top=r===h-1,g=el(svg,'g',{});
+    if(top&&c%3===0)el(g,'path',{d:`M${x} ${y+P}V${y+P/2}A${P/2} ${P/2} 0 0 1 ${x+P} ${y+P/2}V${y+P}Z`,fill:colors[c]});
+    else if(top&&c%3===1)el(g,'path',{d:`M${x} ${y+P}L${x+P/2} ${y}L${x+P} ${y+P}Z`,fill:colors[c]});
+    else el(g,'rect',{x,y,width:P,height:P,fill:colors[c]});
+    if(!top&&(r+c)%2===0)el(g,'rect',{x:x+P*.32,y:y+P*.32,width:P*.36,height:P*.36,fill:'#0b0b0b'});
+    out.push({g,c,r,base:y+P,cx:x+P/2});
+  }});
+  const ground=el(svg,'rect',{x:X,y:480,width:420,height:8,fill:'#f5f2e8'});
+  return {tiles:out,ground};
+}
+const T1=mkTiles($('tiles')), T2=mkTiles($('tiles2'));
+function animTiles(T,t0){
+  T.tiles.forEach(o=>{const a=t0+.15+o.c*.2+o.r*.09,p=ob(prog(tNow,a,a+.45));
+    o.g.setAttribute('transform',`translate(${o.cx} ${o.base}) scale(1 ${Math.max(p,0.0001)}) translate(${-o.cx} ${-o.base})`);
+    o.g.setAttribute('opacity',prog(tNow,a,a+.12));});
+  T.ground.setAttribute('width',420*oc(prog(tNow,t0,t0+1)));
+}
+let tNow=0;
+
+// panorama builder
+function buildPano(svg,W,H,seed,masks,labels=true){
+  const R=rng(seed),out=[],base=['#3a3d46','#4a4e58','#2e3037'];let bx=0,bi=0;
+  el(svg,'rect',{width:W+200,height:H,fill:'#1d1f26'});
+  while(bx<W){
+    const w=60+Math.floor(R()*60),h=Math.round(H*(.39+.43*R())),g=el(svg,'g',{});
+    el(g,'rect',{x:bx,y:H-h,width:w,height:h,fill:base[Math.floor(R()*3)]});
+    for(let wx=bx+6;wx<bx+w-8;wx+=12)for(let wy=H-h+8;wy<H-10;wy+=16)if(R()<.55)el(g,'rect',{x:wx,y:wy,width:5,height:8,fill:'#6c717d'});
+    if(masks.includes(bi)){
+      const m=el(svg,'g',{opacity:0}),f=el(m,'rect',{x:bx,y:H-h,width:w,height:h,fill:'#ffd500','fill-opacity':.3,stroke:'#ffd500','stroke-width':2.5});
+      if(labels){el(m,'rect',{x:bx+w/2-20,y:H-h-20,width:40,height:16,rx:3,fill:'#ffd500'});
+        const tx=el(m,'text',{x:bx+w/2,y:H-h-8,'text-anchor':'middle','font-size':10,'font-weight':700,fill:'#0b0b0b','font-family':'DejaVu Sans Mono,monospace'});tx.textContent='#'+(out.length+1);}
+      out.push({m,f,bx,w,top:H-h});
+    }
+    bx+=w;bi++;
+  }
+  return out;
+}
+const mk=buildPano($('pano'),1000,230,11,[2,4,6]);
+
+// scene 4 isometric
+const ISO={cx:480,cy:215,s:44,n:6},isoSvg=$('iso');
+const camP=[480,215+6*22];
+const ring1=el(isoSvg,'ellipse',{cx:camP[0],cy:camP[1],rx:360,ry:180,fill:'none',stroke:'#ffd500','stroke-opacity':.5,'stroke-dasharray':'3 7'});
+const ring2=el(isoSvg,'ellipse',{cx:camP[0],cy:camP[1],rx:240,ry:120,fill:'none',stroke:'#fff','stroke-opacity':.12});
+const rayG=el(isoSvg,'g',{}),rays=[];
+for(let k=0;k<24;k++){const a=k*Math.PI/12;rays.push(el(rayG,'line',{x1:camP[0],y1:camP[1],x2:camP[0]+360*Math.cos(a),y2:camP[1]+180*Math.sin(a),stroke:'#ffd500','stroke-width':1}));}
+const sweep=el(isoSvg,'line',{x1:camP[0],y1:camP[1],x2:camP[0],y2:camP[1],stroke:'#ffd500','stroke-width':2.5,'stroke-linecap':'round'});
+const R4=rng(9),cells=[],HL=[4,2];
+for(let i=0;i<ISO.n;i++)for(let j=0;j<ISO.n;j++){
+  if(i>=2&&i<=3&&j>=2&&j<=3)continue; if(R4()<.15&&!(i===HL[0]&&j===HL[1]))continue;
+  const h=(10+Math.floor(R4()*60))*(ISO.s/40);
+  cells.push({i,j,h:(i===HL[0]&&j===HL[1])?64:h});
+}
+cells.sort((a,b)=>a.i+a.j-(b.i+b.j));
+cells.forEach(c=>{c.x=ISO.cx+(c.i-c.j)*ISO.s;c.y=ISO.cy+(c.i+c.j)*ISO.s/2;c.w=ISO.s*.86;
+  c.l=el(isoSvg,'polygon',{});c.r=el(isoSvg,'polygon',{});c.t=el(isoSvg,'polygon',{});c.isHL=c.i===HL[0]&&c.j===HL[1];});
+function P(c,a,b,z){return `${(c.x+(a-b)*c.w*.5).toFixed(1)},${(c.y+(a+b)*c.w*.25-z).toFixed(1)}`}
+const lock=el(isoSvg,'line',{x1:camP[0],y1:camP[1],x2:camP[0],y2:camP[1],stroke:'#ffd500','stroke-width':2.5,'stroke-linecap':'round'});
+const camDot=el(isoSvg,'circle',{cx:camP[0],cy:camP[1],r:6,fill:'#ffd500'}),camRing=el(isoSvg,'circle',{cx:camP[0],cy:camP[1],r:14,fill:'none',stroke:'#ffd500'});
+const hlc=cells.find(c=>c.isHL),hlBase=[hlc.x,hlc.y+hlc.w*.25],hlTop=[hlc.x,hlc.y+hlc.w*.25-hlc.h];
+const leader=el(isoSvg,'polyline',{points:'',fill:'none',stroke:'#ffd500','stroke-width':1.2});
+
+// scene 5 panels
+const mk5=buildPano($("pano5"),470,310,23,[1,3]);
+const sel=mk5[1];
+const mini=$('mini');
+const bl=[[20,14,48,30],[84,10,52,34],[150,16,40,26],[212,12,54,32],[30,54,44,20]];
+const mbs=bl.map((b,i)=>el(mini,'rect',{x:b[0],y:b[1],width:b[2],height:b[3],rx:2,fill:i===1?'#ffd500':'#3a3d46','fill-opacity':i===1?.9:1}));
+const camsM=[[60,86],[150,86],[240,86]],lines=camsM.map(c=>el(mini,'line',{x1:c[0],y1:c[1],x2:110,y2:44,stroke:'#ffd500','stroke-width':1.2,'stroke-dasharray':'80','stroke-dashoffset':80,'stroke-opacity':.8}));
+camsM.forEach(c=>el(mini,'circle',{cx:c[0],cy:c[1],r:3.5,fill:'#f5f2e8'}));
+el(mini,'line',{x1:0,y1:90,x2:296,y2:90,stroke:'#fff','stroke-opacity':.15});
+const thumbs=[];
+for(let k=0;k<4;k++){
+  const d=document.createElement('div');d.style.cssText='width:66px;height:52px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.14);flex:none';
+  const sv=document.createElementNS(NS,'svg');sv.setAttribute('width',66);sv.setAttribute('height',50);sv.setAttribute('preserveAspectRatio','xMidYMid slice');
+  const ms=buildPano(sv,470,310,40+k*7,[3],false);ms[0].m.setAttribute('opacity',1);
+  const m=ms[0];sv.setAttribute('viewBox',`${m.bx-26} ${m.top-40} ${m.w+52} ${(310-m.top)+40}`);
+  d.appendChild(sv);$('thumbs').appendChild(d);thumbs.push(d);
+}
+const sel5c=[80+1+sel.bx+sel.w/2,150+30+1+sel.top+(310-sel.top)/2];
+
+function render(t){
+  tNow=t;
+  // ---- scene 1 ----
+  animTiles(T1,0);
+  show($('k1'),oc(prog(t,.1,.6)));
+  $('big').style.transform=`translateX(${-80*(1-oc(prog(t,.2,1)))}px)`;$('big').style.opacity=oc(prog(t,.2,.8));
+  $('tag').style.transform=`translateY(${30*(1-oc(prog(t,1.2,1.9)))}px)`;$('tag').style.opacity=oc(prog(t,1.2,1.9));
+  $('bar').style.transform=`scaleX(${oc(prog(t,1.8,2.4))})`;
+  const out1=io(prog(t,3.4,4.3));
+  $('s1').style.transform=`translateX(${-90*out1}px)`;show($('s1'),1-out1);$('s1').style.transform=`translateX(${-90*out1}px)`;
+  // grid / glow: on for scenes 2-6a, off for the final lockup
+  const gridOn=prog(t,3.6,4.8)*(1-prog(t,34,35));
+  $('grid').style.opacity=gridOn;$('glow').style.opacity=oc(prog(t,3.8,5))*(1-prog(t,34,35));
+
+  // ---- scenes 2-3 ----
+  const s2in=oc(prog(t,3.9,4.9)),s2out=io(prog(t,10,10.9));
+  show($('s2'),t<3.8||t>11?0:1-s2out,0,-30*s2out);
+  $('win').style.transform=`translateY(${70*(1-s2in)}px)`;$('win').style.opacity=s2in;
+  $('k2').style.opacity=oc(prog(t,4.1,4.6));
+  $('h2a').style.opacity=oc(prog(t,4.2,4.8));$('h2a').style.transform=`translateY(${16*(1-oc(prog(t,4.2,4.8)))}px)`;
+  $('h2b').style.opacity=oc(prog(t,4.5,5.1));$('h2b').style.transform=`translateY(${16*(1-oc(prog(t,4.5,5.1)))}px)`;
+  const sw=prog(t,6.5,6.9);
+  $('k2').textContent=t<6.7?'01 / SEE THE STREET':'02 / SEGMENT';
+  if(t>=6.5&&t<6.9)$('k2').style.opacity=Math.abs(sw-.5)*2;
+  $('pano').style.transform=`translateX(${-60*prog(t,4.3,10)}px)`;
+  let n=0;
+  mk.forEach((o,i)=>{const a=6.9+i*.7,p=ob(prog(t,a,a+.5));
+    o.m.setAttribute('opacity',prog(t,a,a+.2));o.m.setAttribute('transform',`translate(0 ${(1-p)*14})`);if(t>=a+.2)n=i+1;});
+  $('chip1').textContent=`masks: ${n} building${n===1?'':'s'}`;
+  $('chip1').style.opacity=oc(prog(t,6.6,7.1))*(t>=6.6?1:0);
+  $('chip2').style.opacity=oc(prog(t,9.1,9.5));$('chip2').style.transform=`translateY(${12*(1-oc(prog(t,9.1,9.5)))}px)`;
+
+  // ---- scene 4 ----
+  const s4in=oc(prog(t,10.4,11.2)),s4out=io(prog(t,19,19.9));
+  show($('s4'),t<10.3||t>20?0:s4in*(1-s4out),0,-20*s4out);
+  ring1.setAttribute('opacity',oc(prog(t,10.8,11.8)));ring2.setAttribute('opacity',oc(prog(t,11,12)));
+  const ext=c=>ob(prog(t,13.8+(c.i+c.j)*.07,14.5+(c.i+c.j)*.07));
+  const hlp=oc(prog(t,15.6,16.2));
+  cells.forEach(c=>{
+    const flat=oc(prog(t,10.7+(c.i+c.j)*.12,11.5+(c.i+c.j)*.12)),e=ext(c),h=c.h*Math.max(e,0);
+    const tc=c.isHL?mix('#3a3d46','#ffd500',hlp):'#3a3d46',lc=c.isHL?mix('#23252b','#c9a800',hlp):'#23252b',rc=c.isHL?mix('#1a1b20','#a88e00',hlp):'#1a1b20';
+    const dim=1-.5*oc(prog(t,15.6,16.4))*(c.isHL?0:1);
+    const vis=c.isHL?flat:flat;
+    c.l.setAttribute('points',[P(c,0,1,0),P(c,1,1,0),P(c,1,1,h),P(c,0,1,h)].join(' '));c.l.setAttribute('fill',lc);
+    c.r.setAttribute('points',[P(c,1,0,0),P(c,1,1,0),P(c,1,1,h),P(c,1,0,h)].join(' '));c.r.setAttribute('fill',rc);
+    c.t.setAttribute('points',[P(c,0,0,h),P(c,1,0,h),P(c,1,1,h),P(c,0,1,h)].join(' '));c.t.setAttribute('fill',e>0.02?tc:'#17171c');
+    c.t.setAttribute('stroke',e>0.02?'#0b0b0b':'#ffd500');c.t.setAttribute('stroke-width',e>0.02?1:1.2);
+    c.t.setAttribute('stroke-opacity',e>0.02?1:.5*flat);
+    [c.l,c.r,c.t].forEach(p=>p.setAttribute('opacity',vis*dim));
+  });
+  // 360 sweep
+  const th=2*Math.PI*prog(t,12.4,14.2),sa=prog(t,12.3,12.5)*(1-prog(t,14.2,14.5));
+  sweep.setAttribute('x2',camP[0]+360*Math.cos(th));sweep.setAttribute('y2',camP[1]+180*Math.sin(th));sweep.setAttribute('opacity',sa);
+  rays.forEach((r,k)=>{const a=k*Math.PI/12,seen=th>=a&&t>12.4?1:0;r.setAttribute('opacity',seen*.2*(1-oc(prog(t,15.6,16.4))));});
+  camDot.setAttribute('opacity',oc(prog(t,11.9,12.4)));
+  camRing.setAttribute('r',14+6*Math.sin(t*3)*oc(prog(t,12,12.6)));camRing.setAttribute('opacity',oc(prog(t,11.9,12.4)));
+  const lk=oc(prog(t,15.6,16.3));
+  lock.setAttribute('x2',camP[0]+(hlBase[0]-camP[0])*lk);lock.setAttribute('y2',camP[1]+(hlBase[1]-camP[1])*lk);lock.setAttribute('opacity',lk);
+  const cardP=oc(prog(t,16.5,17.2));
+  const lp=prog(t,16.4,17);
+  leader.setAttribute('points',`${hlTop[0]},${hlTop[1]} ${hlTop[0]+40*lp},${hlTop[1]-40*lp} ${hlTop[0]+40*lp+Math.max(0,lp-.5)*2*60},${hlTop[1]-40*lp}`);
+  leader.setAttribute('opacity',lp>0?1:0);
+  show($('c4'),cardP,40*(1-cardP),0);
+  $('c4').style.left=(hlTop[0]+100)+'px';$('c4').style.top=(hlTop[1]-40-48)+'px';
+  $('h4').style.opacity=oc(prog(t,10.6,11.2));$('k4').style.opacity=oc(prog(t,10.5,11));
+
+  // ---- scene 5 ----
+  const s5in=oc(prog(t,20.2,21)),s5out=io(prog(t,29,29.9));
+  show($('s5'),t<20.1||t>30?0:s5in*(1-s5out),0,-20*s5out);
+  $('win5').style.transform=`translateY(${50*(1-s5in)}px)`;
+  const clickT=22.5;
+  mk5.forEach((m,i)=>{const a=21.2+i*.25,isSel=i===1,after=oc(prog(t,clickT,clickT+.3));
+    m.m.setAttribute('opacity',prog(t,a,a+.2)*(isSel?1:1-.6*after));
+    m.f.setAttribute('fill-opacity',isSel?.18+.3*after:.18);});
+  // cursor
+  const cp=io(prog(t,21.3,22.4)),cx=920+(sel5c[0]-920)*cp,cy=520+(sel5c[1]-520)*cp,cs=1-.18*Math.sin(Math.PI*prog(t,clickT-.08,clickT+.15));
+  $('cur').style.transform=`translate(${cx}px,${cy}px) scale(${cs})`;$('cur').style.opacity=prog(t,21.2,21.5)*(1-prog(t,26.6,27.2));
+  // panel
+  const pa=a=>oc(prog(t,a,a+.5));
+  show($('p_lab'),pa(22.6),0,8*(1-pa(22.6)));show($('p_title'),pa(22.8),0,8*(1-pa(22.8)));
+  show($('mini'),pa(23.1));
+  lines.forEach((l,k)=>l.setAttribute('stroke-dashoffset',80*(1-oc(prog(t,23.4+k*.25,24.2+k*.25)))));
+  mbs.forEach((b,i)=>{if(i!==1)return;});
+  thumbs.forEach((d,k)=>{const a=24.4+k*.2;d.style.opacity=oc(prog(t,a,a+.4));d.style.transform=`translateY(${10*(1-oc(prog(t,a,a+.4)))}px)`;});
+  show($('p_cov'),pa(25.3));
+  const cv=oc(prog(t,25.4,26.3));$('p_bar').style.width=(84*cv)+'%';$('p_pct').textContent=Math.round(84*cv)+'%';
+  show($('p_chip'),oc(prog(t,26.4,26.8)),0,6*(1-oc(prog(t,26.4,26.8))));
+
+  // ---- scene 6a ----
+  const s6in=oc(prog(t,30.2,31)),s6out=io(prog(t,34,34.9));
+  show($('s6a'),t<30.1||t>35?0:s6in*(1-s6out),-70*s6out,0);
+  const ra=a=>oc(prog(t,a,a+.6));
+  show($('ca'),ra(30.5),0,24*(1-ra(30.5)));show($('cb'),ra(31),0,24*(1-ra(31)));
+  $('ca_bar').style.width=(84*oc(prog(t,31.2,32.1)))+'%';$('cb_bar').style.width=(12*oc(prog(t,31.7,32.4)))+'%';
+  show($('ca_chip'),oc(prog(t,32.1,32.5)));show($('cb_chip'),oc(prog(t,32.5,32.9)));
+  $('cb_q').style.opacity=oc(prog(t,32,32.8));
+  show($('foot6'),oc(prog(t,33,33.5)));
+
+  // ---- lockup ----
+  const s6b=t>=34.6;
+  show($('s6b'),s6b?1:0);
+  if(s6b){
+    animTiles(T2,35);
+    show($('k6'),oc(prog(t,35,35.5)));
+    $('big6').style.transform=`translateX(${-80*(1-oc(prog(t,35.1,35.9)))}px)`;$('big6').style.opacity=oc(prog(t,35.1,35.7));
+    $('name6').style.transform=`translateY(${30*(1-oc(prog(t,36,36.7)))}px)`;$('name6').style.opacity=oc(prog(t,36,36.7));
+    $('bar6').style.transform=`scaleX(${oc(prog(t,36.5,37.1))})`;
+    show($('meta6'),oc(prog(t,37,37.6)),0,8*(1-oc(prog(t,37,37.6))));
+  }
+}
+window.render=render;
+if(location.hash){render(parseFloat(location.hash.slice(1)))}
+</script>
