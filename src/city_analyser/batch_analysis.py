@@ -171,8 +171,9 @@ def analyze_dataset(
             if entry["status"] == DONE and not (verify and stage == "analysis" and load_analysis(data_root, dataset_id, image_id, image) is None):
                 already_done += 1
                 continue
-        elif not force and entry is None and stage == "analysis" and load_analysis(data_root, dataset_id, image_id, image) is not None:
-            # Analyzed before the ledger existed (viewer, older runs): validate once, then remember.
+        elif not force and (entry is None or entry["status"] == DONE) and stage == "analysis" and load_analysis(data_root, dataset_id, image_id, image) is not None:
+            # Analyzed before the ledger existed (viewer, older runs), or on another machine whose ledger came with
+            # the results (city-analyser-results import: other file times): validate once, then remember.
             ledger.record(stage, image_id, DONE, fingerprint, signature)
             already_done += 1
             continue

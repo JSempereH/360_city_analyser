@@ -121,6 +121,27 @@ class ResumeTests(unittest.TestCase):
                 self.assertEqual(run(root, Harness())["already_done"], 2)
 
 
+    def test_results_imported_with_another_machines_ledger_are_validated_not_redone(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _dataset(root, 2)
+            run(root, Harness())
+            # city-analyser-results import writes the images anew: same bytes, other file times than in the ledger.
+            for image in (root / "set" / "images").iterdir():
+                os.utime(image, ns=(1, 1))
+            with patch.object(batch_analysis, "load_analysis", return_value={"ok": True}) as load:
+                imported = Harness()
+                report = run(root, imported)
+                self.assertEqual(load.call_count, 2)
+            self.assertEqual((imported.associated, report["already_done"]), ([], 2))
+            # An image the analysis does not match is still redone.
+            with patch.object(batch_analysis, "load_analysis", return_value=None):
+                for image in (root / "set" / "images").iterdir():
+                    os.utime(image, ns=(2, 2))
+                stale = Harness()
+                run(root, stale)
+            self.assertEqual(sorted(stale.associated), ["0", "1"])
+
 class FailureTests(unittest.TestCase):
     def test_one_failing_panorama_does_not_stop_the_run_and_only_it_is_retried_next_time(self):
         with tempfile.TemporaryDirectory() as directory:
