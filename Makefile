@@ -56,7 +56,7 @@ docs-build:
 PRESENTATION_ENV = BUILDING_ANALYSIS_MODEL=balanced BUILDING_ANALYSIS_TILE_SIZE=384
 
 presentation-data:
-	for city in valencia-centro madrid-centro; do \
+	for city in valencia-centro madrid-centro madrid-salesas; do \
 	  $(PRESENTATION_ENV) uv run city-analyser-analyze $$city && \
 	  rm -rf data/$$city-demo && mkdir -p data/$$city-demo && \
 	  cp demo/$$city-demo.curation.json data/$$city-demo/curation.json && \

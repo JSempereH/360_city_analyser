@@ -68,6 +68,14 @@ class CropExportTests(BuildingFixture, unittest.TestCase):
         self.assertEqual(aside, [{"image_id": "200", "rank": 1, "reasons": ["neighbor"]}])
         self.assertEqual((vouched, vouched_aside), (["crop-01-200.jpg", "crop-02-100.jpg"], []))
 
+    def test_only_the_approved_views_of_a_building_are_exported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset_dir, _ = self.create_dataset(root)
+            result = export_building_crops(root, "sample", size=64, per_building=3, only_views={"way/42": {"100"}})
+            names = sorted(path.name for path in crops_directory(dataset_dir, "way/42").glob("crop-*.jpg"))
+        self.assertEqual((result["crops"], names), (1, ["crop-02-100.jpg"]))
+
     def test_mask_others_paints_other_buildings_gray(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

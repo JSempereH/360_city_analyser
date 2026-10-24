@@ -381,7 +381,13 @@ def prepare_demo(data_root: Path, dataset_id: str, *, per_building: int = 3, for
             vouched.setdefault(edit.get("rename_to") or edit["building"], set()).add(str(edit["image"]))
     for building_id, views in curated.items():
         vouched.setdefault(building_id, set()).update(str(image_id) for image_id in views)
-    export_building_crops(data_root, dataset_id, buildings, per_building=per_building, mask_others=True, clean_views=vouched)
+    # "views": {building: [image ids]} lists the views a reviewer approved; those buildings get crops of them only.
+    approved = {building_id: {str(image_id) for image_id in images} for building_id, images in curation.get("views", {}).items()}
+    for building_id, images in approved.items():
+        vouched.setdefault(building_id, set()).update(images)
+    # Excluded buildings get no crop, so the card does not show views a reviewer rejected.
+    approved.update({building_id: set() for building_id in excluded})
+    export_building_crops(data_root, dataset_id, buildings, per_building=per_building, mask_others=True, clean_views=vouched, only_views=approved)
     images_by_id = {str(image["id"]): image for image in manifest["images"] if isinstance(image, dict) and "id" in image}
     counts = {"real": 0, "simulated": 0, "curated": 0, "excluded": 0, "no_crops": 0, "prior": 0}
     for building_id in buildings:

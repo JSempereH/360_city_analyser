@@ -118,12 +118,15 @@ def export_building_crops(
     skip_flagged: bool = False,
     keep_flagged_masks: bool = False,
     clean_views: dict[str, set[str]] | None = None,
+    only_views: dict[str, set[str]] | None = None,
 ) -> dict[str, Any]:
     """Write the top ``per_building`` crops of each building; returns counts and the buildings without evidence.
 
     Views whose mask the analysis flagged (``mask_quality``) are left out and listed in ``set-aside.json``
     with their reasons, unless ``keep_flagged_masks``; ``clean_views`` (``{building: {image ids}}``, e.g. a
-    reviewer's curation) are kept whatever the flag says. A building with only flagged views gets no crop.
+    reviewer's curation) are kept whatever the flag says; a building in ``only_views`` gets crops of exactly those
+    views, in rank order, so no unreviewed view takes the place of a removed one. A building with only flagged views
+    gets no crop.
     """
     from ..local_viewer import dataset_manifest
 
@@ -146,6 +149,8 @@ def export_building_crops(
         if not views:
             missing.append(building_id)
             continue
+        if only_views is not None and building_id in only_views:
+            views = [view for view in views if view.evidence.image_id in only_views[building_id]]
         if not keep_flagged_masks:
             vouched = (clean_views or {}).get(building_id, set())
             flagged = [view for view in views if view.evidence.mask_flagged and view.evidence.image_id not in vouched]
