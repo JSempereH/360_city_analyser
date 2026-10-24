@@ -1,47 +1,81 @@
+/* Palette shared with the banner, favicon and overview video: ink black and yellow. */
 :root,
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color: #14213d;
-  --md-primary-fg-color--light: #2a3a63;
-  --md-primary-fg-color--dark: #0b1426;
-  --md-accent-fg-color: #e07b00;
-  --md-typeset-a-color: #0b6aa8;
+  --md-primary-fg-color: #0b0b0b;
+  --md-primary-fg-color--light: #1c1c1c;
+  --md-primary-fg-color--dark: #000;
+  --md-primary-bg-color: #f5f2e8;
+  --md-accent-fg-color: #8a6a00;
+  --md-typeset-a-color: #7a5c00;
+  --md-default-bg-color: #fff;
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #0b1426;
-  --md-default-bg-color: #0f1a30;
-  --md-accent-fg-color: #ff9f1c;
-  --md-typeset-a-color: #4cc9f0;
+  --md-primary-fg-color: #0b0b0b;
+  --md-primary-fg-color--light: #1c1c1c;
+  --md-primary-fg-color--dark: #000;
+  --md-primary-bg-color: #f5f2e8;
+  --md-default-bg-color: #0d0f14;
+  --md-default-bg-color--light: #14161c;
+  --md-code-bg-color: #15171d;
+  --md-accent-fg-color: #ffd500;
+  --md-typeset-a-color: #ffd500;
 }
+
+.md-header { border-bottom: 3px solid #ffd500; }
 
 .md-header__button.md-logo img {
   height: 2.2rem;
   width: auto;
 }
 
-.hero {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  margin: 1rem 0 2rem;
+/* Heavy, tight headings like the banner; a short yellow bar under the page title. */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-.hero img {
-  width: 96px;
-  min-width: 96px;
-  height: 96px;
-  flex: none;
-  background: #14213d;
-  border-radius: 22px;
-  padding: 10px;
+.md-typeset h1 {
+  margin-bottom: 1.4rem;
+  color: var(--md-default-fg-color);
 }
 
-.hero div {
-  font-size: 1.05rem;
+.md-typeset h1::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 6px;
+  margin-top: 0.6rem;
+  background: #ffd500;
 }
 
-@media (max-width: 40em) {
-  .hero { flex-direction: column; align-items: flex-start; }
+.md-typeset table:not([class]) th {
+  background: #0b0b0b;
+  color: #f5f2e8;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-left-width: 4px;
+  border-radius: 0;
+}
+
+.md-nav__item .md-nav__link--active { font-weight: 700; }
+
+/* Overview video: first element on the home page. */
+.overview {
+  margin: 0.4rem 0 1.8rem;
+}
+
+.overview video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0b0b0b;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
 }
 
 .md-typeset img.demo {

@@ -7,6 +7,8 @@
 
 Local-first tools to download Mapillary 360 panoramas, view them, segment visible buildings, and associate facade evidence with OpenStreetMap footprints.
 
+[![Watch the 40-second overview](docs/assets/overview-poster.png)](https://jsempereh.github.io/360_city_analyser/)
+
 ![Viewer: building masks, selection in the panorama and on the mini-map, and moving between captures](docs/viewer-demo.gif)
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/JSempereH/360_city_analyser/blob/main/notebooks/colab_quickstart.ipynb)

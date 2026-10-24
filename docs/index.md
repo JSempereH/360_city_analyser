@@ -1,15 +1,16 @@
 ---
 title: Home
-hide:
-  - navigation
 ---
+
+<div class="overview" markdown="0">
+<video controls preload="metadata" playsinline poster="assets/overview-poster.png" aria-label="40-second overview of 360 City Analyser">
+<source src="assets/overview.mp4" type="video/mp4">
+</video>
+</div>
 
 # 360 City Analyser
 
-<div class="hero">
-<img src="assets/logo.svg" alt="360 City Analyser logo" width="96" height="96">
-<div>Local-first tools to download Mapillary 360 panoramas, view them, segment visible buildings, and associate facade evidence with OpenStreetMap footprints. Run it on your laptop, or send only the model stages to a GPU.</div>
-</div>
+Local-first tools to download Mapillary 360 panoramas, view them, segment visible buildings, and associate facade evidence with OpenStreetMap footprints. Run it on your laptop, or send only the model stages to a GPU.
 
 ![Viewer: building masks, selection in the panorama and on the mini-map, and moving between captures](viewer-demo.gif){ .demo }
 
