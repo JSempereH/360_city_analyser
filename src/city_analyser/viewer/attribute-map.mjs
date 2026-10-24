@@ -13,6 +13,7 @@ export const COLOR_MODES = {
   gem_llrs: "GEM lateral system",
   floors: "Floors",
   review: "Review status",
+  mask_quality: "Mask quality",
 };
 
 const UNDETERMINED = { key: "undetermined", label: "Not determined", color: "#898781" };
@@ -40,11 +41,21 @@ const GROUPS = {
     { key: "needs_review", label: "Needs review", color: "#fab219" },
     { key: "model_only", label: "Model answer, not reviewed", color: "#898781" },
   ],
+  // Whether the model read clean views of the building (mask_quality), with a label in the legend.
+  mask_quality: [
+    { key: "clean", label: "Every view clean", color: "#0ca30c" },
+    { key: "some_set_aside", label: "Some views set aside", color: "#fab219" },
+    { key: "no_clean_view", label: "No clean view", color: "#d4351c" },
+  ],
 };
 
 /** The class of one building in a mode, or null when the summary has nothing for it (not surveyed). */
 export function attributeClass(mode, entry) {
   if (!entry || !GROUPS[mode]) return null;
+  if (mode === "mask_quality") {
+    if (entry.no_clean_view) return GROUPS.mask_quality[2];
+    return entry.set_aside > 0 ? GROUPS.mask_quality[1] : GROUPS.mask_quality[0];
+  }
   if (mode === "review") {
     if (entry.reviewed) return GROUPS.review[0];
     if (!entry.model) return null;
@@ -75,5 +86,6 @@ export function attributeLabel(mode, osmId, entry) {
   const parts = [osmId, entry.gem];
   if (mode === "floors") parts.push(entry.floors === null || entry.floors === undefined ? "floors not determined" : `${entry.floors} floors`);
   if (mode === "review") parts.push(entry.reviewed ? "reviewed" : entry.needs_review || "model answer");
+  if (mode === "mask_quality") parts.push(entry.no_clean_view ? "no clean view" : entry.set_aside ? `${entry.set_aside} views set aside` : "every view clean");
   return parts.filter(Boolean).join(" · ");
 }

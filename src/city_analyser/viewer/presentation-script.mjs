@@ -14,7 +14,8 @@ const FALLBACK_STOPS = 3;
 
 export function planTour(summary, imageOrder, { minScore = 0 } = {}) {
   const position = new Map(imageOrder.map((id, index) => [String(id), index]));
-  const answered = Object.entries(summary?.buildings || {}).filter(([, entry]) => entry.model);
+  // A building whose every view was set aside has nothing to show: the tour skips it.
+  const answered = Object.entries(summary?.buildings || {}).filter(([, entry]) => entry.model && !entry.no_clean_view);
   const visible = answered.filter(([, entry]) => !Number.isFinite(entry.score) || entry.score >= minScore);
   const best = [...answered].sort((first, second) => (second[1].score ?? 0) - (first[1].score ?? 0)).slice(0, FALLBACK_STOPS);
   return (visible.length ? visible : best)
@@ -40,6 +41,14 @@ function floorsList(values) {
  * `{ type: "intro" | "view" | "floors" | "structure" | "decision" | "save", text, ... }`.
  * A "view" step carries the panorama and camera framing to move to before its text.
  */
+// Views left out before the model read anything, because their mask disagreed with the footprint.
+function setAsideSentence(card) {
+  const views = card?.set_aside || [];
+  if (!views.length) return "";
+  const reasons = [...new Set(views.map((view) => view.why).filter(Boolean))];
+  return ` ${views.length === 1 ? "One more view was" : `${views.length} more views were`} set aside before reading: ${reasons.join("; ")}.`;
+}
+
 export function reasoningScript(card, { maxViews = 3 } = {}) {
   const attributes = card?.attributes || {};
   const views = (card?.views || []).filter((view) => view.image_id).slice(0, maxViews);
@@ -47,7 +56,7 @@ export function reasoningScript(card, { maxViews = 3 } = {}) {
   const label = (code) => valueLabel(code, card);
   steps.push({
     type: "intro",
-    text: `Building ${card.building}. ${views.length === 1 ? "One view of it was captured" : `${views.length} views of it were captured`}; I will look at ${views.length === 1 ? "it" : "each one"} before deciding, starting with the clearest.`,
+    text: `Building ${card.building}. ${views.length === 1 ? "One view of it was captured" : `${views.length} views of it were captured`}; I will look at ${views.length === 1 ? "it" : "each one"} before deciding, starting with the clearest.${setAsideSentence(card)}`,
   });
   views.forEach((view, index) => {
     const answer = view.answer || {};

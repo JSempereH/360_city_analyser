@@ -148,6 +148,7 @@
                </header>
                <p id="building-card-message" class="building-card-message" role="status"></p>
                <p id="building-card-review-status" class="building-card-review-status" hidden></p>
+               <p id="building-card-set-aside" class="building-card-set-aside" hidden></p>
                <dl id="building-card-attributes" class="building-card-attributes"></dl>
                <form id="building-card-review-form" class="building-card-review-form" hidden>
                  <label class="field">GEM material
@@ -248,6 +249,7 @@
                 <option value="unsupported_footprint">No building in the imagery</option>
                 <option value="unexplained_instance">Buildings without a footprint</option>
                 <option value="attributes">Structure to check (model answers)</option>
+                <option value="mask">Mask to check (views set aside)</option>
               </select>
             </label>
             <label class="check"><input id="review-all-datasets" type="checkbox" /> All datasets</label>

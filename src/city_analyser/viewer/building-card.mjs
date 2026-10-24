@@ -140,6 +140,19 @@ export function observationItems(card) {
   });
 }
 
+/**
+ * What the card says about views left out of the model's crops because their mask was flagged, or null.
+ * Without any clean view the model was not asked, and the card says that instead of showing empty answers.
+ */
+export function setAsideNote(card) {
+  const views = card?.set_aside || [];
+  if (!views.length) return null;
+  const reasons = [...new Set(views.map((view) => view.why).filter(Boolean))];
+  const count = views.length === 1 ? "1 view" : `${views.length} views`;
+  if (card.no_clean_view) return `No clean view of this building: ${count} set aside (${reasons.join("; ")}). The model was not asked.`;
+  return `${count} set aside, not shown to the model: ${reasons.join("; ")}.`;
+}
+
 /** Choices for the review form: `{ gem_material: [[code, label]], gem_llrs, building_type, surface_material }`. */
 export function reviewOptions(card) {
   const codes = Object.entries(card?.gem?.codes || {});

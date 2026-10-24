@@ -9,6 +9,7 @@ export const REVIEW_KINDS = {
   unsupported_footprint: "No building in the imagery",
   unexplained_instance: "Building without a footprint",
   attributes: "Structure to check",
+  mask: "Mask to check",
 };
 
 function proposalItems(records) {
@@ -81,6 +82,24 @@ function attributeItems(summary) {
     .sort((first, second) => first.urgency - second.urgency || first.label.localeCompare(second.label));
 }
 
+// Buildings with views whose mask was set aside, those without any clean view first.
+function maskItems(summary) {
+  if (!summary?.buildings) return [];
+  return Object.entries(summary.buildings)
+    .filter(([, entry]) => entry.set_aside > 0 && !entry.reviewed)
+    .map(([osmId, entry]) => ({
+      key: `mask:${summary.dataset}:${osmId}`,
+      kind: "mask",
+      osmId,
+      dataset: summary.dataset,
+      image: entry.set_aside_image ? String(entry.set_aside_image) : entry.image ? String(entry.image) : null,
+      urgency: entry.no_clean_view ? 0 : entry.set_aside / (entry.set_aside + (entry.clean_views || 0)),
+      label: osmId,
+      detail: `${entry.no_clean_view ? "No clean view" : `${entry.set_aside} view${entry.set_aside === 1 ? "" : "s"} set aside`} · ${(entry.set_aside_reasons || []).join(", ")}`,
+    }))
+    .sort((first, second) => first.urgency - second.urgency || first.label.localeCompare(second.label));
+}
+
 // filters: { kind: "all" | one of REVIEW_KINDS, dataset: id or null for all,
 // unresolvedOnly: hide problems whose building already has an accepted correction }
 // attributeSummary: the current dataset's attribute summary, or null.
@@ -91,6 +110,7 @@ export function buildReviewQueue(corrections, issues, filters = {}, attributeSum
     ...buildingItems(issues?.buildings || []),
     ...unexplainedItems(issues?.unexplained_instances || []),
     ...attributeItems(attributeSummary),
+    ...maskItems(attributeSummary),
   ];
   return items.filter((item) => (kind === "all" || item.kind === kind)
     && (!dataset || !item.dataset || item.dataset === dataset)

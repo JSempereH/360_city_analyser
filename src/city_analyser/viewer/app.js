@@ -4,7 +4,7 @@ import { coordinatesOf, destinationPoint, geometryCentroid, mergeBuildingFootpri
 import { editableRings, startFootprintEdit } from "./footprint-editor.mjs";
 import { bearingCenter, buildReviewQueue, preservedIndex, REVIEW_KINDS, stepIndex } from "./review-queue.mjs";
 import { wallHeight, wallPolylines } from "./wall-projection.mjs";
-import { attributeRows, gemRow, observationItems, referenceRow, reviewFormValues, reviewOptions, reviewStatus } from "./building-card.mjs";
+import { attributeRows, gemRow, observationItems, referenceRow, reviewFormValues, reviewOptions, reviewStatus, setAsideNote } from "./building-card.mjs";
 import { attributeClass, attributeLabel, COLOR_MODES, legendItems } from "./attribute-map.mjs";
 import { DEFAULT_SPEED, startPresentation } from "./presentation.mjs";
 import { answerLine, boldSpans, framingOf, streamEvents, visibleReasoning } from "./assistant.mjs";
@@ -130,6 +130,7 @@ const elements = {
   panelCloseButton: document.querySelector("#panel-close-button"),
   panelToggleButton: document.querySelector("#panel-toggle-button"),
   focusButton: document.querySelector("#focus-button"),
+  buildingCardSetAside: document.querySelector("#building-card-set-aside"),
   reviewCount: document.querySelector("#review-count"),
   reviewAcceptButton: document.querySelector("#review-accept-button"),
   reviewAllDatasets: document.querySelector("#review-all-datasets"),
@@ -2334,7 +2335,10 @@ function fillBuildingCard(card) {
     return li;
   }));
   elements.buildingCardWhy.hidden = !observations.length;
-  elements.buildingCardMessage.textContent = rows.some((row) => row.value !== "Not surveyed") ? "" : "No attribute could be determined for this building.";
+  const setAside = setAsideNote(card);
+  elements.buildingCardSetAside.textContent = setAside || "";
+  elements.buildingCardSetAside.hidden = !setAside;
+  elements.buildingCardMessage.textContent = card.no_clean_view || rows.some((row) => row.value !== "Not surveyed") ? "" : "No attribute could be determined for this building.";
 }
 
 // Attribute rows, each with the cadastre's value next to it (marked when they disagree), then the cadastre's parcel.

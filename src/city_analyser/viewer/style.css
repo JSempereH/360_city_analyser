@@ -1432,6 +1432,17 @@ kbd {
   overflow-wrap: anywhere;
 }
 
+/* Views left out of the model's crops: amber like "Some views set aside" on the map, with the reasons in words. */
+.building-card-set-aside {
+  margin: 0;
+  padding: 4px 7px;
+  border-left: 3px solid #fab219;
+  background: var(--surface-hover);
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
 .building-card-review-form {
   display: grid;
   gap: 7px;
