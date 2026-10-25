@@ -12,6 +12,16 @@ title: Home
 
 Local-first tools to download Mapillary 360 panoramas, view them, segment visible buildings, and associate facade evidence with OpenStreetMap footprints. Run it on your laptop, or send only the model stages to a GPU.
 
+## The survey assistant at work
+
+Two minutes in Madrid's Salesas neighborhood: the assistant walks the street, finds each building's facade (the orange mask), reads the views it was given, and writes a GEM v3 record (material, lateral load-resisting system, storeys). Four buildings, from load-bearing brick of the 1900s to a steel office of today, then the map colored by structure and the review queue.
+
+<div class="overview" markdown="0">
+<video controls preload="none" playsinline poster="assets/presentation-salesas-poster.jpg" aria-label="Two-minute walk of the survey assistant in Madrid">
+<source src="assets/presentation-salesas.mp4" type="video/mp4">
+</video>
+</div>
+
 ![Viewer: building masks, selection in the panorama and on the mini-map, and moving between captures](viewer-demo.gif){ .demo }
 
 ## Where to start

@@ -543,6 +543,12 @@ export function startPresentation(api, { speed = DEFAULT_SPEED, minScore = 0.03 
         panel.replaceChildren(element("p", "presentation-step", "No building of this dataset has a model answer yet. Run city-analyser-survey, or city-analyser-demo for a presentation copy."));
         return;
       }
+      // Start where the first building is, facing it, instead of walking there from the dataset's first capture.
+      if (tour[0].image && tour[0].image !== api.currentImageId()) {
+        await api.showImage(tour[0].image);
+        const yawDeg = api.bearingToBuilding(tour[0].osmId);
+        if (yawDeg !== null) api.setCamera({ ...api.getCamera(), yawDeg, pitchDeg: 0 });
+      }
       await introduce(tour.length);
       for (let lap = 0; !stopped; lap += 1) {
         for (let index = 0; index < tour.length && !stopped; index += 1) {

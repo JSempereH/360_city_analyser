@@ -9,7 +9,9 @@ Local-first tools to download Mapillary 360 panoramas, view them, segment visibl
 
 [![Watch the 40-second overview](docs/assets/overview-poster.png)](https://jsempereh.github.io/360_city_analyser/)
 
-![Viewer: building masks, selection in the panorama and on the mini-map, and moving between captures](docs/viewer-demo.gif)
+![The survey assistant walks a street in Madrid, finds a building's facade, reads its views and writes its GEM v3 record](docs/assets/presentation-salesas.gif)
+
+The [full 2-minute walk](https://jsempereh.github.io/360_city_analyser/#the-survey-assistant-at-work) (four buildings in Madrid's Salesas, from the 1900s to today) is on the documentation site.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/JSempereH/360_city_analyser/blob/main/notebooks/colab_quickstart.ipynb)
 
