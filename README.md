@@ -5,9 +5,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-ffd500?labelColor=0b0b0b)](pyproject.toml)
 [![Docs](https://img.shields.io/badge/docs-web-ffd500?labelColor=0b0b0b)](https://jsempereh.github.io/360_city_analyser/)
 
-Local-first tools to download Mapillary 360 panoramas, view them, segment visible buildings, and associate facade evidence with OpenStreetMap footprints.
-
-[![Watch the 40-second overview](docs/assets/overview-poster.png)](https://jsempereh.github.io/360_city_analyser/)
+Local-first tools to download Mapillary 360 panoramas, view them, segment visible buildings, and associate facade evidence with OpenStreetMap footprints. A survey assistant then walks the streets and describes each building for seismic exposure models (GEM Taxonomy v3: material, lateral load-resisting system, storeys), reading only the photos it was given and leaving doubtful answers to an engineer.
 
 ![The survey assistant walks a street in Madrid, finds a building's facade, reads its views and writes its GEM v3 record](docs/assets/presentation-salesas.gif)
 
