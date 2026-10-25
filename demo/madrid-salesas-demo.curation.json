@@ -1,5 +1,5 @@
 {
-  "note": "Reviewed by eye from the crops the model reads (data/madrid-salesas/history/review-phase2), October 2026. \"views\" lists the approved views of each building (crops come only from these); buildings with no usable view are excluded.",
+  "note": "Reviewed by eye from the crops the model reads (data/madrid-salesas/history/review-phase2), October 2026. \"views\" lists the approved views of each building (crops come only from these); buildings with no usable view are excluded. \"answers\" were written by Claude from each approved crop, with the GEM v3 prompt's fields, October 2026.",
   "exclude": [
     "relation/1633177",
     "relation/19605681",
@@ -26,7 +26,3178 @@
     "way/418834901"
   ],
   "masks": [],
-  "answers": {},
+  "answers": {
+    "relation/12480268": {
+      "1710662656688478": {
+        "observations": "Corner block of the Ensanche: rusticated stone ground floor with a carved doorway, five upper rows of tall openings stacked in narrow bays between pilasters, iron balconies and a glazed bay; load-bearing brick behind the render.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "M99",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      },
+      "989078570873520": {
+        "observations": "The corner seen from the street: the same bays and continuous balconies, a later glazed gallery wrapped in blue netting, a granite plinth; narrow piers and deep reveals point to load-bearing walls.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "M99",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      },
+      "4012879579019004": {
+        "observations": "A long side elevation with two orders of balconies and a heavy cornice; six storeys including the ground floor, openings aligned floor to floor.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "M99",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      }
+    },
+    "relation/1274503": {
+      "1557138282882082": {
+        "observations": "A round building behind a high wall and trees: horizontal bands of stone-clad slab edges with deep-set windows at every floor; a reinforced concrete frame of the 1970s; the ground floor is hidden.",
+        "floors": null,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "public",
+        "surface_material": "concrete",
+        "alternate_surface_material": "stone",
+        "construction_year": 1975
+      },
+      "1454500566534956": {
+        "observations": "The drum seen across the junction: five storeys of square windows in a regular grid of projecting frames, slab edges expressed at every floor, a reinforced concrete frame with infill.",
+        "floors": 5,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "public",
+        "surface_material": "concrete",
+        "alternate_surface_material": "stone",
+        "construction_year": 1975
+      }
+    },
+    "relation/12989778": {
+      "1610482870876741": {
+        "observations": "A cream corner block with a rounded corner, ground floor in stone with shop fronts, six rows of balconies and a set-back attic; wide openings and slab-edge balconies at each floor suggest an early concrete frame of the 1940s.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1945
+      },
+      "2252178135681802": {
+        "observations": "The same corner from the other street: regular bays, continuous balconies at the corner and an attic terrace; the post-war period leaves brick walls possible, so masonry is the alternate.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1945
+      }
+    },
+    "relation/12991793": {
+      "2316250482524038": {
+        "observations": "A narrow 19th-century facade between masked neighbours: stone ground floor with shop arches, three rows of balconied windows with a stone balustrade and an attic with a pediment; narrow openings stacked between thick piers, load-bearing masonry.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "957259227429167": {
+        "observations": "Seen obliquely down the street: the same five storeys, green shutters and iron balconies in narrow bays; a load-bearing brick wall rendered in ochre.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "relation/12991794": {
+      "1049660668074436": {
+        "observations": "A palace-like house with a rusticated base and a large timber gate: two upper storeys of balconied windows over a semi-basement; few, narrow openings in a thick rendered wall.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "office",
+        "alternate_building_type": "house",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "1687396166288433": {
+        "observations": "The long street side: banded rustication, cast-iron grilles and two rows of balconies under a cornice; thick load-bearing walls of the late 19th century.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "office",
+        "alternate_building_type": "house",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "1139898055228938": {
+        "observations": "The rounded corner with a curved balcony: three storeys in all, masonry walls with small openings, now probably offices or an embassy.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "office",
+        "alternate_building_type": "house",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      }
+    },
+    "relation/1617089": {
+      "1607941247407084": {
+        "observations": "A landmark corner: a round turret with a slate dome over red brick and white stone dressings, balconied bays and a ground floor of shops; six storeys plus the dome, openings stacked between brick piers, load-bearing masonry of about 1910.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "1095887942920358": {
+        "observations": "From across the junction: red brick bays framed in stone, a corner turret and a top storey of arched windows; the regular narrow piers point to load-bearing walls.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "1385210273327561": {
+        "observations": "The corner again, nearer: brick and stone in alternating bands, iron balconies on every floor, the dome above; ground floor plus six storeys.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      }
+    },
+    "relation/1617090": {
+      "1737108847368530": {
+        "observations": "A long late-19th-century block: a stone ground floor with shops and awnings, then six rows of tall windows with iron balconies, red brick in the upper bays; narrow openings in thick piers, load-bearing masonry.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1900
+      },
+      "1111010645114542": {
+        "observations": "The same block along the avenue, partly behind plane trees: continuous balconies, a cornice and regular narrow bays.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1900
+      }
+    },
+    "relation/1617093": {
+      "1385210273327561": {
+        "observations": "A tall cream facade on a corner: stone ground floor with a timber door, six rows of windows with small iron balconies and a balustraded top; narrow, stacked openings in a smooth render point to load-bearing walls.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      },
+      "1607941247407084": {
+        "observations": "The same front beside the ornate building next door: seven storeys in all, regular bays, a light cornice.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      },
+      "1455965243088426": {
+        "observations": "Seen through the trees: the upper floors and the balustrade; a load-bearing wall of the early 20th century.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      }
+    },
+    "relation/1617094": {
+      "1571453137627100": {
+        "observations": "An ornate grey-green corner block: stone ground floor with shops, five rows of balconied windows with flags, and a top storey of arched windows with modernista plasterwork; narrow piers and stacked openings, load-bearing masonry.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      },
+      "1455965243088426": {
+        "observations": "The chamfered corner from across the street: carved consoles, balconies on every floor and arched top windows; seven storeys including the ground floor.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      },
+      "1607941247407084": {
+        "observations": "The narrow corner face: a single bay of balconies rising to an arched attic; the same load-bearing walls.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      }
+    },
+    "relation/1623592": {
+      "1087425034146312": {
+        "observations": "A cream 19th-century block seen across a junction between masked neighbours: rows of iron balconies stacked over a ground floor of shops; narrow bays and a cornice, load-bearing masonry; too distant to read details.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1900
+      }
+    },
+    "relation/1627926": {
+      "1059647423573333": {
+        "observations": "A brick-faced block of the 1960s-70s with shops at street level: seven upper rows of identical windows in a flat facade, no balconies, air-conditioning units; wide regular bays point to a reinforced concrete frame with brick infill.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1970
+      },
+      "3340111826185263": {
+        "observations": "The corner: the same flat brick skin wrapping round, eight storeys including the ground floor, slab lines faintly visible.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1970
+      },
+      "3904691853005824": {
+        "observations": "From further down the street: a uniform grid of windows in brick, a concrete frame behind.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1970
+      }
+    },
+    "relation/1627927": {
+      "1610482870876741": {
+        "observations": "A white stone-clad block of the late 20th century with bands of large windows and glazed corner bays; no load-bearing piers between the openings, a reinforced concrete frame with infill.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "glass",
+        "construction_year": 1990
+      },
+      "2252178135681802": {
+        "observations": "The narrow street side: nine rows of windows including a set-back top floor, flat stone cladding, a recent frame building.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "glass",
+        "construction_year": 1990
+      },
+      "1781818179632130": {
+        "observations": "Seen past a van: the same regular openings and glazed bays; concrete frame.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "glass",
+        "construction_year": 1990
+      }
+    },
+    "relation/1627928": {
+      "2660413751058147": {
+        "observations": "A rationalist corner building: a granite base with barred windows and curved balconies wrapping the rounded corner on every upper floor; continuous slab edges at each level, a reinforced concrete frame of the 1940s.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1945
+      },
+      "1129968686268298": {
+        "observations": "The rounded corner: horizontal bands of balconies and slabs, wide openings, a stone base; eight storeys including the attic.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1945
+      },
+      "1139898055228938": {
+        "observations": "From the opposite corner: the same streamlined balconies; a concrete frame with infill.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1945
+      }
+    },
+    "relation/1633187": {
+      "2326297988190798": {
+        "observations": "A large block on a square, wrapped in scaffolding for refurbishment: a long facade of regular windows on about eight floors over a ground floor of shops; the size and regular bays point to a post-war concrete frame, but the scaffolding hides the cues.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1950
+      },
+      "1791667828830310": {
+        "observations": "The same building from the crossing: scaffolding and netting cover most of the facade; nine storeys counting the attic.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1950
+      }
+    },
+    "relation/18073937": {
+      "1642634320857450": {
+        "observations": "A monumental stone building across a wide square with a statue on its corner tower; too distant to count every floor; the scale suggests a mid-century concrete frame clad in stone.",
+        "floors": null,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1950
+      },
+      "1756143438971562": {
+        "observations": "The corner tower crowned by a statue: about eight floors of regular windows in a stone facade; mid-20th-century hotel or offices.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1950
+      },
+      "1474107244617689": {
+        "observations": "From further along the square: the same stone block, symmetrical bays and a crowning statue.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1950
+      }
+    },
+    "relation/19269217": {
+      "1095887942920358": {
+        "observations": "A distant corner block with a slate mansard dome, seen across a roundabout and fountain behind trees; a late-19th-century apartment building, load-bearing masonry; storeys hidden by the trees.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1900
+      }
+    },
+    "relation/20279659": {
+      "2216781112575825": {
+        "observations": "A tall residential block seen behind a garden wall and pines: continuous balconies at every floor on the street side; a reinforced concrete frame of the 1960s; the lower floors are hidden.",
+        "floors": null,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1965
+      }
+    },
+    "relation/21174093": {
+      "1087425034146312": {
+        "observations": "A distant narrow building with a mansard turret across a busy junction, between masked neighbours; red brick and white bands; too far to count storeys.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      }
+    },
+    "relation/21174096": {
+      "4937805016542498": {
+        "observations": "A white 19th-century facade between masked neighbours, partly behind trees: a stone ground floor with arched doors, four rows of balconied windows and an attic; narrow stacked openings in thick piers, load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1895
+      },
+      "1776057596817190": {
+        "observations": "The same front at an angle: iron balconies on every floor, a glazed gallery low on the facade; six storeys including the ground floor.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1895
+      }
+    },
+    "relation/21234635": {
+      "1911683973133176": {
+        "observations": "A red 19th-century block with white window surrounds: shops along the ground floor, five rows of tall balconied windows and an attic with chimneys; narrow openings stacked over each other in a thick brick wall, load-bearing masonry.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1890
+      },
+      "2364708374343455": {
+        "observations": "From across the avenue: regular bays, iron balconies and cornices at each floor; seven storeys including ground floor and attic.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1890
+      },
+      "1111010645114542": {
+        "observations": "A longer view along the street: the red facade continues with the same rhythm; load-bearing brick.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1890
+      }
+    },
+    "relation/21298016": {
+      "1417051257276719": {
+        "observations": "A large corner block over a ground floor of shops: six rows of windows with small iron balconies and a set-back top floor; regular but narrow bays in a rendered wall, load-bearing masonry of the 1920s, possibly with an early concrete frame.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1925
+      },
+      "1074829081832169": {
+        "observations": "The corner from the crossing: identical bays on both streets, a glazed corner bay and shops below; seven storeys.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1925
+      },
+      "2131295337467910": {
+        "observations": "The long side: the same windows in a uniform grid, a cornice and an attic.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1925
+      }
+    },
+    "relation/4729031": {
+      "1938140643829140": {
+        "observations": "An ornate stone palace now housing a public institution: a rusticated granite base with a carved timber door, three upper floors with bay windows, carved balconies and pediments, and corner towers; thick walls and few openings, load-bearing masonry.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      },
+      "2121208901806313": {
+        "observations": "The corner: a curved bay window over a carved console, banded stone and a balustraded roof; five storeys including the semi-basement.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      },
+      "4012879579019004": {
+        "observations": "The narrow side with the next building's yellow glazed galleries: the same stone detailing.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      }
+    },
+    "relation/4764247": {
+      "1610965267177834": {
+        "observations": "A modern office podium: a stone-clad upper floor carried on tall polished steel columns over an open, glazed ground floor; a slab block rises behind; a reinforced concrete frame with columns and no load-bearing walls.",
+        "floors": 3,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFM",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "public",
+        "surface_material": "stone",
+        "alternate_surface_material": "glass",
+        "construction_year": 1980
+      },
+      "1411342623799544": {
+        "observations": "The podium from the corner: polished columns, a deep overhang and a recessed glass front; three storeys at this part, a concrete frame.",
+        "floors": 3,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFM",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "public",
+        "surface_material": "stone",
+        "alternate_surface_material": "glass",
+        "construction_year": 1980
+      }
+    },
+    "relation/6274422": {
+      "1756143438971562": {
+        "observations": "A narrow yellow facade seen steeply from below: a stone ground floor with a timber door, rows of balconied windows with white surrounds; load-bearing walls of the early 20th century; the upper floors are foreshortened.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1920
+      }
+    },
+    "relation/6274438": {
+      "4610422469284359": {
+        "observations": "A modernista facade in pink and green with a grey rusticated ground floor, black iron glazed galleries and arched upper windows; narrow bays between thick piers, load-bearing masonry of about 1905.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      },
+      "1774419360347728": {
+        "observations": "The same front with its two galleries: carved balconies, garlands and an attic; five storeys including the ground floor.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      }
+    },
+    "relation/6274439": {
+      "38845231265123311": {
+        "observations": "A richly carved stone facade with a restaurant (Sagardi) at street level: columns, arched windows, curved balconies and a heavy cornice; narrow openings between massive piers, load-bearing masonry of the early 1900s.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      },
+      "1412611357005879": {
+        "observations": "Seen up close: banded stone ground floor, an arched carriage door with ironwork and four upper floors under an ornate attic.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      },
+      "2327599148012618": {
+        "observations": "Along the street with the pink neighbour: the same carved stone front, six storeys in all.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      }
+    },
+    "relation/7737870": {
+      "1442814924443615": {
+        "observations": "A 1970s apartment block in a narrow street: continuous balconies with dark awnings at every floor and a stone-clad ground floor with shops; slab edges expressed along the whole facade, a reinforced concrete frame.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "stone",
+        "alternate_surface_material": "concrete",
+        "construction_year": 1975
+      },
+      "2310331459749206": {
+        "observations": "Down the street: the same stacked balconies, eight storeys; a concrete frame with infill.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "stone",
+        "alternate_surface_material": "concrete",
+        "construction_year": 1975
+      }
+    },
+    "way/1041664543": {
+      "899475829765742": {
+        "observations": "A white rendered block with a rounded corner bay, a stone ground floor of shops and five upper rows of windows; balconies with iron railings; regular bays in a smooth wall, load-bearing masonry of the 1920s, an early frame possible.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      },
+      "1346574340697031": {
+        "observations": "The street front close up: a stone base with tall shop windows, iron balconies and moulded window surrounds; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      }
+    },
+    "way/116872509": {
+      "1428190629269556": {
+        "observations": "A 1970s office block (the Partido Popular headquarters): vertical bands of reflective glass between stone-clad mullions above a recessed, fully glazed ground floor; a reinforced concrete frame with a curtain wall, no load-bearing walls.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "public",
+        "surface_material": "glass",
+        "alternate_surface_material": "stone",
+        "construction_year": 1975
+      },
+      "899475829765742": {
+        "observations": "The corner: continuous glazing, slender stone fins and a cantilevered first floor; seven storeys.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "public",
+        "surface_material": "glass",
+        "alternate_surface_material": "stone",
+        "construction_year": 1975
+      },
+      "1648361966906985": {
+        "observations": "Along the street: the same glass and stone grid, a frame building.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "public",
+        "surface_material": "glass",
+        "alternate_surface_material": "stone",
+        "construction_year": 1975
+      }
+    },
+    "way/116872512": {
+      "1848292916331711": {
+        "observations": "A corner block with a rounded corner, a stone-clad ground floor and rendered upper floors with small balconies, brick on the side street; post-war, between load-bearing brick and an early concrete frame.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1945
+      }
+    },
+    "way/116872513": {
+      "2873812526324958": {
+        "observations": "Seen across a wide street behind trees: a red-brick and stone corner block with a turret, iron balconies and a stone ground floor; load-bearing masonry of the early 20th century; distance limits the storey count.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      }
+    },
+    "way/116872514": {
+      "1074829081832169": {
+        "observations": "A narrow pale-blue 19th-century facade between masked neighbours: a timber door, glazed galleries and iron balconies stacked in two narrow bays; load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      },
+      "2364708374343455": {
+        "observations": "The same front behind trees: six storeys including the ground floor, openings aligned between thick piers.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      }
+    },
+    "way/116872517": {
+      "2364708374343455": {
+        "observations": "A cream block on a busy avenue with a later glazed bay rising the full height and shops at street level; six rows of balconied windows; load-bearing masonry with a modern insertion.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      },
+      "1111010645114542": {
+        "observations": "Down the avenue: regular bays and iron balconies above banks and shops; seven storeys.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      }
+    },
+    "way/116872519": {
+      "1911683973133176": {
+        "observations": "A large post-war block on a corner: a stone-clad facade with a rounded corner, eight rows of regular windows and a set-back attic, shops below; wide repeated bays point to a reinforced concrete frame with infill.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1950
+      },
+      "1038606979221769": {
+        "observations": "The rounded corner across the yellow box junction: the same uniform grid of openings and a cornice; nine storeys.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1950
+      },
+      "2364708374343455": {
+        "observations": "The long side beside the red-brick neighbour: regular windows on every floor, a frame building of the 1950s.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1950
+      }
+    },
+    "way/116872528": {
+      "1143710581367059": {
+        "observations": "A stone-clad hotel block (International House) with a rounded corner: seven upper rows of identical square windows over a recessed ground floor with a band of glazing; a reinforced concrete frame of the 1950s.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": null,
+        "construction_year": 1955
+      },
+      "1607007961216585": {
+        "observations": "The rounded corner with the hotel sign: smooth stone cladding and regular openings; eight storeys.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": null,
+        "construction_year": 1955
+      },
+      "1648361966906985": {
+        "observations": "From the side street, half behind a tree: the same grid; a frame building.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "hotel",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": null,
+        "construction_year": 1955
+      }
+    },
+    "way/116872530": {
+      "962820466882136": {
+        "observations": "A red-brick and stone 19th-century block: a large timber carriage door, iron balconies on every floor and shops with awnings along the ground floor; narrow bays between brick piers, load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "1038606979221769": {
+        "observations": "The facade behind plane trees: stone ground floor with shops, balconies above; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "way/116872534": {
+      "1417051257276719": {
+        "observations": "A landmark corner block with a round brick turret topped by a balustrade: red brick bays framed in white stone, iron balconies on every floor and shops at street level; narrow openings between brick piers, load-bearing masonry of about 1905.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      },
+      "2131295337467910": {
+        "observations": "The turret and the long side: six rows of balconies with flags, a second smaller turret at the far corner; seven storeys including the ground floor.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      },
+      "1568337321210134": {
+        "observations": "The turret from the crossing: arched top windows, brick and stone in bands; load-bearing walls.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1905
+      }
+    },
+    "way/116872537": {
+      "1417051257276719": {
+        "observations": "A white corner block with a rounded corner and curved bay windows: a stone ground floor of shops, five upper rows and a top storey with arched openings and a terrace; regular bays in a rendered wall, load-bearing masonry of the 1910s-20s, an early frame possible.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1920
+      },
+      "1568337321210134": {
+        "observations": "The rounded corner: oriel windows stacked over a carved door, iron balconies; seven storeys.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1920
+      }
+    },
+    "way/116872539": {
+      "962820466882136": {
+        "observations": "A late-19th-century block behind trees: timber doors in a stone ground floor with a bookshop, iron balconies above and red brick in the upper bays; load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1895
+      },
+      "1038606979221769": {
+        "observations": "Close up: tall timber doors, shop awnings and balconies; six storeys, narrow bays.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1895
+      }
+    },
+    "way/117168677": {
+      "1111010645114542": {
+        "observations": "A cream ornamented facade behind a tree, between masked neighbours: a stone ground floor with arched doors and iron balconies above; load-bearing masonry; the top is out of view.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1900
+      }
+    },
+    "way/117574021": {
+      "1449791067028927": {
+        "observations": "A narrow facade of red brick and stone between masked neighbours, half hidden by a tree: a stone door surround and an iron balcony; load-bearing brick; storeys not countable.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "house",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1900
+      }
+    },
+    "way/117574028": {
+      "1069241965934504": {
+        "observations": "Seen obliquely along a narrow street: a cream 19th-century facade with continuous iron balconies, arched first-floor windows and a stone base behind building-site hoarding; load-bearing masonry, about five storeys.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1900
+      }
+    },
+    "way/117574034": {
+      "1822089315590491": {
+        "observations": "A white rendered villa-like building: a stone plinth with barred semi-basement windows, three upper storeys with small balconies on consoles; few openings in thick walls, load-bearing masonry.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      },
+      "1557138282882082": {
+        "observations": "The same house from the corner behind trees: barred windows and balconies; four storeys including the semi-basement.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      }
+    },
+    "way/117574042": {
+      "1648361966906985": {
+        "observations": "A pale 19th-century block behind trees: a banded stone ground floor with a carved door, continuous iron balconies and a flag; narrow openings in thick walls, load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1895
+      },
+      "1428190629269556": {
+        "observations": "Through the trees: barred ground-floor windows and balconied bays above; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1895
+      }
+    },
+    "way/117574047": {
+      "1111702834671941": {
+        "observations": "A narrow-street view where the building is only partly visible behind a tree, with a scaffolded facade beyond; load-bearing masonry of about 1900; not enough of it to count storeys.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1900
+      }
+    },
+    "way/117574050": {
+      "1069241965934504": {
+        "observations": "A plain 19th-century block: a green-painted ground floor with timber shutters and a print shop, brick and rendered upper floors with small iron balconies; narrow openings stacked in thick walls, load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1900
+      },
+      "2873812526324958": {
+        "observations": "The corner from down the street, partly masked: rendered upper floors with regular windows; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1900
+      }
+    },
+    "way/117574055": {
+      "1071844372282228": {
+        "observations": "A post-war brick corner block with a restaurant (Fifteen) at street level: six upper rows of plain windows in banded brick, rounded at the corner; the period allows load-bearing brick or an early concrete frame.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1945
+      },
+      "1822089315590491": {
+        "observations": "The corner behind a tree: the same brick bands and regular windows; seven storeys.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1945
+      }
+    },
+    "way/117574056": {
+      "1687396166288433": {
+        "observations": "A red-brick palace with a rounded corner: tall arched windows on the ground floor, two upper storeys of pedimented windows with small balconies and a cornice, a granite plinth; thick brick walls and few openings, load-bearing masonry of the 1880s.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "1139898055228938": {
+        "observations": "The curved corner: arched openings in a solid brick wall, stone sills and bands; four storeys including the semi-basement.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "1049660668074436": {
+        "observations": "The side facade behind its railings and a tree: arched windows in red brick, a public or institutional building.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      }
+    },
+    "way/117574063": {
+      "28720979740851822": {
+        "observations": "A white ornate block next to a cream one: six rows of balconied windows with carved surrounds, an attic with arched openings and a barred semi-basement; narrow bays and thick piers, load-bearing masonry of about 1910.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      }
+    },
+    "way/117574068": {
+      "1071844372282228": {
+        "observations": "An orange and white facade with curved iron balconies, rounded bay windows and a balustraded first floor over a stone base; narrow bays between pilasters, load-bearing masonry of the 1910s.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      },
+      "1822089315590491": {
+        "observations": "Along the street: the same orange render, stacked balconies and a cornice; seven storeys including the attic.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      }
+    },
+    "way/117574074": {
+      "1111702834671941": {
+        "observations": "A cream facade behind street trees, partly masked: tall barred windows on a stone base and rendered walls above; load-bearing masonry; the trees hide the upper floors.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1900
+      }
+    },
+    "way/117574078": {
+      "1454500566534956": {
+        "observations": "A street corner with two early-20th-century blocks in view, a red-brick one with green glazed bays and a white rendered one opposite; balconies and narrow bays in both, load-bearing masonry; which facade belongs to this footprint is not clear, so storeys are not counted.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1915
+      },
+      "1831294641236244": {
+        "observations": "The other side of the corner: a white rounded corner with an entrance and stacked balconies; load-bearing walls.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1915
+      }
+    },
+    "way/117574079": {
+      "1648361966906985": {
+        "observations": "A stone 19th-century facade with mansard dormers, seen past a later glass-fronted building that rises in front of it; load-bearing masonry behind; the glass block hides the lower floors.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "apartments",
+        "surface_material": "stone",
+        "alternate_surface_material": "glass",
+        "construction_year": 1900
+      }
+    },
+    "way/117574083": {
+      "1822089315590491": {
+        "observations": "A cream 19th-century block behind trees: arched first-floor windows, iron balconies on the upper floors and a stone ground floor with doors; narrow bays, load-bearing masonry; about six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1900
+      }
+    },
+    "way/117574095": {
+      "1603662921254449": {
+        "observations": "A yellow rendered 19th-century facade behind street trees: tall windows with small iron balconies over a plain ground floor; narrow openings in a thick wall, load-bearing masonry; the trees hide the floor count.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      }
+    },
+    "way/117574097": {
+      "1112950434489880": {
+        "observations": "A 1970s brick block with projecting concrete balcony boxes staggered across the whole facade, a stone-clad ground floor with an Indian restaurant; slabs cantilevered at every floor, a reinforced concrete frame with brick infill.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "concrete",
+        "construction_year": 1975
+      },
+      "2316250482524038": {
+        "observations": "The block along the street: eight storeys of stacked concrete balconies over brick; a concrete frame.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "concrete",
+        "construction_year": 1975
+      },
+      "957259227429167": {
+        "observations": "Down the street beside the neighbouring gate piers: the same projecting balconies; a frame building.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "concrete",
+        "construction_year": 1975
+      }
+    },
+    "way/117975213": {
+      "1106385368581478": {
+        "observations": "A monumental stone corner building now an embassy: a rusticated ground floor with arched ironwork doors, carved consoles, balustraded balconies and a domed corner; thick walls and deep reveals, load-bearing masonry of about 1910.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "2602647980261135": {
+        "observations": "The main front: three orders of carved balconies over the arched ground floor, a glass entrance inserted later; six storeys including the attic.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "1656882136055731": {
+        "observations": "The rounded corner with flags: stone bands, a carved portal and stacked balconies; load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      }
+    },
+    "way/117975214": {
+      "1567808587925077": {
+        "observations": "A very narrow cream corner building between masked neighbours: a dark ground floor with a shop, small balconies on every floor and an arched top window; narrow openings in thick walls, load-bearing masonry.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1910
+      },
+      "1859532032080547": {
+        "observations": "The corner from the crossing: the slim wedge-shaped building, iron balconies stacked over a shop; seven storeys.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1910
+      },
+      "1117710984007778": {
+        "observations": "The narrow side: red brick panels framed in stone over a tall door; load-bearing brick.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "brick",
+        "construction_year": 1910
+      }
+    },
+    "way/117975218": {
+      "1686619349702613": {
+        "observations": "A 1930s block of red brick and green stucco: a stone base with garage doors, balconied bays, a first-floor balcony band and a set-back top floor; regular wide bays point to an early reinforced concrete frame with brick infill.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1935
+      },
+      "1793233471710090": {
+        "observations": "Along the street with its arched brick doorway: continuous balconies and green railings on the upper floors; seven storeys.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1935
+      }
+    },
+    "way/117975220": {
+      "2310331459749206": {
+        "observations": "A long institutional building behind a garden wall and railings: three upper storeys of regular windows over a raised ground floor, rusticated corner quoins; few, regular openings in a thick rendered wall, load-bearing masonry.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "public",
+        "alternate_building_type": "education",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      },
+      "1567808587925077": {
+        "observations": "The corner pavilion through the trees: banded stone quoins and plain windows; four storeys.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "public",
+        "alternate_building_type": "education",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      },
+      "1859532032080547": {
+        "observations": "From the gate: the same plain facade and corner pavilion; a school or public building.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "public",
+        "alternate_building_type": "education",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      }
+    },
+    "way/117975234": {
+      "1835741530933973": {
+        "observations": "An ornate facade in cream and terracotta: a stone ground floor with shops and arched doors, a balustraded first floor and bay windows above; narrow bays, load-bearing masonry of about 1910; partly behind a tree.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      }
+    },
+    "way/117975240": {
+      "1082477471342242": {
+        "observations": "A red-painted 19th-century facade with a tavern and shops on the ground floor and iron balconies on the upper floors; narrow openings stacked in thick walls, load-bearing masonry; trees hide the top.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1880
+      }
+    },
+    "way/117975243": {
+      "1835680497747996": {
+        "observations": "A pale yellow 19th-century block behind trees: iron balconies stacked in narrow bays over shops; load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      },
+      "3340111826185263": {
+        "observations": "From the corner, partly masked: the same balconies and a ground floor of shops; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      },
+      "3904691853005824": {
+        "observations": "Down the street: balconies and a café terrace below; load-bearing walls.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      }
+    },
+    "way/117975247": {
+      "2660413751058147": {
+        "observations": "A yellow 19th-century corner block behind trees: a stone plinth, tall windows with white surrounds and iron balconies stacked in narrow bays; thick piers between the openings, load-bearing masonry.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1895
+      },
+      "1129968686268298": {
+        "observations": "The rounded corner: the same balconied windows on every floor; five storeys including the ground floor.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1895
+      },
+      "1082477471342242": {
+        "observations": "The long side along the street: yellow render, white surrounds and balconies; load-bearing walls.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1895
+      }
+    },
+    "way/117975263": {
+      "2156727378601532": {
+        "observations": "A landmark curved brick corner: a stone ground floor with a restaurant terrace, seven rows of windows in red brick framed by white pilasters, rounded balconies at the corner and a crowning arch; regular wide bays and the height suggest an early reinforced concrete frame with brick infill of about 1930.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1930
+      },
+      "1703639425098465": {
+        "observations": "From across the junction: the same curved corner and brick bays, nine storeys including the top arch.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1930
+      },
+      "2008104753207300": {
+        "observations": "The long side: balconies and brick panels between stone pilasters; a frame building of the interwar years.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1930
+      }
+    },
+    "way/117975264": {
+      "3340111826185263": {
+        "observations": "A pale corner block of the post-war years: a smooth rendered facade, a stone ground floor with shops and small iron balconies; wide regular bays point to a reinforced concrete frame with infill.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1950
+      },
+      "3904691853005824": {
+        "observations": "Down the street: the same plain windows and balconies on six floors over the shops; seven storeys.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1950
+      }
+    },
+    "way/117975268": {
+      "2121208901806313": {
+        "observations": "Only a gate pavilion of a villa shows between masked areas: a stone balustrade and a barred window behind railings; load-bearing masonry; not enough to count storeys.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "public",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1900
+      }
+    },
+    "way/117975276": {
+      "2908310142876466": {
+        "observations": "A white facade covered in textured modernista plaster: iron balconies on every floor over a ground floor with ornamental grilles; narrow bays between thick piers, load-bearing masonry of about 1910.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      }
+    },
+    "way/117975278": {
+      "2269659867214935": {
+        "observations": "A 1960s apartment block clad in white stone, with continuous balconies at the corner and shops with awnings at street level; slab edges at every floor, a reinforced concrete frame.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "stone",
+        "alternate_surface_material": "concrete",
+        "construction_year": 1965
+      },
+      "2883395138704629": {
+        "observations": "Behind trees: the same flat stone facade and balconies; seven storeys.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "stone",
+        "alternate_surface_material": "concrete",
+        "construction_year": 1965
+      }
+    },
+    "way/117975290": {
+      "2269659867214935": {
+        "observations": "A 1970s brick block with deep recessed balconies stacked in vertical bays over a shop front and an entrance; slab edges expressed at every floor, a reinforced concrete frame with brick infill.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1975
+      },
+      "2310331459749206": {
+        "observations": "A side view behind trees showing mostly the ground floor of a yellow neighbour; it adds little.",
+        "floors": null,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "brick",
+        "alternate_surface_material": null,
+        "construction_year": 1975
+      }
+    },
+    "way/117975296": {
+      "2008104753207300": {
+        "observations": "A cream corner block with a domed corner turret seen across a wide junction: iron balconies on every floor, a stone ground floor; narrow bays, load-bearing masonry of about 1905.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      },
+      "1576339123561944": {
+        "observations": "The main front: regular balconied bays and a cornice; six storeys including the ground floor.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      },
+      "1703639425098465": {
+        "observations": "The corner turret: stacked glazed balconies and a slate dome; load-bearing walls.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "hotel",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1905
+      }
+    },
+    "way/117975302": {
+      "1804246890602094": {
+        "observations": "A pink glazed-brick block of about 1980 with rounded balcony fronts stacked in bands at every floor over a stone ground floor; cantilevered slabs, a reinforced concrete frame.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1980
+      },
+      "936583289106526": {
+        "observations": "The corner from below: the same curved brick balconies; eight storeys.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1980
+      },
+      "1117710984007778": {
+        "observations": "A street view where this block is distant behind a cream neighbour; it adds little.",
+        "floors": null,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1980
+      }
+    },
+    "way/117975303": {
+      "1923002168679295": {
+        "observations": "A narrow street view where the building is a low rendered house on the right side between masked neighbours; load-bearing masonry; too oblique to count storeys.",
+        "floors": null,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1920
+      },
+      "1835741530933973": {
+        "observations": "A small white house on a corner behind a tree: two to three storeys of plain windows in thick rendered walls, load-bearing masonry.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1920
+      },
+      "1686619349702613": {
+        "observations": "The same house behind its garden gate: a narrow tower-like block with few windows; three storeys.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1920
+      }
+    },
+    "way/117975310": {
+      "1059647423573333": {
+        "observations": "A red-rendered block with white pilasters and window surrounds over a ground floor of restaurants with timber shutters; six rows of regular windows and an attic; regular bays in a smooth wall, load-bearing masonry of the 1920s, an early frame possible.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "hotel",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      },
+      "2290609165112735": {
+        "observations": "Straight on: the red facade with seven rows of windows over the restaurant; eight storeys including the attic.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "hotel",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      },
+      "1134647945567938": {
+        "observations": "The narrow corner: the same red render and white bands; load-bearing walls.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "hotel",
+        "alternate_building_type": "apartments",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      }
+    },
+    "way/117975311": {
+      "1117710984007778": {
+        "observations": "A narrow cream facade between masked neighbours: a stone ground floor with shops, iron balconies and an ornamented first floor, seven rows in all plus an attic; narrow bays, load-bearing masonry of the 1910s-20s.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1920
+      },
+      "1567808587925077": {
+        "observations": "From the street: a tall narrow front with a brick and stone door surround; eight storeys.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1920
+      },
+      "1859532032080547": {
+        "observations": "Further along: the same stacked balconies; load-bearing walls.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1920
+      }
+    },
+    "way/117975323": {
+      "1781818179632130": {
+        "observations": "A brutalist apartment block in board-marked concrete: deep projecting balcony boxes stacked at every floor, vertical concrete fins and a concrete ground floor with an entrance marked 41; exposed slabs and columns, a reinforced concrete frame of about 1970.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "concrete",
+        "alternate_surface_material": null,
+        "construction_year": 1970
+      },
+      "2252178135681802": {
+        "observations": "The facade from the street: the same deep balconies and concrete fins; eight storeys.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "concrete",
+        "alternate_surface_material": null,
+        "construction_year": 1970
+      },
+      "1610482870876741": {
+        "observations": "The corner: stepped concrete balconies rising the full height; a concrete frame.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "concrete",
+        "alternate_surface_material": null,
+        "construction_year": 1970
+      }
+    },
+    "way/117975325": {
+      "1082477471342242": {
+        "observations": "A 1970s block with projecting concrete balcony boxes over a supermarket and an entrance, partly behind trees; cantilevered slabs at every floor, a reinforced concrete frame.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "stone",
+        "alternate_surface_material": "brick",
+        "construction_year": 1970
+      },
+      "1835680497747996": {
+        "observations": "Closer: concrete balcony fronts above the shop; seven storeys counted through the trees.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "stone",
+        "alternate_surface_material": "brick",
+        "construction_year": 1970
+      }
+    },
+    "way/117975326": {
+      "3135265320010324": {
+        "observations": "A white facade in textured modernista plaster: curved iron balconies on every floor, an arched carriage door with green ironwork and grilles on the ground floor; narrow bays between thick piers, load-bearing masonry of about 1910.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      },
+      "1047183815017120": {
+        "observations": "Along the street: the same balconies and plaster ornament; six storeys including the ground floor.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1910
+      }
+    },
+    "way/117975331": {
+      "1047183815017120": {
+        "observations": "A red-brick and stone block of the 1880s: a carved timber door, stone ground floor, iron balconies on every floor and brick panels with stone medallions; narrow openings between brick piers, load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "3135265320010324": {
+        "observations": "The entrance with its arched ironwork, partly masked: balconies stacked above; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "1923002168679295": {
+        "observations": "The corner: red brick with stone bands and a glazed gallery; load-bearing brick.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      }
+    },
+    "way/117975336": {
+      "1835680497747996": {
+        "observations": "A terracotta-painted 19th-century facade with white window surrounds: a timber door, shops at street level and iron balconies on five upper rows; narrow openings in thick walls, load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1880
+      }
+    },
+    "way/117975338": {
+      "3904691853005824": {
+        "observations": "A yellow 19th-century facade with white surrounds between masked neighbours: shops and a café at street level, six rows of iron balconies and an attic; narrow stacked bays, load-bearing masonry.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      },
+      "3340111826185263": {
+        "observations": "From across the street past a stall: the same balconies; seven storeys.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      },
+      "1751029489514761": {
+        "observations": "Down the street: the narrow yellow front; load-bearing walls.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": null,
+        "construction_year": 1890
+      }
+    },
+    "way/117975339": {
+      "2008104753207300": {
+        "observations": "A cream apartment block of about 1960 across a wide avenue: continuous balconies with green awnings at every floor over a stone ground floor; slab edges along the whole facade, a reinforced concrete frame.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1960
+      },
+      "1576339123561944": {
+        "observations": "From the crossing: stacked glazed and open balconies, nine storeys including the ground floor.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1960
+      },
+      "1703639425098465": {
+        "observations": "Along the avenue: the same balcony bands; a concrete frame with infill.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1960
+      }
+    },
+    "way/117975340": {
+      "1871926827123922": {
+        "observations": "A landmark rationalist brick block with a rounded corner: horizontal bands of glazed balconies with green railings, a granite plinth and an arched doorway; continuous slab edges and wide openings, an early reinforced concrete frame with brick infill of the 1930s.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1935
+      },
+      "1804246890602094": {
+        "observations": "The rounded corner in brick: stacked windows wrapping the curve, a cornice at each floor; eight storeys.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1935
+      },
+      "1859532032080547": {
+        "observations": "From across the junction: the whole curved block, brick with stone bands; a frame building of the interwar years.",
+        "floors": 8,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1935
+      }
+    },
+    "way/117975341": {
+      "1923002168679295": {
+        "observations": "A small two-storey house on a corner, rendered with a green cornice and stone base; thick walls with few openings, load-bearing masonry.",
+        "floors": 2,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      },
+      "1835741530933973": {
+        "observations": "The house behind a green garden gate, a pink block rising behind: a pavilion with arched windows; two storeys.",
+        "floors": 2,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      },
+      "1047183815017120": {
+        "observations": "From the corner: the low house beside taller blocks; load-bearing walls.",
+        "floors": 2,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      }
+    },
+    "way/1550100182": {
+      "1038606979221769": {
+        "observations": "A recent office or hotel block on a busy junction: a dark metal-clad facade with a dense grid of windows, nine storeys over shop fronts; a reinforced concrete frame with a light cladding, no load-bearing walls.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "hotel",
+        "surface_material": "metal",
+        "alternate_surface_material": "glass",
+        "construction_year": 2010
+      },
+      "962820466882136": {
+        "observations": "From the street: the same regular grid of windows on every floor; nine storeys.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "hotel",
+        "surface_material": "metal",
+        "alternate_surface_material": "glass",
+        "construction_year": 2010
+      },
+      "1097332762653576": {
+        "observations": "Behind trees: the uniform dark facade; a frame building.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": "S",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFM",
+        "building_type": "office",
+        "alternate_building_type": "hotel",
+        "surface_material": "metal",
+        "alternate_surface_material": "glass",
+        "construction_year": 2010
+      }
+    },
+    "way/1550100202": {
+      "1571453137627100": {
+        "observations": "A 19th-century block behind plane trees on a busy avenue: iron balconies stacked in narrow bays over shops; load-bearing masonry; the trees limit detail.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "1455965243088426": {
+        "observations": "Further along: the same balconies through the trees; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "way/1564852146": {
+      "936583289106526": {
+        "observations": "A post-war brick block behind trees: regular windows with roller blinds, a projecting balcony band and a stone plinth; the period allows load-bearing brick or a concrete frame.",
+        "floors": 6,
+        "gem_material": "CR",
+        "alternate_gem_material": "MUR",
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LWAL",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1950
+      }
+    },
+    "way/1564852147": {
+      "2908310142876466": {
+        "observations": "A red-brick and white stone 19th-century block behind trees: a rusticated base, white window surrounds and iron balconies on every floor; narrow openings between thick brick piers, load-bearing masonry.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "3135265320010324": {
+        "observations": "Along the street: the same brick and white surrounds, a timber door; five storeys.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      },
+      "1831294641236244": {
+        "observations": "The rounded corner with a green mansard: brick bays and balconies; load-bearing brick.",
+        "floors": 5,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1885
+      }
+    },
+    "way/1564854427": {
+      "1610482870876741": {
+        "observations": "A 1970s block with rounded white balcony bands wrapping the corner at every floor, shops with green frames at street level; cantilevered slabs, a reinforced concrete frame.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "concrete",
+        "alternate_surface_material": "stone",
+        "construction_year": 1975
+      },
+      "2252178135681802": {
+        "observations": "The front: continuous curved balconies stacked over the shops; seven storeys.",
+        "floors": 7,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "retail",
+        "surface_material": "concrete",
+        "alternate_surface_material": "stone",
+        "construction_year": 1975
+      }
+    },
+    "way/336924040": {
+      "2134882427103341": {
+        "observations": "A red-brick palace with stone dressings behind a garden and railings, now an institution with a flag: arched windows on the ground floor, a glass canopy and pedimented windows above; thick walls, load-bearing masonry.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "1415757059972069": {
+        "observations": "The garden front with its iron gate and a fir tree: brick and stone with balustraded windows; three storeys.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "2340035990089858": {
+        "observations": "Through the pines: arched windows and a cornice; load-bearing brick.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "way/336924041": {
+      "2340035990089858": {
+        "observations": "The side of a red-brick palace behind a hedge and railings, mostly masked: stone pilasters and pedimented windows; load-bearing masonry.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "1415757059972069": {
+        "observations": "From the gate: the brick palace with a flag, a glass canopy and stone dressings, a tall office block behind; three storeys.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "1382553327373399": {
+        "observations": "Through the pines: arched windows and a stone cornice; load-bearing brick.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "way/350528281": {
+      "2643547549410527": {
+        "observations": "A stepped brick tower of the 1970s with a bank at street level: horizontal brick bands and ribbon windows at every floor, air-conditioning units, set-backs near the top; continuous slabs, a reinforced concrete frame with brick infill.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "office",
+        "alternate_building_type": "apartments",
+        "surface_material": "brick",
+        "alternate_surface_material": "glass",
+        "construction_year": 1975
+      },
+      "3092674231124421": {
+        "observations": "The corner rising in steps: brick bands and recessed windows; nine storeys.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "office",
+        "alternate_building_type": "apartments",
+        "surface_material": "brick",
+        "alternate_surface_material": "glass",
+        "construction_year": 1975
+      },
+      "2008104753207300": {
+        "observations": "From down the avenue: the slim stepped brick tower; a concrete frame.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "office",
+        "alternate_building_type": "apartments",
+        "surface_material": "brick",
+        "alternate_surface_material": "glass",
+        "construction_year": 1975
+      }
+    },
+    "way/350528283": {
+      "1878108876905732": {
+        "observations": "A stone-faced corner building with carved balconies behind trees, a brick neighbour masked beside it; load-bearing masonry of about 1910; the trees hide part of the facade.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": null,
+        "surface_material": "stone",
+        "alternate_surface_material": "brick",
+        "construction_year": 1910
+      }
+    },
+    "way/350528284": {
+      "2008104753207300": {
+        "observations": "A recent office building: a fully glazed recessed ground floor under six floors wrapped in angled metal louvres, a dark band at every floor; a steel or concrete frame with a curtain wall, no load-bearing walls.",
+        "floors": 7,
+        "gem_material": "S",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LFM",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "retail",
+        "surface_material": "glass",
+        "alternate_surface_material": "metal",
+        "construction_year": 2018
+      },
+      "2156727378601532": {
+        "observations": "The corner: louvred bands at each floor and a glass base; seven storeys.",
+        "floors": 7,
+        "gem_material": "S",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LFM",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "retail",
+        "surface_material": "glass",
+        "alternate_surface_material": "metal",
+        "construction_year": 2018
+      },
+      "1703639425098465": {
+        "observations": "Behind a tree: the same metal fins and glazing; a frame building.",
+        "floors": 7,
+        "gem_material": "S",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LFM",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "office",
+        "alternate_building_type": "retail",
+        "surface_material": "glass",
+        "alternate_surface_material": "metal",
+        "construction_year": 2018
+      }
+    },
+    "way/350528285": {
+      "2216781112575825": {
+        "observations": "A palace in pale stone behind a garden wall and trees, with a rounded corner, balconied windows and a heavy cornice; thick walls with regular openings, load-bearing masonry of about 1910.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "1084635071024306": {
+        "observations": "Across the avenue: three floors of tall windows over a rusticated base; four storeys including the attic.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "1776057596817190": {
+        "observations": "Further along: the long stone front and corner; a public building.",
+        "floors": 4,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      }
+    },
+    "way/350528291": {
+      "1958097745167350": {
+        "observations": "A landmark white corner block with a domed turret on its chamfered corner: banded stone ground floor, carved balconies and bay windows on six upper floors; narrow bays in thick walls, load-bearing masonry of the 1910s.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1915
+      },
+      "1087425034146312": {
+        "observations": "The corner tower crowned by a dome: stacked balconies; seven storeys plus the dome.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1915
+      },
+      "1095887942920358": {
+        "observations": "From the crossing: the narrow corner face and the turret; load-bearing walls.",
+        "floors": 7,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1915
+      }
+    },
+    "way/352033735": {
+      "1084635071024306": {
+        "observations": "A yellow and white corner block with a turreted top: glazed galleries, iron balconies and a white rusticated ground floor; eight storeys; narrow bays, load-bearing masonry of the 1910s, an early frame possible at this height.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      },
+      "1776057596817190": {
+        "observations": "Across the street: the yellow upper floors with arched top windows and a cornice; eight storeys.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      },
+      "2216781112575825": {
+        "observations": "The corner from the junction: the whole block with its decorated top; load-bearing walls.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "plaster",
+        "alternate_surface_material": "stone",
+        "construction_year": 1915
+      }
+    },
+    "way/352098734": {
+      "1407496618209850": {
+        "observations": "A landmark ochre corner block with a domed corner: carved stone balconies, bay windows with green frames and an arched carriage door; narrow bays between heavy piers, load-bearing masonry of about 1910.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "1630603035430417": {
+        "observations": "From the crossing: the domed corner and two long fronts; six storeys including the attic.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      },
+      "1842480667112816": {
+        "observations": "The long side behind trees: the same carved balconies; load-bearing walls.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "plaster",
+        "construction_year": 1910
+      }
+    },
+    "way/355355962": {
+      "2643547549410527": {
+        "observations": "A richly carved brownstone facade behind trees: an arched carriage door with ironwork, balustraded balconies and a domed top; thick walls, load-bearing masonry.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "brick",
+        "construction_year": 1905
+      },
+      "1084242601143770": {
+        "observations": "Down the street: carved balconies on every floor; six storeys.",
+        "floors": 6,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "stone",
+        "alternate_surface_material": "brick",
+        "construction_year": 1905
+      }
+    },
+    "way/355451059": {
+      "4937805016542498": {
+        "observations": "A brick apartment block of about 1960 with continuous balconies and red awnings on the upper floors, a stone-framed ground floor with an eye clinic; slabs expressed at every floor, a reinforced concrete frame with brick infill.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1960
+      },
+      "1776057596817190": {
+        "observations": "Straight on: balcony bands along the whole front; nine storeys.",
+        "floors": 9,
+        "gem_material": "CR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LFINF",
+        "alternate_gem_llrs": "LFLSINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1960
+      }
+    },
+    "way/355451060": {
+      "1842480667112816": {
+        "observations": "A red-brick block with cream stone bands and balconies, a balustraded first floor and shops at street level behind trees; regular bays, load-bearing masonry of the 1920s, an early frame possible.",
+        "floors": 8,
+        "gem_material": "MUR",
+        "alternate_gem_material": "CR",
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": "LFINF",
+        "building_type": "apartments",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1925
+      }
+    },
+    "way/965343146": {
+      "2316250482524038": {
+        "observations": "A red-brick palace with stone dressings behind railings and a stone gate pier: balustraded windows; thick walls, load-bearing masonry; partly behind trees.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "public",
+        "alternate_building_type": "house",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    },
+    "way/965450501": {
+      "957259227429167": {
+        "observations": "A brick and stone villa in neo-Mudéjar style: patterned brick, arched windows with stone frames, a balcony and a large carriage door; thick walls with few openings, load-bearing masonry.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "2316250482524038": {
+        "observations": "The side elevation along the street: patterned brick and arched windows; three storeys.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      },
+      "1049660668074436": {
+        "observations": "The corner: the carriage door and a balcony; load-bearing brick.",
+        "floors": 3,
+        "gem_material": "MUR",
+        "alternate_gem_material": null,
+        "gem_llrs": "LWAL",
+        "alternate_gem_llrs": null,
+        "building_type": "house",
+        "alternate_building_type": "office",
+        "surface_material": "brick",
+        "alternate_surface_material": "stone",
+        "construction_year": 1890
+      }
+    }
+  },
   "views": {
     "relation/12480268": [
       "1710662656688478",
@@ -462,5 +3633,36 @@
       "2316250482524038",
       "1049660668074436"
     ]
-  }
+  },
+  "tour": [
+    {
+      "building": "way/116872534",
+      "image": "2131295337467910",
+      "views": [
+        "2131295337467910",
+        "1417051257276719"
+      ]
+    },
+    {
+      "building": "way/117975340",
+      "image": "1859532032080547",
+      "views": [
+        "1859532032080547"
+      ]
+    },
+    {
+      "building": "way/117975323",
+      "image": "1610482870876741",
+      "views": [
+        "1610482870876741"
+      ]
+    },
+    {
+      "building": "way/350528284",
+      "image": "2156727378601532",
+      "views": [
+        "2156727378601532"
+      ]
+    }
+  ]
 }

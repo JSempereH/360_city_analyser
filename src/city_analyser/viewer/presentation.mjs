@@ -402,7 +402,7 @@ export function startPresentation(api, { speed = DEFAULT_SPEED, minScore = 0.03 
     }
     if (!card) return;
     // The reflection across views comes from the fused answer, as in replay.
-    const steps = reasoningScript(card);
+    const steps = reasoningScript(card, building.views ? { maxViews: building.views, imageIds: building.viewImages } : undefined);
     setPhase("reason");
     for (const step of steps.filter((item) => item.type === "floors" || item.type === "structure")) {
       if (skip) break;
@@ -437,7 +437,7 @@ export function startPresentation(api, { speed = DEFAULT_SPEED, minScore = 0.03 
     // The badge stays honest about the source, without interrupting the show.
     hudBadge.textContent = simulated || curated ? "Demo dataset" : card.model ? `Model: ${card.model.replace(/^vlm:/, "")}` : "";
     hudBadge.hidden = !hudBadge.textContent;
-    const steps = reasoningScript(card);
+    const steps = reasoningScript(card, building.views ? { maxViews: building.views, imageIds: building.viewImages } : undefined);
     beginThinking(building.osmId);
     setPhase("walk");
     await working("Loading the building's footprint and evidence...", 1100);

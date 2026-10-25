@@ -46,3 +46,21 @@ test("the tour skips buildings without a clean view and the visit says what was 
     set_aside: [{ why: "the mask is too small to show the facade" }] });
   assert.match(steps[0].text, /One more view was set aside before reading: the mask is too small to show the facade\.$/);
 });
+
+test("a curated route sets the tour's buildings, order and starting panoramas", async () => {
+  const { planTour } = await import("../src/city_analyser/viewer/presentation-script.mjs");
+  const summary = {
+    buildings: { "way/1": { model: true, image: "1" }, "way/2": { model: true, image: "2" }, "way/3": { model: true, image: "3", no_clean_view: true } },
+    tour: [{ building: "way/2", image: "9" }, { building: "way/3" }, { building: "way/1" }],
+  };
+  assert.deepEqual(planTour(summary, ["1", "2", "3", "9"]), [{ osmId: "way/2", image: "9" }, { osmId: "way/1", image: "1" }]);
+});
+
+test("a route stop can name the views it shows, in its order", async () => {
+  const { planTour, reasoningScript } = await import("../src/city_analyser/viewer/presentation-script.mjs");
+  const tour = planTour({ buildings: { "way/1": { model: true, image: "1" } }, tour: [{ building: "way/1", image: "3", views: ["3"] }] }, ["1", "3"]);
+  assert.deepEqual(tour, [{ osmId: "way/1", image: "3", views: 1, viewImages: ["3"] }]);
+  const card = { building: "way/1", attributes: {}, views: [{ image_id: "1", answer: { observations: "Close" } }, { image_id: "3", answer: { observations: "Far" } }] };
+  const steps = reasoningScript(card, { maxViews: 1, imageIds: ["3"] }).filter((step) => step.type === "view");
+  assert.deepEqual(steps.map((step) => step.imageId), ["3"]);
+});

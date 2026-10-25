@@ -30,10 +30,12 @@ test("bold markers become spans and nothing else is interpreted", () => {
   assert.deepEqual(boldSpans("unclosed **bold"), [{ text: "unclosed **bold", bold: false }]);
 });
 
-test("a crop's framing tilts at most 22 degrees up and is wide enough for the storeys", () => {
-  // A crop looks up to 30 degrees with 100 of field; shown like that facades lean back, so the camera looks up gently.
-  assert.deepEqual(framingOf({ yaw_deg: 30, pitch_deg: 40, fov_deg: 100 }), { yawDeg: 30, pitchDeg: -15, fov: 85 });
-  assert.deepEqual(framingOf({ yaw_deg: -10, pitch_deg: -20, fov_deg: 40 }), { yawDeg: -10, pitchDeg: 3, fov: 65 });
+test("a crop's framing tilts at most 15 degrees up and is wide enough for the storeys", () => {
+  // A crop looks up 40 degrees with 100 of field; shown like that facades lean back, so the camera looks up gently
+  // and keeps the crop's width (the viewer's fov is horizontal, so 100 is about 68 vertically on a 16:9 screen).
+  assert.deepEqual(framingOf({ yaw_deg: 30, pitch_deg: 40, fov_deg: 100 }), { yawDeg: 30, pitchDeg: -15, fov: 100 });
+  assert.deepEqual(framingOf({ yaw_deg: 0, pitch_deg: 10, fov_deg: 140 }).fov, 105);
+  assert.deepEqual(framingOf({ yaw_deg: -10, pitch_deg: -20, fov_deg: 40 }), { yawDeg: -10, pitchDeg: 3, fov: 75 });
   assert.equal(framingOf({}), null);
   // On a tilted panorama the crop's direction is turned into the leveled view. Here world up leans toward the
   // image center, so the camera looked 10 degrees up: 5 degrees below the raw center is 5 degrees above the horizon.

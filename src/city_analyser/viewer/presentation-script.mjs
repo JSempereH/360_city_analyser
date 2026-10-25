@@ -13,6 +13,16 @@ import { referenceFor, valueLabel } from "./building-card.mjs";
 const FALLBACK_STOPS = 3;
 
 export function planTour(summary, imageOrder, { minScore = 0 } = {}) {
+  // A curated route wins: its buildings in its order, each from the panorama it names.
+  const route = (summary?.tour || []).filter((stop) => summary.buildings?.[stop.building]?.model && !summary.buildings[stop.building].no_clean_view);
+  // A stop's "views" is how many views are read aloud, or the image ids of the views to show, in order.
+  if (route.length) {
+    return route.map((stop) => ({
+      osmId: stop.building, image: stop.image ? String(stop.image) : String(summary.buildings[stop.building].image || "") || null,
+      ...(Number.isInteger(stop.views) && stop.views > 0 ? { views: stop.views } : {}),
+      ...(Array.isArray(stop.views) && stop.views.length ? { views: stop.views.length, viewImages: stop.views.map(String) } : {}),
+    }));
+  }
   const position = new Map(imageOrder.map((id, index) => [String(id), index]));
   // A building whose every view was set aside has nothing to show: the tour skips it.
   const answered = Object.entries(summary?.buildings || {}).filter(([, entry]) => entry.model && !entry.no_clean_view);
@@ -49,9 +59,13 @@ function setAsideSentence(card) {
   return ` ${views.length === 1 ? "One more view was" : `${views.length} more views were`} set aside before reading: ${reasons.join("; ")}.`;
 }
 
-export function reasoningScript(card, { maxViews = 3 } = {}) {
+export function reasoningScript(card, { maxViews = 3, imageIds = null } = {}) {
   const attributes = card?.attributes || {};
-  const views = (card?.views || []).filter((view) => view.image_id).slice(0, maxViews);
+  // imageIds: the views a curated route shows, in its order (a distant view frames the whole building).
+  const chosen = imageIds?.length
+    ? imageIds.map((id) => (card?.views || []).find((view) => String(view.image_id) === String(id))).filter(Boolean)
+    : (card?.views || []).filter((view) => view.image_id);
+  const views = chosen.slice(0, maxViews);
   const steps = [];
   const label = (code) => valueLabel(code, card);
   steps.push({

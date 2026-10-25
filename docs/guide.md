@@ -235,7 +235,11 @@ make presentation           # serve them; the command prints the URL
 
 `city-analyser-demo <dataset>` prepares a copy of an analyzed dataset (panoramas hard-linked, analyses copied, the original untouched): crops, OSM-tag priors and, for buildings without a real model answer, simulated answers built from the OSM tags, the analyzed height and the building's age and use. They pass through the same fusion and card code as real answers. A dataset surveyed with a real model (`city-analyser-survey`) is presented as it is, with its model named in the HUD; demo answers are marked "Demo dataset".
 
-For a public presentation, `demo/<dataset>.curation.json` holds a reviewed version: mask corrections checked by eye with `tools/mask_review.py --full` (keep a bearing range, trace a roof line, fill or claim views, remove a view), buildings to `exclude`, and per-view `answers` written from the crops (provider `vlm:curated-demo`). `make presentation-data` rebuilds both demo copies from it, matches them to the cadastre and `make presentation` serves them.
+For a public presentation, `demo/<dataset>.curation.json` holds a reviewed version: mask corrections checked by eye with `tools/mask_review.py --full` (keep a bearing range, trace a roof line, fill or claim views, remove a view), buildings to `exclude`, and per-view `answers` written from the crops (provider `vlm:curated-demo`). A curation can also list the approved `views` of each building (crops come only from those) and a `tour`: the route of the presentation, `[{"building", "image", "views": [image ids]}]` in walking order, so a short presentation shows chosen buildings from chosen panoramas. `make presentation-data` rebuilds the demo copies from it (Valencia centro, Madrid centro and Madrid Salesas), matches them to the cadastre for evaluation and `make presentation` serves them. The Salesas route takes about two minutes at `speed=2`:
+
+```
+http://127.0.0.1:8765/viewer/?dataset=madrid-salesas-demo&present=1&live=0&speed=2
+```
 
 With a model configured, the presentation runs **live**: the model analyzes each building as the camera reaches it, and the field notes on screen are its own, generated then. Without one, or with `live=0`, it replays the saved answers.
 

@@ -160,13 +160,18 @@ def _review_reason(card: dict[str, Any]) -> tuple[str | None, float]:
 
 
 def attributes_signature(dataset_dir: Path) -> str:
-    """Changes whenever an attribute file is written or removed; cheap enough to check on every request."""
+    """Changes whenever an attribute file, a set-aside list or the demo route changes; cheap enough to check on every request."""
     entries = []
     for directory, _, files in os.walk(dataset_dir / "attributes"):
         for name in files:
             if name.endswith(".json"):
                 stat = os.stat(os.path.join(directory, name))
                 entries.append(f"{directory}/{name}:{stat.st_mtime_ns}:{stat.st_size}")
+    # The crops' set-aside lists and the demo route are part of the summary too.
+    for path in (*(dataset_dir / "crops").rglob("set-aside.json"), dataset_dir / "tour.json"):
+        if path.is_file():
+            stat = path.stat()
+            entries.append(f"{path}:{stat.st_mtime_ns}:{stat.st_size}")
     return str(hash("\n".join(sorted(entries))))
 
 
@@ -209,4 +214,14 @@ def attribute_summary(dataset_dir: Path, dataset_id: str) -> dict[str, Any]:
         "set_aside": sum(entry["set_aside"] > 0 for entry in buildings.values()),
         "no_clean_view": sum(entry["no_clean_view"] for entry in buildings.values()),
     }
-    return {"dataset": dataset_id, "buildings": buildings, "counts": counts}
+    summary = {"dataset": dataset_id, "buildings": buildings, "counts": counts}
+    # A curated demo's presentation route: [{"building", "image"}], in walking order (city_analyser.demo).
+    tour_path = dataset_dir / "tour.json"
+    if tour_path.is_file():
+        try:
+            tour = json.loads(tour_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            tour = None
+        if isinstance(tour, list):
+            summary["tour"] = [stop for stop in tour if isinstance(stop, dict) and stop.get("building") in buildings]
+    return summary

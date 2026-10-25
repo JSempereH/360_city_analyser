@@ -369,6 +369,14 @@ def prepare_demo(data_root: Path, dataset_id: str, *, per_building: int = 3, for
         removed = apply_mask_curation(dataset_dir, small_views(dataset_dir, int(curation["min_view_pixels"])))
         log(f"  mask: {len(removed)} views under {curation['min_view_pixels']} pixels removed")
     excluded = set(curation.get("exclude", []))
+    # "tour": the presentation's route, [{"building", "image"}] in walking order; without it the tour follows the panoramas.
+    tour_path = dataset_dir / "tour.json"
+    if curation.get("tour"):
+        from .analysis_cache import atomic_write_bytes
+
+        atomic_write_bytes(tour_path, (json.dumps(curation["tour"], indent=2) + "\n").encode("utf-8"))
+    else:
+        tour_path.unlink(missing_ok=True)
     curated = curation.get("answers", {})
     buildings = analyzed_building_ids(dataset_dir)
     if not buildings:

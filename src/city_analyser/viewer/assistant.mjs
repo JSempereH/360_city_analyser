@@ -79,11 +79,12 @@ export function boldSpans(text) {
 // How far up a framing may look, and its field of view. A crop frames the whole facade (up to 30 degrees
 // up with 100 degrees of field); shown like that, verticals converge and buildings seem to lean back.
 export const FRAMING_MAX_UP_DEG = 15;
-export const FRAMING_FOV_DEG = [65, 85];
+export const FRAMING_FOV_DEG = [75, 105];
 
 /**
  * Camera framing for a crop's view `{ yaw_deg, pitch_deg, fov_deg }`, as a person on the pavement looks at a
- * facade: its direction, a gentle upward tilt and a moderate field of view. Null without a direction.
+ * facade: its direction, a gentle upward tilt and a field of view wide enough for the whole facade (the viewer's fov
+ * is horizontal: 105 degrees on a 16:9 screen is about 72 vertically). Null without a direction.
  * `level` (navigation.mjs levelMatrix of the panorama) turns the crop's direction, measured in the raw
  * panorama, into the leveled view the viewer shows. The renderer's pitch is positive down, hence the sign.
  */
@@ -104,6 +105,6 @@ export function framingOf(view, level = null) {
   return {
     yawDeg: round(yawDeg),
     pitchDeg: round(-Math.max(-3, Math.min(FRAMING_MAX_UP_DEG, upDeg))),
-    fov: round(Math.max(FRAMING_FOV_DEG[0], Math.min(FRAMING_FOV_DEG[1], (view.fov_deg || 70) * 0.85))),
+    fov: round(Math.max(FRAMING_FOV_DEG[0], Math.min(FRAMING_FOV_DEG[1], (view.fov_deg || 70)))),
   };
 }
