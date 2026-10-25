@@ -34,6 +34,7 @@ extra_css:
 nav:
   - Home: index.md
   - User guide: guide.md
+  - Demo day: demo-day.md
   - Remote inference: remote-inference.md
   - Architecture: architecture.md
   - Footprint corrections: footprint-corrections.md

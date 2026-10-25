@@ -444,18 +444,26 @@ def _cell_buildings(latitude_cell: int, longitude_cell: int) -> tuple[dict[str, 
     """
     directory = _osm_cache_directory()
     cache_path = directory / f"{latitude_cell}_{longitude_cell}.json" if directory is not None else None
+    stale: tuple[dict[str, Any], ...] | None = None
     if cache_path is not None:
         try:
             cached = json.loads(cache_path.read_text(encoding="utf-8"))
-            fresh = time.time() - cache_path.stat().st_mtime <= _osm_cache_max_age_seconds()
-            if fresh and isinstance(cached, dict) and cached.get("version") == OSM_CACHE_VERSION and isinstance(cached.get("features"), list):
-                return tuple(cached["features"])
+            if isinstance(cached, dict) and cached.get("version") == OSM_CACHE_VERSION and isinstance(cached.get("features"), list):
+                if time.time() - cache_path.stat().st_mtime <= _osm_cache_max_age_seconds():
+                    return tuple(cached["features"])
+                stale = tuple(cached["features"])
         except (OSError, json.JSONDecodeError):
             pass
     center_latitude = (latitude_cell + 0.5) * OSM_CELL_DEGREES
     center_longitude = (longitude_cell + 0.5) * OSM_CELL_DEGREES
     half_diagonal_m = math.hypot(1.0, math.cos(math.radians(center_latitude))) * OSM_CELL_DEGREES / 2 * math.pi / 180 * EARTH_RADIUS_M
-    features = _download_buildings(round(center_latitude, 6), round(center_longitude, 6), OSM_QUERY_RADIUS_M + half_diagonal_m)
+    try:
+        features = _download_buildings(round(center_latitude, 6), round(center_longitude, 6), OSM_QUERY_RADIUS_M + half_diagonal_m)
+    except RuntimeError:
+        # Without a network an expired snapshot is still the best answer (and the one the analyses used).
+        if stale is not None:
+            return stale
+        raise
     if cache_path is not None:
         try:
             atomic_write_bytes(cache_path, json.dumps({

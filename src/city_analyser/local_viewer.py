@@ -31,6 +31,7 @@ from .building_inspection import BuildingEvidenceNotFound, build_and_persist_rep
 from .mapillary_street_download import MAPILLARY_IMAGE_FIELDS, MAPILLARY_IMAGE_SIZES, available_image_url, download_image, fetch_image, fetch_images, image_record, load_dotenv, point_from_image, write_manifest
 from .multi_view_analysis import fuse_nearby_analyses, has_valid_heading, load_nearby_analysis, nearby_analysis_path, nearby_panoramas, panorama_coordinates
 from .sfm_refinement import load_sfm_refinement, refine_nearby_poses, sfm_path
+from .tile_cache import TILE_PATH, tile
 
 # Static viewer files ship inside the package.
 VIEWER_ROOT = Path(__file__).resolve().parent / "viewer"
@@ -738,6 +739,19 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/viewer/":
             self.serve_file(server.viewer_root, "index.html", cache_control="no-cache")
+            return
+        tile_match = TILE_PATH.fullmatch(path)
+        if tile_match:
+            content = tile(server.data_root, *(int(part) for part in tile_match.groups()))
+            if content is None:
+                self.send_error(HTTPStatus.NOT_FOUND, "Tile not cached and not reachable")
+                return
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Cache-Control", "max-age=86400")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
             return
         if path.startswith("/viewer/"):
             self.serve_file(server.viewer_root, unquote(path.removeprefix("/viewer/")), cache_control="no-cache")

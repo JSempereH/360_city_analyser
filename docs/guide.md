@@ -245,6 +245,8 @@ With a model configured, the presentation runs **live**: the model analyzes each
 
 URL options, kept while the presentation runs: `speed=2` (pace; the default 1.5 keeps a building to about 40 seconds, and 1 reads at about 330 words a minute), `min-score=0.03` (leave out buildings whose best view shows only a sliver of facade; a higher value gives a shorter tour), `then=other-demo,third-demo` (continue with other datasets after each walk), `live=0` (replay even with a model configured), `references=1` (evaluation mode, below).
 
+**Without a network.** Leaflet is served from the viewer itself, map tiles go through `/tiles/`, which keeps every tile it fetches under `data/.tile-cache/` (`CITY_ANALYSER_TILE_CACHE_DIR`), and OSM footprints use their disk snapshot, even an expired one, when no Overpass server answers. With `CITY_ANALYSER_OFFLINE=1` (`make presentation-offline`) nothing is fetched: a tile never seen is left blank. See [Demo day](demo-day.md).
+
 **Evaluation mode.** The analysis and the model never read reference data, and most cities have no cadastre, so by default the viewer does not show it either. With `references=1` in the viewer URL (with or without `present=1`), the building card adds the cadastre's value next to each answer (marked when they differ) and the parcel with a link to its page, and the presentation's Check phase compares the record with it. Use it to evaluate, not to present the tool.
 
 ## From Colab (or any GPU machine) to the viewer

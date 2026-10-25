@@ -45,7 +45,7 @@ function viewObstructionDistance(latitude, longitude, heading) {
 function initializeMap() {
   if (map) return;
   map = window.L.map(elements.map, { scrollWheelZoom: true, zoomControl: true });
-  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  window.L.tileLayer("/tiles/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors",
     maxZoom: 19,
   }).addTo(map);

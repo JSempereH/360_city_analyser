@@ -321,6 +321,8 @@ let presentationRevealed = null;
 // What the presentation colors the map by; the viewer's saved choice is left alone.
 let presentationColorMode = "gem_material";
 let presentationRestore = null;
+// The layers a presentation shows, whatever the viewer had on.
+const PRESENTATION_LAYERS = { masks: true, vegetation: true, instances: false, coverage: false, footprints: true };
 const LAYER_DEFAULTS = { masks: true, vegetation: true, instances: false, footprints: true, captures: true, view: true, diagnostics: true, coverage: false };
 const LAYERS_KEY = "viewer-layers";
 const layers = { ...LAYER_DEFAULTS, ...storedLayers() };
@@ -1060,7 +1062,7 @@ function mapCacheKey(coordinates) {
 function initializeMap() {
   if (locationMap) return;
   locationMap = window.L.map(elements.mapCanvas, { scrollWheelZoom: true, zoomControl: true });
-  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  window.L.tileLayer("/tiles/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors",
     maxZoom: 19,
   }).addTo(locationMap);
@@ -1082,7 +1084,7 @@ function initializeMap() {
 function initializeMapillaryAoiMap() {
   if (mapillaryAoiMap) return;
   mapillaryAoiMap = window.L.map(elements.mapillaryAoiMap, { scrollWheelZoom: true, zoomControl: true }).setView([20, 0], 2);
-  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  window.L.tileLayer("/tiles/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors",
     maxZoom: 19,
   }).addTo(mapillaryAoiMap);
@@ -2066,7 +2068,12 @@ function startPresentationMode() {
     },
     // The survey runs inside the normal viewer: only the building card and status line make room.
     enter: () => {
-      presentationRestore = { map: !elements.mapPanel.hidden };
+      presentationRestore = { map: !elements.mapPanel.hidden, layers: { ...layers } };
+      // The audience sees the building masks the survey uses, not the raw detector output or diagnostics;
+      // the reviewer's own layer choice comes back on exit.
+      for (const [name, visible] of Object.entries(PRESENTATION_LAYERS)) {
+        if (layers[name] !== visible) setLayer(name, visible, false);
+      }
       presentationRevealed = new Set();
       presentationColorMode = "gem_material";
       elements.appShell.classList.add("presenting");
@@ -2084,7 +2091,12 @@ function startPresentationMode() {
       elements.appShell.classList.remove("presenting");
       elements.presentationButton.setAttribute("aria-pressed", "false");
       elements.presentationButton.querySelector("span").textContent = "Run survey";
-      if (presentationRestore) setMapPanelVisible(presentationRestore.map, false);
+      if (presentationRestore) {
+        setMapPanelVisible(presentationRestore.map, false);
+        for (const [name, visible] of Object.entries(presentationRestore.layers || {})) {
+          if (layers[name] !== visible) setLayer(name, visible, false);
+        }
+      }
       refreshBuildingStyles();
       renderMapLegend();
       syncViewerUrl();
@@ -2123,10 +2135,10 @@ function updateMaskToggle() {
   elements.layerInputs.forEach((input) => { input.checked = layers[input.dataset.layer]; });
 }
 
-function setLayer(name, visible) {
+function setLayer(name, visible, remember = true) {
   layers[name] = visible;
   try {
-    window.localStorage.setItem(LAYERS_KEY, JSON.stringify(layers));
+    if (remember) window.localStorage.setItem(LAYERS_KEY, JSON.stringify(layers));
   } catch {
     // Private windows may refuse storage; layers still work for this page.
   }
