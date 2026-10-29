@@ -15,6 +15,12 @@ prints the settings to start the viewer with.
 curation (``tour.json``, ``curation.json``), the cadastre match (``groundtruth/``,
 shown only in evaluation mode), the panoramas, and the OSM footprints and map
 tiles of its area, so it plays offline exactly as it was reviewed.
+
+``share`` packs one or more analyzed datasets for a colleague who has only a
+clone of the repository: the archive is unpacked into the checkout as it is
+(``data/<dataset>/`` and the area's caches, nothing to import), and carries a
+generated ``HOW-TO-VIEW.md`` with the command, settings and addresses to open
+each dataset, offline included.
 """
 
 from __future__ import annotations
@@ -129,6 +135,156 @@ def import_results(archive_path: Path, data_root: Path, name: str | None = None)
             "images_present": images.is_dir() and any(images.iterdir())}
 
 
+# What ``share`` carries of a dataset: everything a viewer reads, nothing a local workflow keeps for itself.
+SHARE_FILES = (*FILES, *DEMO_FILES, "mask-quality.json")
+SHARE_FOLDERS = (*FOLDERS, *DEMO_FOLDERS)
+SHARE_README = "HOW-TO-VIEW.md"
+# Analysis configuration keys and the environment variables that set them (building_analysis.analysis_configuration).
+CONFIGURATION_VARIABLES = {
+    "requested_model": "BUILDING_ANALYSIS_MODEL", "requested_model_revision": "BUILDING_ANALYSIS_MODEL_REVISION",
+    "tile_size": "BUILDING_ANALYSIS_TILE_SIZE", "minimum_confidence": "BUILDING_ANALYSIS_MIN_CONFIDENCE",
+}
+
+
+def _analysis_files(dataset_dir: Path) -> list[Path]:
+    from .building_analysis import panorama_analysis_files
+
+    return panorama_analysis_files(dataset_dir)
+
+
+def recorded_settings(dataset_dir: Path) -> dict[str, str]:
+    """The BUILDING_ANALYSIS_* settings a dataset was analyzed with, read from its analyses (they must agree)."""
+    configurations = {json.dumps(json.loads(path.read_text(encoding="utf-8")).get("analysis_configuration"), sort_keys=True)
+                      for path in _analysis_files(dataset_dir)}
+    if not configurations:
+        raise ValueError(f"{dataset_dir.name} has no analysis to share")
+    if len(configurations) > 1:
+        raise ValueError(f"{dataset_dir.name} mixes analyses made with different settings; analyze it again first")
+    configuration = json.loads(configurations.pop()) or {}
+    return {variable: str(configuration[key]) for key, variable in CONFIGURATION_VARIABLES.items()
+            if configuration.get(key) not in (None, "")}
+
+
+def _settings_reproduce(dataset_dir: Path, settings: dict[str, str]) -> bool:
+    """Whether a viewer started with only ``settings`` sees the dataset's analyses as current (other variables at default)."""
+    from unittest.mock import patch
+
+    from .building_analysis import analysis_configuration
+
+    stored = json.loads(_analysis_files(dataset_dir)[0].read_text(encoding="utf-8")).get("analysis_configuration")
+    clean = {name: value for name, value in os.environ.items() if not name.startswith("BUILDING_ANALYSIS_")}
+    with patch.dict(os.environ, {**clean, **settings}, clear=True):
+        return analysis_configuration() == stored
+
+
+def _tile_bounds(z: int, x: int, y: int) -> tuple[float, float, float, float]:
+    import math
+
+    def latitude(row: int) -> float:
+        return math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * row / 2**z))))
+
+    return x / 2**z * 360 - 180, latitude(y + 1), (x + 1) / 2**z * 360 - 180, latitude(y)
+
+
+def _area(dataset_dir: Path, margin_deg: float = 0.003) -> tuple[float, float, float, float]:
+    from .multi_view_analysis import panorama_coordinates
+
+    points = [panorama_coordinates(image) for image in json.loads((dataset_dir / "manifest.json").read_text(encoding="utf-8")).get("images", [])
+              if isinstance(image, dict)]
+    points = [point for point in points if point]
+    if not points:
+        raise ValueError(f"{dataset_dir.name} has no located panorama")
+    longitudes, latitudes = [point[0] for point in points], [point[1] for point in points]
+    return min(longitudes) - margin_deg, min(latitudes) - margin_deg, max(longitudes) + margin_deg, max(latitudes) + margin_deg
+
+
+def _view_guide(entries: list[dict[str, Any]], archive_name: str) -> str:
+    """HOW-TO-VIEW.md for whoever receives the archive: install, unpack, start, open."""
+    settings = entries[0]["settings"]
+    same = all(entry["settings"] == settings for entry in entries)
+    def command(values: dict[str, str]) -> str:
+        return " ".join(f"{name}={value}" for name, value in values.items())
+    def powershell(values: dict[str, str]) -> str:
+        return "; ".join(f'$env:{name}="{value}"' for name, value in values.items())
+    lines = [
+        "# How to view these results", "",
+        f"This archive holds the analysis results of {', '.join(f'`{entry['dataset']}`' for entry in entries)} for 360 City Analyser: "
+        "panoramas, building masks, crops and the AI's answers for each building. Viewing them needs no GPU, no AI model, "
+        "no Mapillary account and, once unpacked, no network.", "",
+        "## 1. Install (once)", "",
+        "You need [Git](https://git-scm.com/downloads) and [uv](https://docs.astral.sh/uv/getting-started/installation/) (Linux, macOS or Windows).", "",
+        "```bash", "git clone https://github.com/JSempereH/360_city_analyser.git", "cd 360_city_analyser", "uv sync", "```", "",
+        "`uv sync` installs the base dependencies only; the GPU extras are not needed.", "",
+        "## 2. Unpack this archive (once)", "",
+        "Extract it **into the `360_city_analyser` folder**, so that a `data` folder appears next to `README.md`. On Linux or macOS:", "",
+        "```bash", f"unzip /path/to/{archive_name} -d /path/to/360_city_analyser", "```", "",
+        "On Windows: right-click the archive, \"Extract All...\", and choose the `360_city_analyser` folder.", "",
+        "## 3. Start the viewer", "",
+        "From the `360_city_analyser` folder (these settings are the ones the panoramas were analyzed with; "
+        "with other ones the viewer treats the analyses as out of date):", "",
+    ]
+    groups = [entries] if same else [[entry] for entry in entries]
+    for group in groups:
+        values = {**group[0]["settings"], "CITY_ANALYSER_OFFLINE": "1"}
+        if not same:
+            lines.append(f"For `{group[0]['dataset']}`:")
+            lines.append("")
+        lines += ["```bash", f"{command(values)} uv run city-analyser-viewer", "```", "",
+                  f"Windows PowerShell: `{powershell(values)}; uv run city-analyser-viewer`", ""]
+    lines += ["`CITY_ANALYSER_OFFLINE=1` keeps the viewer off the network; leave it out to let the map fetch tiles the archive does not carry. "
+              "Leave the terminal open while you use the viewer.", "", "## 4. Open", "", "In Chrome or Firefox:", ""]
+    for entry in entries:
+        base = f"http://127.0.0.1:8765/viewer/?dataset={entry['dataset']}"
+        lines.append(f"- `{entry['dataset']}` ({entry['buildings']} buildings described): {base}")
+        if entry["buildings"]:
+            lines.append(f"  - as a presentation that walks the buildings by itself: {base}&present=1&live=0&speed=2")
+    lines += ["", "In the viewer, click a building in the panorama or on the map to see its card: the GEM v3 record "
+              "(material / lateral load-resisting system / height), each attribute with its source, and the AI's notes per view. "
+              "Press `?` for the keyboard shortcuts; in a presentation, Space pauses, the right arrow skips ahead, "
+              "H hides the notes, F hides the side columns and Esc leaves it.", ""]
+    return "\n".join(lines)
+
+
+def share_results(data_root: Path, dataset_ids: list[str], output: Path) -> dict[str, Any]:
+    """An archive to unpack into another checkout as it is: ``data/<dataset>/`` for each dataset, the OSM footprints and
+    map tiles of their areas, and HOW-TO-VIEW.md."""
+    entries, files, cells, areas = [], [], set(), []
+    for dataset_id in dataset_ids:
+        dataset_dir = data_root / dataset_id
+        if not (dataset_dir / "manifest.json").is_file():
+            raise ValueError(f"no dataset at {dataset_dir}")
+        settings = recorded_settings(dataset_dir)
+        if not _settings_reproduce(dataset_dir, settings):
+            raise ValueError(f"{dataset_id} was analyzed with settings beyond {', '.join(sorted(settings))} "
+                             "(for example the instance detector's); they cannot be written in the instructions")
+        names = [dataset_dir / name for name in SHARE_FILES if (dataset_dir / name).is_file()]
+        for folder in SHARE_FOLDERS:
+            names.extend(path for path in sorted((dataset_dir / folder).rglob("*")) if path.is_file() and not path.name.endswith(".importing"))
+        files.extend(names)
+        cells |= _area_cells(dataset_dir)
+        areas.append(_area(dataset_dir))
+        described = {path.parent for path in (dataset_dir / "attributes").rglob("attributes-vlm_*.json")}
+        entries.append({"dataset": dataset_id, "settings": settings, "buildings": len(described)})
+    osm = data_root / CACHE_FOLDERS["osm"]
+    caches = [path for path in sorted(osm.glob("*.json")) if path.stem in cells]
+    tiles = data_root / CACHE_FOLDERS["tiles"]
+    for path in sorted(tiles.rglob("*.png")):
+        try:
+            z, x, y = int(path.parent.parent.name), int(path.parent.name), int(path.stem)
+        except ValueError:
+            continue
+        west, south, east, north = _tile_bounds(z, x, y)
+        if any(west <= area[2] and east >= area[0] and south <= area[3] and north >= area[1] for area in areas):
+            caches.append(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(SHARE_README, _view_guide(entries, output.name))
+        for path in (*files, *caches):
+            compress = zipfile.ZIP_STORED if path.suffix.lower() in {".jpg", ".jpeg", ".png"} else zipfile.ZIP_DEFLATED
+            archive.write(path, PurePosixPath("data", path.relative_to(data_root).as_posix()).as_posix(), compress_type=compress)
+    return {"datasets": entries, "files": len(files), "cached_files": len(caches), "output": str(output)}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Move a survey's results between machines, e.g. from Colab to the viewer on a laptop.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -139,12 +295,25 @@ def main() -> None:
     export.add_argument("--with-images", action="store_true", help="include the panoramas (needed when the target machine does not have them)")
     export.add_argument("--demo", action="store_true", help="a presentation copy for another machine: also its route, curation, reference data, "
                         "panoramas and the OSM footprints and map tiles of its area")
+    shared = commands.add_parser("share", help="pack analyzed datasets for a colleague: unzip into a checkout and open, with a generated HOW-TO-VIEW.md")
+    shared.add_argument("datasets", nargs="+", help="dataset names under --data-root")
+    shared.add_argument("--output", type=Path, required=True, help="the zip to write")
+    shared.add_argument("--data-root", type=Path, default=Path("data"))
     imported = commands.add_parser("import", help="unpack a results zip into data/, keeping local reviews")
     imported.add_argument("archive", type=Path)
     imported.add_argument("--data-root", type=Path, default=Path("data"))
     imported.add_argument("--name", help="dataset name on this machine (default: the exported one)")
     args = parser.parse_args()
     try:
+        if args.command == "share":
+            summary = share_results(args.data_root, args.datasets, args.output)
+            for entry in summary["datasets"]:
+                print(f"{entry['dataset']}: {entry['buildings']} buildings described, analyzed with "
+                      f"{' '.join(f'{name}={value}' for name, value in entry['settings'].items())}")
+            size = args.output.stat().st_size / 2**20
+            print(f"{args.output}: {summary['files']} files and {summary['cached_files']} cached footprints and map tiles, {size:.0f} MiB. "
+                  f"Share it with the instructions inside ({SHARE_README}).")
+            return
         if args.command == "export":
             summary = export_results(args.data_root, args.dataset, args.output, with_images=args.with_images, demo=args.demo)
             print(f"{args.output}: {summary['files']} files, {summary['attributes']} attribute files of {args.dataset}")

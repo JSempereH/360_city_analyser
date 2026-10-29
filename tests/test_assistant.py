@@ -6,6 +6,8 @@ import threading
 import unittest
 import urllib.request
 import zipfile
+
+from city_analyser.building_analysis import load_analysis
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
@@ -220,6 +222,36 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue((other / ".osm-cache" / f"{cell}.json").is_file())
         self.assertFalse((other / ".osm-cache" / "1_1.json").exists())
         self.assertTrue((other / ".tile-cache" / "17" / "1" / "2.png").is_file())
+
+    def test_shared_results_unpack_into_another_checkout_with_their_viewing_guide(self):
+        from city_analyser.demo import prepare_demo
+        from city_analyser.results import share_results
+
+        data = self.root / "data"
+        prepare_demo(data, fixture.DATASET, log=lambda _: None)
+        (data / ".tile-cache" / "0" / "0").mkdir(parents=True)
+        (data / ".tile-cache" / "0" / "0" / "0.png").write_bytes(b"\x89PNG")  # the whole world: inside every area
+        (data / ".tile-cache" / "18" / "0").mkdir(parents=True)
+        (data / ".tile-cache" / "18" / "0" / "0.png").write_bytes(b"\x89PNG")  # far away: not carried
+        archive = self.root / "share.zip"
+        summary = share_results(data, [fixture.DATASET], archive)
+        self.assertGreater(summary["datasets"][0]["buildings"], 0)
+        self.assertEqual(summary["datasets"][0]["settings"]["BUILDING_ANALYSIS_MODEL"], "b0")
+        with zipfile.ZipFile(archive) as handle:
+            names = handle.namelist()
+            guide = handle.read("HOW-TO-VIEW.md").decode()
+        self.assertIn(f"data/{fixture.DATASET}/manifest.json", names)
+        self.assertIn("data/.tile-cache/0/0/0.png", names)
+        self.assertNotIn("data/.tile-cache/18/0/0.png", names)
+        self.assertTrue(all(name == "HOW-TO-VIEW.md" or name.startswith("data/") for name in names))
+        self.assertIn("BUILDING_ANALYSIS_MODEL=b0", guide)
+        self.assertIn(f"dataset={fixture.DATASET}&present=1", guide)
+        # Unpacked as it is into another checkout, the viewer reads the analyses as current.
+        other = self.root / "checkout"
+        with zipfile.ZipFile(archive) as handle:
+            handle.extractall(other)
+        image = json.loads((other / "data" / fixture.DATASET / "manifest.json").read_text())["images"][0]
+        self.assertIsNotNone(load_analysis(other / "data", fixture.DATASET, str(image["id"]), image))
 
     def test_the_viewer_analyzes_and_chats_in_real_time(self):
         from city_analyser.demo import prepare_demo

@@ -249,6 +249,16 @@ URL options, kept while the presentation runs: `speed=2` (pace; the default 1.5 
 
 **Evaluation mode.** The analysis and the model never read reference data, and most cities have no cadastre, so by default the viewer does not show it either. With `references=1` in the viewer URL (with or without `present=1`), the building card adds the cadastre's value next to each answer (marked when they differ) and the parcel with a link to its page, and the presentation's Check phase compares the record with it. Use it to evaluate, not to present the tool.
 
+## Share results with a colleague
+
+To let someone else browse analyzed datasets and their AI answers, or show them as a presentation, without a GPU or a Mapillary account:
+
+```bash
+uv run city-analyser-results share my-dataset [other-dataset ...] --output my-results.zip
+```
+
+The archive holds `data/<dataset>/` for each dataset (panoramas, analyses, masks, crops, answers, reviews, and a presentation route if there is one), the OSM footprints and map tiles of their areas from the local caches, and a generated `HOW-TO-VIEW.md` in English with every step for the recipient: clone the repository, `uv sync`, unpack the archive into the checkout, and start the viewer with the analysis settings read from the analyses themselves (`CITY_ANALYSER_OFFLINE=1` included, so it works without a network), plus the address of each dataset. It refuses datasets whose analyses mix settings, or were made with settings it cannot write down. Map tiles are only those already seen on this machine; open each dataset once with a network before sharing it if the recipient will be offline.
+
 ## From Colab (or any GPU machine) to the viewer
 
 Run the survey where there is a GPU, then bring the results to the viewer on your laptop:
