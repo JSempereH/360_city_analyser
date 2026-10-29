@@ -1,4 +1,4 @@
-.PHONY: viewer models test e2e lint worker-image evaluate demo-gif docs docs-build presentation-data presentation presentation-offline
+.PHONY: viewer models test e2e lint worker-image evaluate demo-gif docs docs-build presentation-data presentation presentation-offline demo-bundle
 
 # Override on CPU-only machines: make viewer TORCH=cpu
 TORCH ?= cu126
@@ -68,6 +68,11 @@ presentation:
 	@echo "Open http://127.0.0.1:8765/viewer/?dataset=madrid-salesas-demo&present=1&live=0&speed=2 (press F for full screen)"
 	@echo "Longer tour: http://127.0.0.1:8765/viewer/?dataset=valencia-centro-demo&present=1&then=madrid-centro-demo"
 	$(PRESENTATION_ENV) uv run city-analyser-viewer
+
+# One zip with everything another machine needs to play the Madrid Salesas demo offline (about 430 MB):
+# panoramas, analyses, crops, answers, route, curation, and the OSM footprints and map tiles of the area.
+demo-bundle:
+	$(PRESENTATION_ENV) uv run city-analyser-results export madrid-salesas-demo madrid-salesas-demo-bundle.zip --demo
 
 # The same, with no network at all: map tiles, footprints and libraries come from the local caches.
 presentation-offline:

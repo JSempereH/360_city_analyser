@@ -191,6 +191,36 @@ class WorkspaceTests(unittest.TestCase):
             import_results(bad, self.root / "data")
         self.assertFalse((self.root / "escape.txt").exists())
 
+    def test_a_demo_bundle_carries_route_curation_references_and_area_caches(self):
+        data = self.root / "data"
+        (self.dataset_dir / "tour.json").write_text('[{"building": "way/101"}]')
+        (self.dataset_dir / "groundtruth").mkdir(exist_ok=True)
+        (self.dataset_dir / "groundtruth" / "catastro.json").write_text('{"buildings": {}}')
+        from city_analyser.results import _area_cells
+
+        cell = sorted(_area_cells(self.dataset_dir))[0]
+        (data / ".osm-cache").mkdir(exist_ok=True)
+        (data / ".osm-cache" / f"{cell}.json").write_text("{}")
+        (data / ".osm-cache" / "1_1.json").write_text("{}")  # another city: not carried
+        (data / ".tile-cache" / "17" / "1").mkdir(parents=True)
+        (data / ".tile-cache" / "17" / "1" / "2.png").write_bytes(b"\x89PNG")
+        archive = self.root / "demo.zip"
+        summary = export_results(data, fixture.DATASET, archive, demo=True)
+        self.assertTrue(summary["demo"])
+        with zipfile.ZipFile(archive) as handle:
+            cached = sorted(name for name in handle.namelist() if name.startswith("_caches/"))
+        self.assertIn(f"_caches/osm/{cell}.json", cached)
+        self.assertIn("_caches/tiles/17/1/2.png", cached)
+        self.assertNotIn("_caches/osm/1_1.json", cached)
+        other = self.root / "elsewhere"
+        result = import_results(archive, other)
+        imported = other / fixture.DATASET
+        self.assertTrue(result["images_present"])
+        self.assertTrue((imported / "tour.json").is_file() and (imported / "groundtruth" / "catastro.json").is_file())
+        self.assertTrue((other / ".osm-cache" / f"{cell}.json").is_file())
+        self.assertFalse((other / ".osm-cache" / "1_1.json").exists())
+        self.assertTrue((other / ".tile-cache" / "17" / "1" / "2.png").is_file())
+
     def test_the_viewer_analyzes_and_chats_in_real_time(self):
         from city_analyser.demo import prepare_demo
         from city_analyser.local_viewer import ViewerServer

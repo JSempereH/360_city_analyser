@@ -10,3 +10,6 @@ docs/*.webm
 site/
 video/node_modules/
 video/out/
+# Results and demo bundles carry data, which never goes into git.
+*.zip
+analysis-report-*.json

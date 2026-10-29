@@ -3057,7 +3057,7 @@ async function loadSfmRefinement(image) {
   elements.refineNearbyPosesButton.textContent = refineNearbyPosesButtonLabel();
   try {
     const response = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/analysis/${encodeURIComponent(image.id)}/sfm`);
-    if (requestId !== sfmRequest || requestedDataset !== datasetId || images[currentIndex]?.id !== requestedImageId || response.status === 404) return;
+    if (requestId !== sfmRequest || requestedDataset !== datasetId || images[currentIndex]?.id !== requestedImageId || response.status === 204 || response.status === 404) return;
     if (!response.ok) throw new Error(`Pose refinement unavailable (${response.status}).`);
     const refinement = await response.json();
     if (requestId !== sfmRequest || requestedDataset !== datasetId || images[currentIndex]?.id !== requestedImageId) return;

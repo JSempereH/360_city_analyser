@@ -1,13 +1,29 @@
 # Demo day
 
-A checklist for showing the presentation to an audience. It replays saved answers (no model, no GPU) and needs no network once the rehearsal below has been run on the same laptop.
+A checklist for showing the presentation to an audience. It replays saved answers (no model, no GPU) and needs no network.
+
+## Presenting on another machine
+
+The repository holds the code and the curations, not the data (`data/` is not in git): a fresh clone cannot rebuild the exact demo without downloading the panoramas again and analyzing them on a GPU, and an analysis made elsewhere can differ slightly from the one that was reviewed. So the demo travels as one zip.
+
+**Who prepared the demo** runs `make demo-bundle` and shares `madrid-salesas-demo-bundle.zip` (about 430 MB) by a file link. It holds the panoramas, analyses, crops, the answers of every building, the route, the curation, and the OSM footprints and map tiles of the area.
+
+**Who presents it** needs Git and [uv](https://docs.astral.sh/uv/) (Linux, macOS or Windows; no GPU, no PyTorch, no Mapillary token):
+
+```bash
+git clone https://github.com/JSempereH/360_city_analyser.git
+cd 360_city_analyser
+uv sync                     # the base dependencies only, about 500 MB
+uv run city-analyser-results import /path/to/madrid-salesas-demo-bundle.zip
+make presentation-offline   # without make: CITY_ANALYSER_OFFLINE=1 BUILDING_ANALYSIS_MODEL=balanced BUILDING_ANALYSIS_TILE_SIZE=384 uv run city-analyser-viewer
+```
+
+Do not run `make presentation-data` on that machine: it rebuilds the demos from the source datasets, which the bundle does not carry.
 
 ## The day before
 
-1. `git pull` and `uv sync --extra cpu`.
-2. `make presentation-data` rebuilds the three demo copies (Valencia centro, Madrid centro, Madrid Salesas). It takes a few minutes and uses under 1 GB of RAM.
-3. Rehearse once **with** a network: `make presentation`, open the address it prints and let the walk run to the end. This fills the map tile cache (`data/.tile-cache/`) for the area shown.
-4. Rehearse once **without** one: disconnect, `make presentation-offline`, and check that the map, the masks and the summary all appear.
+1. On the machine that will present: import the latest bundle as above (it replaces the previous copy), or, on the machine where the demo was made, `git pull` and `make presentation-data`.
+2. Rehearse once **without** a network: disconnect, `make presentation-offline`, and check that the map, the masks and the summary all appear.
 
 ## On the day
 
@@ -28,7 +44,7 @@ A checklist for showing the presentation to an audience. It replays saved answer
 
 ## If something goes wrong
 
-- **A gray map:** the tiles of that area were never seen with a network. The walk still works; rehearse once online to fill the cache.
+- **A gray map:** the tiles of that area are not in the cache (only the ones viewed while the bundle was made are). The walk still works; with a network, `make presentation` fetches and keeps them.
 - **No masks or a stalled walk:** reload the page; the presentation resumes from the address.
 - **Out of memory:** close the browser tabs and other programs and reload.
 - **Detected-building colors or other diagnostic layers:** the presentation hides them and restores them on exit.

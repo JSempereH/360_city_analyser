@@ -689,7 +689,10 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
                 elif action == "sfm":
                     analysis = load_sfm_refinement(server.data_root, dataset_id, image_id)
                     if analysis is None:
-                        self.send_json({"error": "Nearby pose refinement not found"}, HTTPStatus.NOT_FOUND)
+                        # SfM is optional and usually not built: "none yet" is not an error.
+                        self.send_response(HTTPStatus.NO_CONTENT)
+                        self.send_header("Content-Length", "0")
+                        self.end_headers()
                     else:
                         self.send_json(analysis)
                 else:
